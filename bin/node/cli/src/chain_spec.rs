@@ -181,7 +181,7 @@ fn staging_testnet_config_genesis() -> GenesisConfig {
 
     let endowed_accounts: Vec<AccountId> = vec![root_key.clone()];
 
-    build_genesis(initial_authorities, root_key, Some(endowed_accounts), false)
+    build_genesis(initial_authorities, root_key, Some(endowed_accounts), false, None)
 }
 
 /// Staging testnet config.
@@ -278,8 +278,8 @@ pub fn build_genesis(
 
     let num_endowed_accounts = endowed_accounts.len();
 
-    const ENDOWMENT: Balance = endowment_balance.unwrap_or_else(|| 1_000_000 * DOLLARS);
-    const STASH: Balance = ENDOWMENT / 1000;
+    let endowment: Balance = endowment_balance.unwrap_or_else(|| 1_000_000 * DOLLARS);
+    let stash: Balance = endowment / 1000;
 
     GenesisConfig {
         frame_system: Some(SystemConfig {
@@ -290,7 +290,7 @@ pub fn build_genesis(
             balances: endowed_accounts
                 .iter()
                 .cloned()
-                .map(|x| (x, ENDOWMENT))
+                .map(|x| (x, endowment))
                 .collect(),
         }),
         pallet_indices: Some(IndicesConfig { indices: vec![] }),
@@ -311,7 +311,7 @@ pub fn build_genesis(
             minimum_validator_count: initial_authorities.len() as u32,
             stakers: initial_authorities
                 .iter()
-                .map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
+                .map(|x| (x.0.clone(), x.1.clone(), stash, StakerStatus::Validator))
                 .collect(),
             invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
             slash_reward_fraction: Perbill::from_percent(10),
@@ -323,7 +323,7 @@ pub fn build_genesis(
                 .iter()
                 .take((num_endowed_accounts + 1) / 2)
                 .cloned()
-                .map(|member| (member, STASH))
+                .map(|member| (member, stash))
                 .collect(),
         }),
         pallet_collective_Instance1: Some(CouncilConfig::default()),
@@ -484,7 +484,7 @@ fn prod_genesis() -> GenesisConfig {
             hex!["ee735365ca9e1bdebe0b7fbb7e781ff88a63d8e7c60569a399d256497d618813"].into(),
         ]),
         false,
-		None
+		Some(100_000 * DOLLARS)
     )
 }
 
