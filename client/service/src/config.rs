@@ -263,7 +263,7 @@ impl BasePath {
 	#[cfg(not(target_os = "unknown"))]
 	pub fn new_temp_dir() -> io::Result<BasePath> {
 		Ok(BasePath::Temporary(
-			tempfile::Builder::new().prefix("substrate").tempdir()?,
+			tempfile::Builder::new().prefix("nuchain").tempdir()?,
 		))
 	}
 
