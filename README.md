@@ -103,8 +103,8 @@ nuchain --base-path=/var/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NOD
 Bergabunglah dengan komunitas untuk diskusi tentang Nuchain melalui beberapa kanal berikut:
 
 
-Chat: [Element](https://app.element.io/#/room/!aYWUxhUvutqbMBQIsN:matrix.org)
-Email: nusantarachain@gmail.com
+* Chat: [Element](https://app.element.io/#/room/!aYWUxhUvutqbMBQIsN:matrix.org)
+* Email: nusantarachain@gmail.com
 
 
 ## Contributions & Code of Conduct
