@@ -4,7 +4,15 @@ Blockchain untuk Nusantara menuju Indonesia Society 5.0.
 
 ## Motivasi
 
-Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 ([Web 3.0 Vision](https://web3.foundation/about/)) melalui kehebatan sistem terdistribusi dan aman yang disebut dengan rantai blok (Blockchain).
+Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 ([Web 3.0 vision](https://web3.foundation/about/)) melalui kehebatan sistem terdistribusi dan aman yang disebut dengan rantai blok (Blockchain).
+
+Mengapa blockchain? 
+
+* Hampir semua aplikasi internet yang ada saat ini berjalan secara terpusat (centralized), hal ini membuat pengembangan kurang fleksibel dan rentan terjadi single-point of failure. Blockchain yang secara alamiah-nya adalah sistem terdistribusi bisa dijadikan fondasi untuk menuju era aplikasi internet terdistribusi (decentralized).
+* Keamanan, sistem blockchain diamankan menggunakan kriptografi di lapisan paling dasarnya, memberikan jaminan keamanan tinggi.
+* Blockchain merupakan *trustless system* sangat cocok untuk mengembangkan aplikasi yang membutuhkan jaminan tanpa perlu mempercayai satu sama lain. Contoh pada aplikasi finansial, perbankan, dan transaksi keuangan lainnya.
+
+## Pengembangan
 
 Nuchain dikembangkan menggunakan [Substrate](https://substrate.dev) sumber terbuka dan siapapun bisa ikut join untuk mendukung perkembangan Nuchain.
 
@@ -108,7 +116,6 @@ Bergabunglah dengan komunitas untuk diskusi tentang Nuchain melalui beberapa kan
 * Chat: [Element](https://app.element.io/#/room/!aYWUxhUvutqbMBQIsN:matrix.org)
 * Email: nusantarachain@gmail.com
 
-
 ## Contributions & Code of Conduct
 
 Please follow the contributions guidelines as outlined in [`docs/CONTRIBUTING.adoc`](docs/CONTRIBUTING.adoc). In all communications and contributions, this project follows the [Contributor Covenant Code of Conduct](docs/CODE_OF_CONDUCT.md).
@@ -119,7 +126,7 @@ The security policy and procedures can be found in [`docs/SECURITY.md`](docs/SEC
 
 ## License
 
-Lisensi Nuchain mengikuti lisensi dari [Substrate](https://substrate.dev).
+Lisensi Nuchain mengikuti lisensi dari [Substrate](https://substrate.dev):
 
 - Substrate Primitives (`sp-*`), Frame (`frame-*`) and the pallets (`pallets-*`), binaries (`/bin`) and all other utilities are licensed under [Apache 2.0](LICENSE-APACHE2).
 - Substrate Client (`/client/*` / `sc-*`) is licensed under [GPL v3.0 with a classpath linking exception](LICENSE-GPL3).
