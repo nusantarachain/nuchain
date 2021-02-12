@@ -1,8 +1,65 @@
-# Nuchain &middot; [![GitHub license](https://img.shields.io/badge/license-GPL3%2FApache2-blue)](#LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
+# NUCHAIN / RANTARA &middot; [![GitHub license](https://img.shields.io/badge/license-GPL3%2FApache2-blue)](#LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
 
-Blockchain untuk Nusantara menuju Indonesia Society 5.0.
 
-Nuchain diciptakan dengan tujuan untuk menyongsong era Web 3.0 ([Web 3.0 Vision](https://web3.foundation/about/)) dan membangun Indonesia Society 5.0 melalui kehebatan sistem terdistribusi dan aman yang disebut dengan rantai blok (Blockchain).
+Nuchain (Nusantara Chain) atau Rantara (Rantai Nusantara) adalah Blockchain untuk menuju Indonesia Society 5.0.
+
+*TL;DR*: Ini adalah proyek iseng dengan visi besar.
+
+## Motivasi
+
+Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 ([Web 3.0 vision](https://web3.foundation/about/)) melalui kehebatan sistem terdistribusi dan aman yang disebut dengan rantai blok (Blockchain).
+
+Mengapa blockchain? 
+
+* Hampir semua aplikasi internet yang ada saat ini berjalan secara terpusat (centralized), hal ini membuat pengembangan kurang fleksibel dan rentan terjadi single-point of failure. Blockchain yang secara alamiahnya adalah sistem terdistribusi bisa dijadikan fondasi untuk menuju era aplikasi internet terdistribusi (decentralized).
+* Keamanan, sistem blockchain diamankan menggunakan kriptografi di lapisan paling dasarnya, memberikan jaminan keamanan tinggi.
+* Blockchain merupakan *trustless system* sangat cocok untuk mengembangkan aplikasi yang membutuhkan jaminan tanpa perlu mempercayai satu sama lain. Contoh pada aplikasi finansial, perbankan, dan transaksi keuangan lainnya.
+
+
+## Roadmap
+
+Nuchain akan dikembangan dalam **6 fase**:
+
+### Fase 00: Inisiasi
+
+Marupakan fase awal pengumpulan dukungan dan finalisasi desain sistem.
+
+Pada fase ini pengguna bisa mulai stake ETH token untuk kemudian bisa diklaim dalam bentuk ARA token ketika Nuchain masuk ke fase Genesis (fase 01).
+
+### Fase 01: Genesis
+
+Merupakan fase awal sistem Nuchain mulai dijalankan, pada fase ini Nuchain menggunakan mode PoA (Proof of Authority) sembari menunggu terkumpulnya jumlah validator independen yang cukup untuk nantinya akan beralih ke mode NPoS (Nominated Proof of Stake).
+
+Pada fase ini pengguna awal bisa melakukan:
+
+* **Klaim** token dari fase 00.
+* **Stake** token dan mengajukan diri untuk menjadi validator atau nominator.
+
+### Fase 02: NPoS
+
+Pada masa ini jaringan Nuchain sudah tidak lagi menggunakan PoA, tetapi telah beralih ke NPoS (Nominated Proof of Stake) yang mana jaringan telah dijalankan oleh para validator independen secara terdesentralisasi.
+
+Walaupun PoA telah digantikan dengan NPoS namun masih ada fitur *Sudo* yang digunakan oleh otoritas Nuchain untuk keperluan mengelola jaringan validator dan upgrade ke fase-fase berikutnya.
+
+### Fase 03: Governance
+
+Merupakan fase ujicoba konsep *governance* di Nuchain.
+
+### Fase 04: Revolt
+
+Fase revolusi penggantian sistem otoriter menjadi sistem demokrasi. Pada fase ini fitur *Sudo* akan dihapus, dan setiap keputusan selanjutnya akan ditentukan oleh dewan dan komite teknis.
+
+Para anggota dewan dipilih oleh user, sementara komite teknis pada fase ini adalah para pengembang awal.
+
+Fungsi-fungsi RPC atau Ekstrinsik strategis hanya bisa dieksekusi (dispatch) berdasarkan kesepakatan bersama dewan dan komite teknis menggunakan sistem voting.
+
+### Fase 05: Pengembangan
+
+Fase pengembangan untuk memaksimalkan pemanfaatan Nuchain dalam hal layanan publik dan good governance.
+
+Pada fase ini fitur *smart contract* akan diaktifkan, dan user bisa mulai membuat DApps di atas jaringan Nuchain.
+
+## Pengembangan
 
 Nuchain dikembangkan menggunakan [Substrate](https://substrate.dev) sumber terbuka dan siapapun bisa ikut join untuk mendukung perkembangan Nuchain.
 
@@ -98,14 +155,13 @@ nuchain --base-path=/var/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NOD
 `<OTHER-NODE-IP>` adalah IP dari node lain yang ingin digunakan sebagai titik masuk awal.
 `<ID-NODE>` adalah ID dari node yang akan dijadikan sebagai pintu awal masuknya node kamu ke dalam jaringan utama Nuchain (mainnet).
 
+
 ## Komunitas
 
 Bergabunglah dengan komunitas untuk diskusi tentang Nuchain melalui beberapa kanal berikut:
 
-
-* Chat: [Element](https://app.element.io/#/room/!aYWUxhUvutqbMBQIsN:matrix.org)
+* Chat: [Element](https://app.element.io/#/room/!aYWUxhUvutqbMBQIsN:matrix.org), [Telegram](https://t.me/nusantarachain)
 * Email: nusantarachain@gmail.com
-
 
 ## Contributions & Code of Conduct
 
@@ -117,7 +173,7 @@ The security policy and procedures can be found in [`docs/SECURITY.md`](docs/SEC
 
 ## License
 
-Lisensi Nuchain mengikuti lisensi dari [Substrate](https://substrate.dev).
+Lisensi Nuchain mengikuti lisensi dari [Substrate](https://substrate.dev):
 
 - Substrate Primitives (`sp-*`), Frame (`frame-*`) and the pallets (`pallets-*`), binaries (`/bin`) and all other utilities are licensed under [Apache 2.0](LICENSE-APACHE2).
 - Substrate Client (`/client/*` / `sc-*`) is licensed under [GPL v3.0 with a classpath linking exception](LICENSE-GPL3).
