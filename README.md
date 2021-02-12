@@ -2,7 +2,9 @@
 
 Blockchain untuk Nusantara menuju Indonesia Society 5.0.
 
-Nuchain diciptakan dengan tujuan untuk menyongsong era Web 3.0 ([Web 3.0 Vision](https://web3.foundation/about/)) dan membangun Indonesia Society 5.0 melalui kehebatan sistem terdistribusi dan aman yang disebut dengan rantai blok (Blockchain).
+## Motivasi
+
+Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 ([Web 3.0 Vision](https://web3.foundation/about/)) melalui kehebatan sistem terdistribusi dan aman yang disebut dengan rantai blok (Blockchain).
 
 Nuchain dikembangkan menggunakan [Substrate](https://substrate.dev) sumber terbuka dan siapapun bisa ikut join untuk mendukung perkembangan Nuchain.
 
