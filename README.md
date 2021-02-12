@@ -92,9 +92,10 @@ nuchain --base-path=/var/nuchain --name=unsiq-node01
 Untuk jalan dan terhubung dengan node-node lainnya di luar sana, maka perlu ditambahkan parameter `--bootnodes`:
 
 ```bash
-nuchain --base-path=/var/nuchain --name=unsiq-node01 --bootnodes=/ip4/127.0.0.1/tcp/30333/p2p/<ID-NODE>
+nuchain --base-path=/var/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NODE-IP>/tcp/30333/p2p/<ID-NODE>
 ```
 
+`<OTHER-NODE-IP>` adalah IP dari node lain yang ingin digunakan sebagai titik masuk awal.
 `<ID-NODE>` adalah ID dari node yang akan dijadikan sebagai pintu awal masuknya node kamu ke dalam jaringan utama Nuchain (mainnet).
 
 ## Komunitas
