@@ -1,20 +1,20 @@
 # NUCHAIN / RANTARA &middot; [![GitHub license](https://img.shields.io/badge/license-GPL3%2FApache2-blue)](#LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
 
 
-Nuchain (Nusantara Chain) atau Rantara (Rantai Nusantara) adalah Blockchain untuk menuju Indonesia Society 5.0.
+Nuchain (Nusantara Chain) atau Rantara (Rantai Nusantara) adalah sarana untuk menuju Indonesia Society 5.0 melalui teknologi [blockchain](https://id.wikipedia.org/wiki/Rantai_blok).
 
 *TL;DR*: Ini adalah proyek iseng dengan visi besar.
 
 ## Motivasi
 
-Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 ([Web 3.0 vision](https://web3.foundation/about/)) melalui kehebatan sistem terdistribusi dan aman yang disebut dengan rantai blok (Blockchain).
+Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 melalui sistem terdistribusi dan aman yang disebut dengan rantai blok (blockchain).
 
 Mengapa blockchain? 
 
-* Hampir semua aplikasi internet yang ada saat ini berjalan secara terpusat (centralized), hal ini membuat pengembangan kurang fleksibel dan rentan terjadi single-point of failure. Blockchain yang secara alamiahnya adalah sistem terdistribusi bisa dijadikan fondasi untuk menuju era aplikasi internet terdistribusi (decentralized).
+* Hampir semua aplikasi internet yang ada saat ini berjalan secara terpusat (centralized), salah satu semangat Web 3.0 adalah aplikasi terdistribusi. Blockchain yang secara alamiahnya adalah sistem terdistribusi bisa dijadikan fondasi untuk menuju era aplikasi internet terdistribusi (decentralized).
 * Keamanan, sistem blockchain diamankan menggunakan kriptografi di lapisan paling dasarnya, memberikan jaminan keamanan tinggi.
-* Blockchain merupakan *trustless system* sangat cocok untuk mengembangkan aplikasi yang membutuhkan jaminan tanpa perlu mempercayai satu sama lain. Contoh pada aplikasi finansial, perbankan, dan transaksi keuangan lainnya.
-
+* Blockchain merupakan *trustless system* sangat bisa diandalkan untuk membangun aplikasi yang membutuhkan jaminan legitimasi tanpa perlu mempercayai satu sama lain.
+* Nuchain bukan didesain untuk menjadi *crypto currency*, tetapi sebagai platform aplikasi terdistibusi (DApps) yang nantinya akan menjadi ekosistem baru di era teknologi digital yang membutuhkan keterbukaan, kejelasan, legitimasi, dan *good governance*.
 
 ## Roadmap
 
@@ -60,6 +60,8 @@ Fase pengembangan untuk memaksimalkan pemanfaatan Nuchain dalam hal layanan publ
 Pada fase ini fitur *smart contract* akan diaktifkan, dan user bisa mulai membuat DApps di atas jaringan Nuchain.
 
 ## Pengembangan
+
+Saat ini Nuchain sedang dalam **Fase 01 - Genesis** dan sementara ini kehidupannya bisa dipantau melalui [Nuchain Dashboard](https://nuchain.misiku.id).
 
 Nuchain dikembangkan menggunakan [Substrate](https://substrate.dev) sumber terbuka dan siapapun bisa ikut join untuk mendukung perkembangan Nuchain.
 
@@ -143,17 +145,30 @@ Output akan berada di `target/release/nuchain`.
 Perintah berikut akan menjalankan Nuchain node dengan identitas node `unsiq-node01` dan jalan secara lokal.
 
 ```bash
-nuchain --base-path=/var/nuchain --name=unsiq-node01
+nuchain --base-path=/data/nuchain --name=unsiq-node01
 ```
 
 Untuk jalan dan terhubung dengan node-node lainnya di luar sana, maka perlu ditambahkan parameter `--bootnodes`:
 
 ```bash
-nuchain --base-path=/var/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NODE-IP>/tcp/30333/p2p/<ID-NODE>
+nuchain --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NODE-IP>/tcp/30333/p2p/<ID-NODE>
 ```
 
 `<OTHER-NODE-IP>` adalah IP dari node lain yang ingin digunakan sebagai titik masuk awal.
 `<ID-NODE>` adalah ID dari node yang akan dijadikan sebagai pintu awal masuknya node kamu ke dalam jaringan utama Nuchain (mainnet).
+
+Apabila node ingin dijalankan sebagai validator maka tambahkan parameter `--validator`, contoh:
+
+```bash
+nuchain --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NODE-IP>/tcp/30333/p2p/<ID-NODE>
+```
+
+## Glossary
+
+* Validator - adalah node/komputer yang berjalan membuat blok dan memvalidasi setiap blok yang tercipta. Validator bekerja untuk mengamankan jaringan dan mendapatkan benefit dari *rewards* untuk setiap blok yang dibuatnya.
+* ARA - Adalah kode unit bahan bakar yang diperlukan untuk menunjang keberlangsungan jaringan. ARA ini digunakan untuk memberikan *rewards* kepada para validator yang telah mengamankan jaringan.
+* Nominator - adalah individu yang ingin ikut berpartisipasi sebagai validator namun tidak dalam bentuk node/komputer tetapi dalam bentuk *stake* dengan meminjamkan ARA ke validator agar validator memiliki kesempatan besar terpilih sebagai pembuat blok di setiap putarannya. Nominator mendapatkan *rewards* sesuai dengan nilai yang di-*stake* dan prosentase bagi hasil yang ditetapkan oleh validator.
+* DApps - adalah aplikasi yang dibuat untuk bisa jalan di atas jaringan blockchain.
 
 
 ## Komunitas
