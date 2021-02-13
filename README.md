@@ -1,6 +1,8 @@
-# Nuchain &middot; [![GitHub license](https://img.shields.io/badge/license-GPL3%2FApache2-blue)](#LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
+# NUCHAIN &middot; [![GitHub license](https://img.shields.io/badge/license-GPL3%2FApache2-blue)](#LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
 
 Blockchain untuk Nusantara menuju Indonesia Society 5.0.
+
+*TL;DR*: Ini adalah proyek iseng dengan visi besar.
 
 ## Motivasi
 
