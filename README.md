@@ -18,7 +18,7 @@ Mengapa blockchain?
 
 ## Roadmap
 
-Nuchain akan dikembangan dalam 6 fase:
+Nuchain akan dikembangan dalam **6 fase**:
 
 ### Fase 00: Inisiasi
 
@@ -32,22 +32,26 @@ Merupakan fase awal sistem Nuchain mulai dijalankan, pada fase ini Nuchain mengg
 
 Pada fase ini pengguna awal bisa melakukan:
 
-* *Klaim* token dari fase 00.
-* *Stake* token dan mengajukan diri untuk menjadi validator atau nominator.
+* **Klaim** token dari fase 00.
+* **Stake** token dan mengajukan diri untuk menjadi validator atau nominator.
 
 ### Fase 02: NPoS
 
-Pada masa ini jaringan Nuchain sudah tidak lagi menggunakan PoA, tetapi sudah menggunakan Nominated Proof of Stake yang mana jaringan telah dijalankan oleh para validator secara terdesentralisasi.
+Pada masa ini jaringan Nuchain sudah tidak lagi menggunakan PoA, tetapi telah beralih ke NPoS (Nominated Proof of Stake) yang mana jaringan telah dijalankan oleh para validator independen secara terdesentralisasi.
 
 Walaupun PoA telah digantikan dengan NPoS namun masih ada fitur *Sudo* yang digunakan oleh otoritas Nuchain untuk keperluan mengelola jaringan validator dan upgrade ke fase-fase berikutnya.
 
 ### Fase 03: Governance
 
-Merupakan fase ujicoba konsep governance di Nuchain.
+Merupakan fase ujicoba konsep *governance* di Nuchain.
 
 ### Fase 04: Revolt
 
 Fase revolusi penggantian sistem otoriter menjadi sistem demokrasi. Pada fase ini fitur *Sudo* akan dihapus, dan setiap keputusan selanjutnya akan ditentukan oleh dewan dan komite teknis.
+
+Para anggota dewan dipilih oleh user, sementara komite teknis pada fase ini adalah para pengembang awal.
+
+Fungsi-fungsi RPC atau Ekstrinsik strategis hanya bisa dieksekusi (dispatch) berdasarkan kesepakatan bersama dewan dan komite teknis menggunakan sistem voting.
 
 ### Fase 05: Pengembangan
 
