@@ -8,7 +8,13 @@ test:
 	cargo test --release --all
 
 build:
-	cargo build --release -p nuchain-node
+	@@echo Building...
+	@@cargo build --release -p nuchain-node
 
-.PHONY: check test build
+
+
+.PHONY: check \
+	test \
+	build \
+
 

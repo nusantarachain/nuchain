@@ -69,6 +69,11 @@ pub fn flaming_fir_config() -> Result<ChainSpec, String> {
     ChainSpec::from_json_bytes(&include_bytes!("../res/flaming-fir.json")[..])
 }
 
+/// Main config
+pub fn main_config() -> Result<ChainSpec, String> {
+    ChainSpec::from_json_bytes(&include_bytes!("../res/nuchain.json")[..])
+}
+
 fn session_keys(
     grandpa: GrandpaId,
     babe: BabeId,
