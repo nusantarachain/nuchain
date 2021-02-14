@@ -459,6 +459,15 @@
 			"decimals": [12],
 			"standardAccount": "*25519",
 			"website": "https://crust.network"
+		},
+		{
+			"prefix": 99,
+			"network": "nuchain",
+			"displayName": "Nuchain Network",
+			"symbols": ["ARA"],
+			"decimals": [10],
+			"standardAccount": "*25519",
+			"website": "https://nuchain.research.tech"
 		}
 	]
 }
