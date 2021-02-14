@@ -1,20 +1,20 @@
 # NUCHAIN / RANTARA &middot; [![GitHub license](https://img.shields.io/badge/license-GPL3%2FApache2-blue)](#LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
 
 
-Nuchain (Nusantara Chain) atau Rantara (Rantai Nusantara) adalah sarana blockchain untuk menuju Indonesia Society 5.0.
+Nuchain (Nusantara Chain) atau Rantara (Rantai Nusantara) adalah sarana untuk menuju Indonesia Society 5.0 melalui teknologi [blockchain](https://id.wikipedia.org/wiki/Rantai_blok).
 
 *TL;DR*: Ini adalah proyek iseng dengan visi besar.
 
 ## Motivasi
 
-Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 ([Web 3.0 vision](https://web3.foundation/about/)) melalui kehebatan sistem terdistribusi dan aman yang disebut dengan rantai blok (Blockchain).
+Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 ([Web 3.0 vision](https://web3.foundation/about/)) melalui sistem terdistribusi dan aman yang disebut dengan rantai blok (blockchain).
 
 Mengapa blockchain? 
 
 * Hampir semua aplikasi internet yang ada saat ini berjalan secara terpusat (centralized), hal ini membuat pengembangan kurang fleksibel dan rentan terjadi single-point of failure. Blockchain yang secara alamiahnya adalah sistem terdistribusi bisa dijadikan fondasi untuk menuju era aplikasi internet terdistribusi (decentralized).
 * Keamanan, sistem blockchain diamankan menggunakan kriptografi di lapisan paling dasarnya, memberikan jaminan keamanan tinggi.
-* Blockchain merupakan *trustless system* sangat cocok untuk mengembangkan aplikasi yang membutuhkan jaminan tanpa perlu mempercayai satu sama lain. Contoh pada aplikasi finansial, perbankan, dan transaksi keuangan lainnya.
-
+* Blockchain merupakan *trustless system* sangat bisa diandalkan untuk mengembangkan aplikasi yang membutuhkan jaminan legitimasi tanpa perlu mempercayai satu sama lain. Contoh pada aplikasi finansial, perbankan, dan transaksi keuangan lainnya.
+* Nuchain bukan didesain untuk menjadi *crypto currency*, tetapi sebagai ekosistem baru di era teknologi digital yang membutuhkan keterbukaan, kejelasan, legitimasi, dan good governance.
 
 ## Roadmap
 
@@ -60,6 +60,8 @@ Fase pengembangan untuk memaksimalkan pemanfaatan Nuchain dalam hal layanan publ
 Pada fase ini fitur *smart contract* akan diaktifkan, dan user bisa mulai membuat DApps di atas jaringan Nuchain.
 
 ## Pengembangan
+
+Saat ini Nuchain sedang dalam **Fase 01 - Genesis** dan sementara ini kehidupannya bisa dipantau melalui [Nuchain Dashboard](https://nuchain.misiku.id).
 
 Nuchain dikembangkan menggunakan [Substrate](https://substrate.dev) sumber terbuka dan siapapun bisa ikut join untuk mendukung perkembangan Nuchain.
 
