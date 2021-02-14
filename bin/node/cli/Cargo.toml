@@ -1,7 +1,7 @@
 [package]
 name = "nuchain-node"
-version = "2.0.0"
-authors = ["nusantarachain@gmail.com", "Parity Technologies <admin@parity.io>"]
+version = "0.1.0"
+authors = ["Nusantara Chain <nusantarachain@gmail.com>"]
 description = "Blockchain for Indonesia Society 5.0"
 build = "build.rs"
 edition = "2018"

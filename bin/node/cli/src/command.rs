@@ -25,7 +25,7 @@ use crate::service::new_partial;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Nuchain/Rantara Node".into()
+		"Nuchain Node".into()
 	}
 
 	fn impl_version() -> String {
@@ -57,10 +57,9 @@ impl SubstrateCli for Cli {
 				"fir" | "flaming-fir" => Box::new(chain_spec::flaming_fir_config()?),
 				"staging" => Box::new(chain_spec::staging_testnet_config()),
 				"prod" => Box::new(chain_spec::prod_config()),
-				// path => Box::new(chain_spec::ChainSpec::from_json_file(
-				// 	std::path::PathBuf::from(path),
-				// )?),
-				_ => return Err("Please specify which chain you want to run, e.g. --dev or --chain=local".into()),
+				path => Box::new(chain_spec::ChainSpec::from_json_file(
+					std::path::PathBuf::from(path),
+				)?),
 			};
 		Ok(spec)
 	}
