@@ -41,7 +41,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/anvie/nuchain/issues/new".into()
+		"https://github.com/nusantarachain/nuchain/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -51,7 +51,7 @@ impl SubstrateCli for Cli {
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		let spec =
 			match id {
-				// "" => return Err("Please specify which chain you want to run, e.g. --dev or --chain=local".into()),
+
 				"" => Box::new(chain_spec::main_config()?),
 				"dev" => Box::new(chain_spec::development_config()),
 				"local" => Box::new(chain_spec::local_testnet_config()),
