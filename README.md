@@ -7,7 +7,7 @@ Nuchain (Nusantara Chain) atau Rantara (Rantai Nusantara) adalah sarana untuk me
 
 ## Motivasi
 
-Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 ([Web 3.0 vision](https://web3.foundation/about/)) melalui sistem terdistribusi dan aman yang disebut dengan rantai blok (blockchain).
+Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 melalui sistem terdistribusi dan aman yang disebut dengan rantai blok (blockchain).
 
 Mengapa blockchain? 
 
