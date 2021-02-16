@@ -1,8 +1,5 @@
 # NUCHAIN / RANTARA &middot; [![GitHub license](https://img.shields.io/badge/license-GPL3%2FApache2-blue)](#LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.adoc)
 
-
-
-
 Nuchain (Nusantara Chain) atau Rantara (Rantai Nusantara) adalah sarana untuk menuju Indonesia Society 5.0 melalui teknologi [blockchain](https://id.wikipedia.org/wiki/Rantai_blok).
 
 *TL;DR*: Ini adalah proyek iseng dengan visi besar.
