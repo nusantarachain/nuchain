@@ -25,7 +25,7 @@ use crate::service::new_partial;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"NUCAIN Node".into()
+		"Nuchain/Rantara Node".into()
 	}
 
 	fn impl_version() -> String {
@@ -41,7 +41,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/anvie/nuchain/issues/new".into()
+		"https://github.com/nusantarachain/nuchain/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {

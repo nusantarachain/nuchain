@@ -199,37 +199,37 @@ pub struct RunCmd {
 	#[structopt(flatten)]
 	pub pool_config: TransactionPoolParams,
 
-	/// Shortcut for `--name Alice --validator` with session keys for `Alice` added to keystore.
-	#[structopt(long, conflicts_with_all = &["bob", "charlie", "dave", "eve", "ferdie", "one", "two"])]
-	pub alice: bool,
+	// /// Shortcut for `--name Alice --validator` with session keys for `Alice` added to keystore.
+	// #[structopt(long, conflicts_with_all = &["bob", "charlie", "dave", "eve", "ferdie", "one", "two"])]
+	// pub alice: bool,
 
-	/// Shortcut for `--name Bob --validator` with session keys for `Bob` added to keystore.
-	#[structopt(long, conflicts_with_all = &["alice", "charlie", "dave", "eve", "ferdie", "one", "two"])]
-	pub bob: bool,
+	// /// Shortcut for `--name Bob --validator` with session keys for `Bob` added to keystore.
+	// #[structopt(long, conflicts_with_all = &["alice", "charlie", "dave", "eve", "ferdie", "one", "two"])]
+	// pub bob: bool,
 
-	/// Shortcut for `--name Charlie --validator` with session keys for `Charlie` added to keystore.
-	#[structopt(long, conflicts_with_all = &["alice", "bob", "dave", "eve", "ferdie", "one", "two"])]
-	pub charlie: bool,
+	// /// Shortcut for `--name Charlie --validator` with session keys for `Charlie` added to keystore.
+	// #[structopt(long, conflicts_with_all = &["alice", "bob", "dave", "eve", "ferdie", "one", "two"])]
+	// pub charlie: bool,
 
-	/// Shortcut for `--name Dave --validator` with session keys for `Dave` added to keystore.
-	#[structopt(long, conflicts_with_all = &["alice", "bob", "charlie", "eve", "ferdie", "one", "two"])]
-	pub dave: bool,
+	// /// Shortcut for `--name Dave --validator` with session keys for `Dave` added to keystore.
+	// #[structopt(long, conflicts_with_all = &["alice", "bob", "charlie", "eve", "ferdie", "one", "two"])]
+	// pub dave: bool,
 
-	/// Shortcut for `--name Eve --validator` with session keys for `Eve` added to keystore.
-	#[structopt(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "ferdie", "one", "two"])]
-	pub eve: bool,
+	// /// Shortcut for `--name Eve --validator` with session keys for `Eve` added to keystore.
+	// #[structopt(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "ferdie", "one", "two"])]
+	// pub eve: bool,
 
-	/// Shortcut for `--name Ferdie --validator` with session keys for `Ferdie` added to keystore.
-	#[structopt(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "eve", "one", "two"])]
-	pub ferdie: bool,
+	// /// Shortcut for `--name Ferdie --validator` with session keys for `Ferdie` added to keystore.
+	// #[structopt(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "eve", "one", "two"])]
+	// pub ferdie: bool,
 
-	/// Shortcut for `--name One --validator` with session keys for `One` added to keystore.
-	#[structopt(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "eve", "ferdie", "two"])]
-	pub one: bool,
+	// /// Shortcut for `--name One --validator` with session keys for `One` added to keystore.
+	// #[structopt(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "eve", "ferdie", "two"])]
+	// pub one: bool,
 
-	/// Shortcut for `--name Two --validator` with session keys for `Two` added to keystore.
-	#[structopt(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "eve", "ferdie", "one"])]
-	pub two: bool,
+	// /// Shortcut for `--name Two --validator` with session keys for `Two` added to keystore.
+	// #[structopt(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "eve", "ferdie", "one"])]
+	// pub two: bool,
 
 	/// Enable authoring even when offline.
 	#[structopt(long = "force-authoring")]
@@ -270,27 +270,29 @@ pub struct RunCmd {
 impl RunCmd {
 	/// Get the `Sr25519Keyring` matching one of the flag.
 	pub fn get_keyring(&self) -> Option<sp_keyring::Sr25519Keyring> {
-		use sp_keyring::Sr25519Keyring::*;
+		// use sp_keyring::Sr25519Keyring::*;
 
-		if self.alice {
-			Some(Alice)
-		} else if self.bob {
-			Some(Bob)
-		} else if self.charlie {
-			Some(Charlie)
-		} else if self.dave {
-			Some(Dave)
-		} else if self.eve {
-			Some(Eve)
-		} else if self.ferdie {
-			Some(Ferdie)
-		} else if self.one {
-			Some(One)
-		} else if self.two {
-			Some(Two)
-		} else {
-			None
-		}
+		// if self.alice {
+		// 	Some(Alice)
+		// } else if self.bob {
+		// 	Some(Bob)
+		// } else if self.charlie {
+		// 	Some(Charlie)
+		// } else if self.dave {
+		// 	Some(Dave)
+		// } else if self.eve {
+		// 	Some(Eve)
+		// } else if self.ferdie {
+		// 	Some(Ferdie)
+		// } else if self.one {
+		// 	Some(One)
+		// } else if self.two {
+		// 	Some(Two)
+		// } else {
+		// 	None
+		// }
+
+		None
 	}
 }
 

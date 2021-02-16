@@ -307,8 +307,10 @@ pub fn build_genesis(
                 .collect::<Vec<_>>(),
         }),
         pallet_staking: Some(StakingConfig {
-            validator_count: initial_authorities.len() as u32 * 2,
-            minimum_validator_count: initial_authorities.len() as u32,
+            // validator_count: initial_authorities.len() as u32 * 2,
+            // minimum_validator_count: initial_authorities.len() as u32,
+            validator_count: 2, // for embrio launch
+            minimum_validator_count: 2,
             stakers: initial_authorities
                 .iter()
                 .map(|x| (x.0.clone(), x.1.clone(), stash, StakerStatus::Validator))
@@ -369,7 +371,6 @@ fn development_config_genesis() -> GenesisConfig {
     build_genesis(
         vec![
             authority_keys_from_seed("Alice"),
-            authority_keys_from_seed("Bob"),
         ],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         None,
@@ -480,8 +481,14 @@ fn prod_genesis() -> GenesisConfig {
         sudo_acc.clone(),
         Some(vec![
             sudo_acc,
+            // reserved authorities
             hex!["3af749c23d1c17bc0c822363b3e2620d6f473cb5e9631d10449bdb0dea683130"].into(),
             hex!["ee735365ca9e1bdebe0b7fbb7e781ff88a63d8e7c60569a399d256497d618813"].into(),
+            hex!["4a8f386d7b8849e2be3a67a2182fefee87138b4b908e00e7386516a4f82bb576"].into(),
+            hex!["ee7c3224fe1d012e0c5cdf1eb1b1c6164752dff43bb8f0ca95e8521a6ed3a37a"].into(),
+            // for authority validators
+            hex!["c83104c7eba84373392336d71ef4915b7a45c4966d1dbc82eee146109b390e5f"].into(),
+            hex!["6671d91c741357a54eb81176d74bbf42445d4883b90148179a8b49aaa459b51e"].into(),
         ]),
         false,
 		Some(100_000 * DOLLARS)
@@ -495,13 +502,13 @@ pub fn prod_config() -> ChainSpec {
     let properties = serde_json::from_str(
         r#"{
 		"tokenDecimals": 10,
-		"tokenSymbol": "NUC"
+		"tokenSymbol": "ARA"
 	}"#,
     )
     .unwrap();
     ChainSpec::from_genesis(
         "NUCHAIN",
-        "nucg0", // nuc gen-0
+        "nuc01", // fase1
         ChainType::Live,
         prod_genesis,
         boot_nodes,
