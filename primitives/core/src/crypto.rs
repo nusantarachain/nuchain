@@ -356,7 +356,7 @@ fn ss58hash(data: &[u8]) -> blake2_rfc::blake2b::Blake2bResult {
 #[cfg(feature = "std")]
 lazy_static::lazy_static! {
 	static ref DEFAULT_VERSION: Mutex<Ss58AddressFormat>
-		= Mutex::new(Ss58AddressFormat::SubstrateAccount);
+		= Mutex::new(Ss58AddressFormat::NuchainAccount);
 }
 
 #[cfg(feature = "full_crypto")]
