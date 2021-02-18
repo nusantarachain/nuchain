@@ -19,10 +19,10 @@ use codec::{Decode, Encode};
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use node_executor::Executor;
 use node_primitives::{BlockNumber, Hash};
-use node_runtime::{
+use nuchain_runtime::{
 	Block, BuildStorage, Call, CheckedExtrinsic, GenesisConfig, Header, UncheckedExtrinsic,
 };
-use node_runtime::constants::currency::*;
+use nuchain_runtime::constants::currency::*;
 use node_testing::keyring::*;
 use sp_core::{NativeOrEncoded, NeverNativeValue};
 use sp_core::storage::well_known_keys;
@@ -37,15 +37,15 @@ criterion_main!(benches);
 
 /// The wasm runtime code.
 pub fn compact_code_unwrap() -> &'static [u8] {
-	node_runtime::WASM_BINARY.expect("Development wasm binary is not available. \
+	nuchain_runtime::WASM_BINARY.expect("Development wasm binary is not available. \
 									  Testing is only supported with the flag disabled.")
 }
 
 const GENESIS_HASH: [u8; 32] = [69u8; 32];
 
-const TRANSACTION_VERSION: u32 = node_runtime::VERSION.transaction_version;
+const TRANSACTION_VERSION: u32 = nuchain_runtime::VERSION.transaction_version;
 
-const SPEC_VERSION: u32 = node_runtime::VERSION.spec_version;
+const SPEC_VERSION: u32 = nuchain_runtime::VERSION.spec_version;
 
 const HEAP_PAGES: u64 = 20;
 

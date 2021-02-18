@@ -24,7 +24,7 @@ pallet-indices = { version = "3.0.0", path = "../../../frame/indices" }
 sp-keyring = { version = "3.0.0", path = "../../../primitives/keyring" }
 node-executor = { version = "2.0.0", path = "../executor" }
 node-primitives = { version = "2.0.0", path = "../primitives" }
-node-runtime = { version = "2.0.0", path = "../runtime" }
+nuchain-runtime = { version = "2.0.0", path = "../runtime" }
 sp-core = { version = "3.0.0", path = "../../../primitives/core" }
 sp-io = { version = "3.0.0", path = "../../../primitives/io" }
 frame-support = { version = "3.0.0", path = "../../../frame/support" }

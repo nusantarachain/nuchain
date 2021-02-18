@@ -35,7 +35,7 @@ use sc_executor::{NativeExecutor, WasmExecutionMethod};
 use sc_executor::error::Result;
 
 use node_executor::Executor;
-use node_runtime::{
+use nuchain_runtime::{
 	Header, Block, UncheckedExtrinsic, CheckedExtrinsic, Runtime, BuildStorage,
 	constants::currency::*,
 };
@@ -69,15 +69,15 @@ impl AppCrypto<MultiSigner, MultiSignature> for TestAuthorityId {
 /// as canonical. This is why `native_executor_instance` also uses the compact version of the
 /// runtime.
 pub fn compact_code_unwrap() -> &'static [u8] {
-	node_runtime::WASM_BINARY.expect("Development wasm binary is not available. \
+	nuchain_runtime::WASM_BINARY.expect("Development wasm binary is not available. \
 									  Testing is only supported with the flag disabled.")
 }
 
 pub const GENESIS_HASH: [u8; 32] = [69u8; 32];
 
-pub const SPEC_VERSION: u32 = node_runtime::VERSION.spec_version;
+pub const SPEC_VERSION: u32 = nuchain_runtime::VERSION.spec_version;
 
-pub const TRANSACTION_VERSION: u32 = node_runtime::VERSION.transaction_version;
+pub const TRANSACTION_VERSION: u32 = nuchain_runtime::VERSION.transaction_version;
 
 pub type TestExternalities<H> = CoreTestExternalities<H, u64>;
 

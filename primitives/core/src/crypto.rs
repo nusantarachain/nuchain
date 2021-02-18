@@ -356,7 +356,7 @@ fn ss58hash(data: &[u8]) -> blake2_rfc::blake2b::Blake2bResult {
 #[cfg(feature = "std")]
 lazy_static::lazy_static! {
 	static ref DEFAULT_VERSION: Mutex<Ss58AddressFormat>
-		= Mutex::new(Ss58AddressFormat::NuchainAccount);
+		= Mutex::new(Ss58AddressFormat::SubstrateAccount);
 }
 
 #[cfg(feature = "full_crypto")]
@@ -582,8 +582,6 @@ ss58_address_format!(
 		(65, "aventus", "Aventus Chain mainnet, standard account (*25519).")
 	CrustAccount =>
 		(66, "crust", "Crust Network, standard account (*25519).")
-	NuchainAccount =>
-		(99, "nuchain", "Nuchain Network, standard account (*25519).")
 	// Note: 48 and above are reserved.
 );
 

@@ -1,5 +1,5 @@
 [package]
-name = "node-runtime"
+name = "nuchain-runtime"
 version = "2.0.1"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
@@ -43,7 +43,7 @@ frame-support = { version = "3.0.0", default-features = false, path = "../../../
 frame-system = { version = "3.0.0", default-features = false, path = "../../../frame/system" }
 frame-system-benchmarking = { version = "3.0.0", default-features = false, path = "../../../frame/system/benchmarking", optional = true }
 frame-system-rpc-runtime-api = { version = "3.0.0", default-features = false, path = "../../../frame/system/rpc/runtime-api/" }
-pallet-assets = { version = "3.0.0", default-features = false, path = "../../../frame/assets" }
+# pallet-assets = { version = "3.0.0", default-features = false, path = "../../../frame/assets" }
 pallet-authority-discovery = { version = "3.0.0", default-features = false, path = "../../../frame/authority-discovery" }
 pallet-authorship = { version = "3.0.0", default-features = false, path = "../../../frame/authorship" }
 pallet-babe = { version = "3.0.0", default-features = false, path = "../../../frame/babe" }
@@ -53,13 +53,13 @@ pallet-collective = { version = "3.0.0", default-features = false, path = "../..
 pallet-contracts = { version = "2.0.0", default-features = false, path = "../../../frame/contracts" }
 pallet-contracts-primitives = { version = "2.0.0", default-features = false, path = "../../../frame/contracts/common/" }
 pallet-contracts-rpc-runtime-api = { version = "0.8.0", default-features = false, path = "../../../frame/contracts/rpc/runtime-api/" }
-pallet-democracy = { version = "3.0.0", default-features = false, path = "../../../frame/democracy" }
+# pallet-democracy = { version = "3.0.0", default-features = false, path = "../../../frame/democracy" }
 pallet-elections-phragmen = { version = "3.0.0", default-features = false, path = "../../../frame/elections-phragmen" }
 pallet-grandpa = { version = "3.0.0", default-features = false, path = "../../../frame/grandpa" }
 pallet-im-online = { version = "3.0.0", default-features = false, path = "../../../frame/im-online" }
 pallet-indices = { version = "3.0.0", default-features = false, path = "../../../frame/indices" }
 pallet-identity = { version = "3.0.0", default-features = false, path = "../../../frame/identity" }
-pallet-lottery = { version = "3.0.0", default-features = false, path = "../../../frame/lottery" }
+# pallet-lottery = { version = "3.0.0", default-features = false, path = "../../../frame/lottery" }
 pallet-membership = { version = "3.0.0", default-features = false, path = "../../../frame/membership" }
 pallet-mmr = { version = "3.0.0", default-features = false, path = "../../../frame/merkle-mountain-range" }
 pallet-multisig = { version = "3.0.0", default-features = false, path = "../../../frame/multisig" }
@@ -73,10 +73,10 @@ pallet-session-benchmarking = { version = "3.0.0", path = "../../../frame/sessio
 pallet-staking = { version = "3.0.0", default-features = false, path = "../../../frame/staking" }
 pallet-staking-reward-curve = { version = "3.0.0", default-features = false, path = "../../../frame/staking/reward-curve" }
 pallet-scheduler = { version = "3.0.0", default-features = false, path = "../../../frame/scheduler" }
-pallet-society = { version = "3.0.0", default-features = false, path = "../../../frame/society" }
+# pallet-society = { version = "3.0.0", default-features = false, path = "../../../frame/society" }
 pallet-sudo = { version = "3.0.0", default-features = false, path = "../../../frame/sudo" }
 pallet-timestamp = { version = "3.0.0", default-features = false, path = "../../../frame/timestamp" }
-pallet-tips = { version = "3.0.0", default-features = false, path = "../../../frame/tips" }
+# pallet-tips = { version = "3.0.0", default-features = false, path = "../../../frame/tips" }
 pallet-treasury = { version = "3.0.0", default-features = false, path = "../../../frame/treasury" }
 pallet-utility = { version = "3.0.0", default-features = false, path = "../../../frame/utility" }
 pallet-transaction-payment = { version = "3.0.0", default-features = false, path = "../../../frame/transaction-payment" }
@@ -94,7 +94,7 @@ default = ["std"]
 with-tracing = [ "frame-executive/with-tracing" ]
 std = [
 	"sp-authority-discovery/std",
-	"pallet-assets/std",
+	# "pallet-assets/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"sp-consensus-babe/std",
@@ -107,14 +107,14 @@ std = [
 	"pallet-contracts/std",
 	"pallet-contracts-primitives/std",
 	"pallet-contracts-rpc-runtime-api/std",
-	"pallet-democracy/std",
-	"pallet-elections-phragmen/std",
+	# "pallet-democracy/std",
+	# "pallet-elections-phragmen/std",
 	"frame-executive/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
 	"pallet-indices/std",
 	"sp-inherents/std",
-	"pallet-lottery/std",
+	# "pallet-lottery/std",
 	"pallet-membership/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
@@ -141,14 +141,14 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"pallet-timestamp/std",
-	"pallet-tips/std",
+	# "pallet-tips/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-treasury/std",
 	"sp-transaction-pool/std",
 	"pallet-utility/std",
 	"sp-version/std",
-	"pallet-society/std",
+	# "pallet-society/std",
 	"pallet-recovery/std",
 	"pallet-vesting/std",
 ]
@@ -157,27 +157,27 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
+	# "pallet-assets/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-contracts/runtime-benchmarks",
-	"pallet-democracy/runtime-benchmarks",
-	"pallet-elections-phragmen/runtime-benchmarks",
+	# "pallet-democracy/runtime-benchmarks",
+	# "pallet-elections-phragmen/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
-	"pallet-lottery/runtime-benchmarks",
+	# "pallet-lottery/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-society/runtime-benchmarks",
+	# "pallet-society/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-tips/runtime-benchmarks",
+	# "pallet-tips/runtime-benchmarks",
 	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",

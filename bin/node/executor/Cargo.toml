@@ -14,7 +14,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0" }
 node-primitives = { version = "2.0.0", path = "../primitives" }
-node-runtime = { version = "2.0.0", path = "../runtime" }
+nuchain-runtime = { version = "2.0.0", path = "../runtime" }
 sc-executor = { version = "0.9.0", path = "../../../client/executor" }
 sp-core = { version = "3.0.0", path = "../../../primitives/core" }
 sp-keystore = { version = "0.9.0", path = "../../../primitives/keystore" }

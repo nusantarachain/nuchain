@@ -29,7 +29,7 @@ use sp_runtime::{
 };
 use frame_system::{self, EventRecord, Phase};
 
-use node_runtime::{
+use nuchain_runtime::{
 	Header, Block, UncheckedExtrinsic, CheckedExtrinsic, Call, Runtime, Balances,
 	System, TransactionPayment, Event,
 	constants::currency::*,
@@ -47,7 +47,7 @@ use self::common::{*, sign};
 /// have to execute provided wasm code instead of the native equivalent. This trick is used to
 /// test code paths that differ between native and wasm versions.
 pub fn bloaty_code_unwrap() -> &'static [u8] {
-	node_runtime::WASM_BINARY_BLOATY.expect("Development wasm binary is not available. \
+	nuchain_runtime::WASM_BINARY_BLOATY.expect("Development wasm binary is not available. \
 											 Testing is only supported with the flag disabled.")
 }
 
