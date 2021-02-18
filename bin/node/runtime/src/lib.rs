@@ -1007,6 +1007,22 @@ impl pallet_mmr::Config for Runtime {
 // 	type MetadataDepositPerByte = MetadataDepositPerByte;
 // 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 // }
+parameter_types! {
+	pub const ReservationFee: u128 = 3 * DOLLARS;
+	pub const MinLength: usize = 8;
+	pub const MaxLength: usize = 16;
+}
+
+impl pallet_nicks::Config for Runtime {
+	type Event = Event;
+	type Currency = Balances;
+	type ReservationFee = ReservationFee;
+	type Slashed = Treasury;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type MinLength = MinLength;
+	type MaxLength = MaxLength;
+	type WeightInfo = pallet_nicks::weights::SubstrateWeight<Runtime>;
+}
 
 construct_runtime!(
 	pub enum Runtime where
@@ -1050,6 +1066,7 @@ construct_runtime!(
 		// Assets: pallet_assets::{Module, Call, Storage, Event<T>},
 		Mmr: pallet_mmr::{Module, Storage},
 		// Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
+		Nicks: pallet_nicks::{Module, Call, Storage, Event<T>}
 	}
 );
 
@@ -1364,11 +1381,11 @@ impl_runtime_apis! {
 			let mut batches = Vec::<BenchmarkBatch>::new();
 			let params = (&config, &whitelist);
 
-			add_benchmark!(params, batches, pallet_assets, Assets);
+			// add_benchmark!(params, batches, pallet_assets, Assets);
 			add_benchmark!(params, batches, pallet_babe, Babe);
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_bounties, Bounties);
-			add_benchmark!(params, batches, pallet_collective, Council);
+			// add_benchmark!(params, batches, pallet_collective, Council);
 			add_benchmark!(params, batches, pallet_contracts, Contracts);
 			// add_benchmark!(params, batches, pallet_democracy, Democracy);
 			// add_benchmark!(params, batches, pallet_elections_phragmen, Elections);
@@ -1390,6 +1407,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_treasury, Treasury);
 			add_benchmark!(params, batches, pallet_utility, Utility);
 			add_benchmark!(params, batches, pallet_vesting, Vesting);
+			add_benchmark!(params, batches, pallet_nicks, Nicks);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)

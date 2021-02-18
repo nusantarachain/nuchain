@@ -281,13 +281,13 @@ benchmarks! {
 				StakingEvent::<T>::Slash(stash, BalanceOf::<T>::from(slash_amount))
 			))
 			.collect::<Vec<_>>();
-		let reward_events = reporters.into_iter()
-			.flat_map(|reporter| vec![
-				frame_system::Event::<T>::NewAccount(reporter.clone()).into(),
-				<T as BalancesConfig>::Event::from(
-					pallet_balances::Event::<T>::Endowed(reporter, (reward_amount / r).into())
-				).into()
-			]);
+		// let reward_events = reporters.into_iter()
+		// 	.flat_map(|reporter| vec![
+		// 		frame_system::Event::<T>::NewAccount(reporter.clone()).into(),
+		// 		<T as BalancesConfig>::Event::from(
+		// 			pallet_balances::Event::<T>::Endowed(reporter, (reward_amount / r).into())
+		// 		).into()
+		// 	]);
 
 		// rewards are applied after first offender and it's nominators
 		let slash_rest = slash_events.split_off(1 + n as usize);
@@ -297,7 +297,7 @@ benchmarks! {
 		check_events::<T, _>(
 			std::iter::empty()
 				.chain(slash_events.into_iter().map(Into::into))
-				.chain(reward_events)
+				// .chain(reward_events)
 				.chain(slash_rest.into_iter().map(Into::into))
 				.chain(std::iter::once(<T as OffencesConfig>::Event::from(
 					pallet_offences::Event::Offence(

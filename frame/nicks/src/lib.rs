@@ -51,6 +51,10 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 
+mod benchmarking;
+pub mod weights;
+pub use weights::WeightInfo;
+
 type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
@@ -75,6 +79,9 @@ pub trait Config: frame_system::Config {
 
 	/// The maximum length a name may be.
 	type MaxLength: Get<usize>;
+
+	/// Weight information
+	type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
@@ -143,7 +150,7 @@ decl_module! {
 		/// - One storage read/write.
 		/// - One event.
 		/// # </weight>
-		#[weight = 50_000_000]
+		#[weight = T::WeightInfo::set_name()]
 		fn set_name(origin, name: Vec<u8>) {
 			let sender = ensure_signed(origin)?;
 

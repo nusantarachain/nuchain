@@ -4216,6 +4216,7 @@ dependencies = [
  "pallet-membership",
  "pallet-mmr",
  "pallet-multisig",
+ "pallet-nicks",
  "pallet-offences",
  "pallet-offences-benchmarking",
  "pallet-proxy",
@@ -4898,6 +4899,7 @@ dependencies = [
 name = "pallet-nicks"
 version = "3.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances",
