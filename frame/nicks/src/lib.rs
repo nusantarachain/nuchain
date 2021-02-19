@@ -180,7 +180,7 @@ decl_module! {
 		/// - One storage read/write.
 		/// - One event.
 		/// # </weight>
-		#[weight = 70_000_000]
+		#[weight = T::WeightInfo::clear_name()]
 		fn clear_name(origin) {
 			let sender = ensure_signed(origin)?;
 
