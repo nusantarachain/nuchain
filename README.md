@@ -160,7 +160,7 @@ nuchain --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NO
 Apabila node ingin dijalankan sebagai validator maka tambahkan parameter `--validator`, contoh:
 
 ```bash
-nuchain --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NODE-IP>/tcp/30333/p2p/<ID-NODE>
+nuchain --validator --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NODE-IP>/tcp/30333/p2p/<ID-NODE>
 ```
 
 ## Glossary
