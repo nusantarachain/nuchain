@@ -714,10 +714,11 @@ impl pallet_tips::Config for Runtime {
 }
 
 parameter_types! {
-	pub const TombstoneDeposit: Balance = deposit(
-		1,
-		sp_std::mem::size_of::<pallet_contracts::ContractInfo<Runtime>>() as u32
-	);
+	// pub const TombstoneDeposit: Balance = deposit(
+	// 	1,
+	// 	sp_std::mem::size_of::<pallet_contracts::ContractInfo<Runtime>>() as u32
+	// );
+	pub const TombstoneDeposit: Balance = 5 * DOLLARS;
 	pub const DepositPerContract: Balance = TombstoneDeposit::get();
 	pub const DepositPerStorageByte: Balance = deposit(0, 1);
 	pub const DepositPerStorageItem: Balance = deposit(1, 0);
