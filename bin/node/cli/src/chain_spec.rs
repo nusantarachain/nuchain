@@ -69,6 +69,11 @@ pub fn flaming_fir_config() -> Result<ChainSpec, String> {
     ChainSpec::from_json_bytes(&include_bytes!("../res/flaming-fir.json")[..])
 }
 
+/// Main config
+pub fn main_config() -> Result<ChainSpec, String> {
+    ChainSpec::from_json_bytes(&include_bytes!("../res/nuchain.json")[..])
+}
+
 fn session_keys(
     grandpa: GrandpaId,
     babe: BabeId,
@@ -181,7 +186,13 @@ fn staging_testnet_config_genesis() -> GenesisConfig {
 
     let endowed_accounts: Vec<AccountId> = vec![root_key.clone()];
 
-    build_genesis(initial_authorities, root_key, Some(endowed_accounts), false, None)
+    build_genesis(
+        initial_authorities,
+        root_key,
+        Some(endowed_accounts),
+        false,
+        None,
+    )
 }
 
 /// Staging testnet config.
@@ -252,7 +263,7 @@ pub fn build_genesis(
     root_key: AccountId,
     endowed_accounts: Option<Vec<AccountId>>,
     enable_println: bool,
-	endowment_balance: Option<Balance>,
+    endowment_balance: Option<Balance>,
 ) -> GenesisConfig {
     let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(|| {
         vec![
@@ -279,7 +290,7 @@ pub fn build_genesis(
     let num_endowed_accounts = endowed_accounts.len();
 
     let endowment: Balance = endowment_balance.unwrap_or_else(|| 1_000_000 * DOLLARS);
-    let stash: Balance = endowment / 1000;
+    let stash: Balance = endowment / 100;
 
     GenesisConfig {
         frame_system: Some(SystemConfig {
@@ -290,7 +301,13 @@ pub fn build_genesis(
             balances: endowed_accounts
                 .iter()
                 .cloned()
-                .map(|x| (x, endowment))
+                .map(|x| {
+                    if x == root_key {
+                        (x, endowment * 9)
+                    } else {
+                        (x, endowment)
+                    }
+                })
                 .collect(),
         }),
         pallet_indices: Some(IndicesConfig { indices: vec![] }),
@@ -307,10 +324,8 @@ pub fn build_genesis(
                 .collect::<Vec<_>>(),
         }),
         pallet_staking: Some(StakingConfig {
-            // validator_count: initial_authorities.len() as u32 * 2,
-            // minimum_validator_count: initial_authorities.len() as u32,
-            validator_count: 2, // for embrio launch
-            minimum_validator_count: 2,
+            validator_count: initial_authorities.len() as u32 * 2,
+            minimum_validator_count: initial_authorities.len() as u32,
             stakers: initial_authorities
                 .iter()
                 .map(|x| (x.0.clone(), x.1.clone(), stash, StakerStatus::Validator))
@@ -369,13 +384,11 @@ pub fn build_genesis(
 
 fn development_config_genesis() -> GenesisConfig {
     build_genesis(
-        vec![
-            authority_keys_from_seed("Alice"),
-        ],
+        vec![authority_keys_from_seed("Alice")],
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         None,
         true,
-		None
+        None,
     )
 }
 
@@ -403,7 +416,7 @@ fn local_build_genesis() -> GenesisConfig {
         get_account_id_from_seed::<sr25519::Public>("Alice"),
         None,
         false,
-		None
+        None,
     )
 }
 
@@ -449,7 +462,7 @@ fn prod_genesis() -> GenesisConfig {
             // GranpaId: 5F4wPxMnFGNGi5docWuMx7G7BfdKEx5wTiiDP3MFByACmNfR
             hex!["84e24732c91231c3210fa6f2f3b9b777a92f61d5d1fede6f43c78620abfe855d"]
                 .unchecked_into(),
-			//---- SESSIONS ----
+            //---- SESSIONS ----
             // 5Ca9DuynzqbXFUQZuEkuhVVZS7abaZQL2dADJ8U5oz4cXjxR
             hex!["167381df0eec9c3fd442d130188150100ad11d00a9ca66e3d425409b1e083f3c"]
                 .unchecked_into(),
@@ -466,7 +479,7 @@ fn prod_genesis() -> GenesisConfig {
             // GrandpaId: 5Cf1ayVSoxQ39XV44BWBVTjF4SSQE2CoTsxLR26gnkDpokFG
             hex!["1a2a06ba1f03b6fa2591da9005f100053b24225f5231abce6d1547704ff740e9"]
                 .unchecked_into(),
-			//---- SESSIONS ----
+            //---- SESSIONS ----
             // 5H6AKvZeTDkvZKVWxyqzGjgj4NezwomVYEi6KcjtsZN7dM8F
             hex!["de4984b4344a796f989b34ab234adc64b6af022f069e33657937ca68665c547c"]
                 .unchecked_into(),
@@ -491,7 +504,7 @@ fn prod_genesis() -> GenesisConfig {
             hex!["6671d91c741357a54eb81176d74bbf42445d4883b90148179a8b49aaa459b51e"].into(),
         ]),
         false,
-		Some(100_000 * DOLLARS)
+        Some(100_000 * DOLLARS),
     )
 }
 
@@ -501,13 +514,14 @@ pub fn prod_config() -> ChainSpec {
     let boot_nodes = vec![];
     let properties = serde_json::from_str(
         r#"{
-		"tokenDecimals": 10,
-		"tokenSymbol": "ARA"
-	}"#,
+            "ss58Format": 99,
+            "tokenDecimals": 10,
+            "tokenSymbol": "ARA"
+        }"#,
     )
     .unwrap();
     ChainSpec::from_genesis(
-        "NUCHAIN",
+        "Nuchain",
         "nuc01", // fase1
         ChainType::Live,
         prod_genesis,

@@ -157,6 +157,10 @@ nuchain --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NO
 `<OTHER-NODE-IP>` adalah IP dari node lain yang ingin digunakan sebagai titik masuk awal.
 `<ID-NODE>` adalah ID dari node yang akan dijadikan sebagai pintu awal masuknya node kamu ke dalam jaringan utama Nuchain (mainnet).
 
+
+
+
+
 Apabila node ingin dijalankan sebagai validator maka tambahkan parameter `--validator`, contoh:
 
 ```bash
@@ -169,7 +173,6 @@ nuchain --validator --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/i
 * ARA - Adalah kode unit bahan bakar yang diperlukan untuk menunjang keberlangsungan jaringan. ARA ini digunakan untuk memberikan *rewards* kepada para validator yang telah mengamankan jaringan.
 * Nominator - adalah individu yang ingin ikut berpartisipasi sebagai validator namun tidak dalam bentuk node/komputer tetapi dalam bentuk *stake* dengan meminjamkan ARA ke validator agar validator memiliki kesempatan besar terpilih sebagai pembuat blok di setiap putarannya. Nominator mendapatkan *rewards* sesuai dengan nilai yang di-*stake* dan prosentase bagi hasil yang ditetapkan oleh validator.
 * DApps - adalah aplikasi yang dibuat untuk bisa jalan di atas jaringan blockchain.
-
 
 ## Komunitas
 
