@@ -2763,6 +2763,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonrpc-derive"
+version = "17.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b68ba7e76e5c7796cfa4d2a30e83986550c34404c6d40551c902ca6f7bd4a137"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "jsonrpc-http-server"
 version = "15.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4651,7 +4663,7 @@ version = "0.8.1"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
- "jsonrpc-derive",
+ "jsonrpc-derive 17.0.0",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
  "parity-scale-codec",
@@ -5296,7 +5308,7 @@ version = "3.0.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
- "jsonrpc-derive",
+ "jsonrpc-derive 17.0.0",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "sp-api",
@@ -6920,7 +6932,7 @@ dependencies = [
  "futures 0.3.12",
  "jsonrpc-core",
  "jsonrpc-core-client",
- "jsonrpc-derive",
+ "jsonrpc-derive 17.0.0",
  "sc-consensus",
  "sc-consensus-babe",
  "sc-consensus-epochs",
@@ -6962,7 +6974,7 @@ dependencies = [
  "futures 0.3.12",
  "jsonrpc-core",
  "jsonrpc-core-client",
- "jsonrpc-derive",
+ "jsonrpc-derive 17.0.0",
  "log",
  "parity-scale-codec",
  "parking_lot 0.11.1",
@@ -7196,7 +7208,7 @@ dependencies = [
  "futures 0.3.12",
  "jsonrpc-core",
  "jsonrpc-core-client",
- "jsonrpc-derive",
+ "jsonrpc-derive 15.1.0",
  "jsonrpc-pubsub",
  "lazy_static",
  "log",
@@ -7503,7 +7515,7 @@ dependencies = [
  "futures 0.3.12",
  "jsonrpc-core",
  "jsonrpc-core-client",
- "jsonrpc-derive",
+ "jsonrpc-derive 17.0.0",
  "jsonrpc-pubsub",
  "log",
  "parity-scale-codec",
@@ -7676,7 +7688,7 @@ version = "0.9.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
- "jsonrpc-derive",
+ "jsonrpc-derive 17.0.0",
  "sc-chain-spec",
  "sc-client-api",
  "sc-consensus-babe",
@@ -9142,7 +9154,7 @@ dependencies = [
  "futures 0.3.12",
  "jsonrpc-core",
  "jsonrpc-core-client",
- "jsonrpc-derive",
+ "jsonrpc-derive 17.0.0",
  "log",
  "parity-scale-codec",
  "sc-client-api",
