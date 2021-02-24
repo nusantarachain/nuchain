@@ -60,7 +60,7 @@ Pada fase ini fitur *smart contract* akan diaktifkan, dan user bisa mulai membua
 
 ## Pengembangan
 
-Saat ini Nuchain sedang dalam **Fase 01 - Genesis** dan sementara ini kehidupannya bisa dipantau melalui [Nuchain Dashboard](https://nuchain.misiku.id).
+Saat ini Nuchain sedang dalam **Fase 01 - Genesis** dan sementara ini kehidupannya bisa dipantau melalui [Nuchain Dashboard](https://nuchain.riset.tech).
 
 Nuchain dikembangkan menggunakan [Substrate](https://substrate.dev) sumber terbuka dan siapapun bisa ikut join untuk mendukung perkembangan Nuchain.
 
@@ -159,7 +159,7 @@ nuchain --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NO
 Apabila node ingin dijalankan sebagai validator maka tambahkan parameter `--validator`, contoh:
 
 ```bash
-nuchain --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NODE-IP>/tcp/30333/p2p/<ID-NODE>
+nuchain --validator --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NODE-IP>/tcp/30333/p2p/<ID-NODE>
 ```
 
 ## Glossary
