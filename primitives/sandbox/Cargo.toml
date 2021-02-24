@@ -22,7 +22,7 @@ codec = { package = "parity-scale-codec", version = "2.0.0", default-features = 
 
 [dev-dependencies]
 wat = "1.0"
-assert_matches = "1.3.0"
+assert_matches = "1.5.0"
 
 [features]
 default = ["std"]

@@ -72,7 +72,7 @@ features = ["identify", "kad", "mdns", "mplex", "noise", "ping", "request-respon
 
 
 [dev-dependencies]
-assert_matches = "1.3"
+assert_matches = "1.5"
 libp2p = { version = "0.35.1", default-features = false }
 quickcheck = "1.0.3"
 rand = "0.7.2"
