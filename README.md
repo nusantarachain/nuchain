@@ -147,12 +147,6 @@ Perintah berikut akan menjalankan Nuchain node dengan identitas node `node01` da
 nuchain --base-path=/data/nuchain --name=node01
 ```
 
-Untuk jalan dan terhubung dengan node-node lainnya di luar sana, maka perlu ditambahkan parameter `--bootnodes`:
-
-```bash
-nuchain --base-path=/data/nuchain --name=node01
-```
-
 Apabila node ingin dijalankan sebagai validator maka tambahkan parameter `--validator`, contoh:
 
 ```bash
