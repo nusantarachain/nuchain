@@ -120,6 +120,7 @@ members = [
 	"frame/tips",
 	"frame/utility",
 	"frame/vesting",
+	"frame/certificate",
 	"primitives/allocator",
 	"primitives/api",
 	"primitives/api/proc-macro",

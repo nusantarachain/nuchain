@@ -984,27 +984,27 @@ impl pallet_mmr::Config for Runtime {
 // 	type WeightInfo = pallet_lottery::weights::SubstrateWeight<Runtime>;
 // }
 
-// parameter_types! {
-// 	pub const AssetDepositBase: Balance = 100 * DOLLARS;
-// 	pub const AssetDepositPerZombie: Balance = 1 * DOLLARS;
-// 	pub const StringLimit: u32 = 50;
-// 	pub const MetadataDepositBase: Balance = 10 * DOLLARS;
-// 	pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
-// }
+parameter_types! {
+	pub const AssetDepositBase: Balance = 100 * DOLLARS;
+	pub const AssetDepositPerZombie: Balance = 1 * DOLLARS;
+	pub const StringLimit: u32 = 50;
+	pub const MetadataDepositBase: Balance = 10 * DOLLARS;
+	pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
+}
 
-// impl pallet_assets::Config for Runtime {
-// 	type Event = Event;
-// 	type Balance = u64;
-// 	type AssetId = u32;
-// 	type Currency = Balances;
-// 	type ForceOrigin = EnsureRoot<AccountId>;
-// 	type AssetDepositBase = AssetDepositBase;
-// 	type AssetDepositPerZombie = AssetDepositPerZombie;
-// 	type StringLimit = StringLimit;
-// 	type MetadataDepositBase = MetadataDepositBase;
-// 	type MetadataDepositPerByte = MetadataDepositPerByte;
-// 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
-// }
+impl pallet_assets::Config for Runtime {
+	type Event = Event;
+	type Balance = u64;
+	type AssetId = u32;
+	type Currency = Balances;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type AssetDepositBase = AssetDepositBase;
+	type AssetDepositPerZombie = AssetDepositPerZombie;
+	type StringLimit = StringLimit;
+	type MetadataDepositBase = MetadataDepositBase;
+	type MetadataDepositPerByte = MetadataDepositPerByte;
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
+}
 parameter_types! {
 	pub const ReservationFee: u128 = 3 * DOLLARS;
 	pub const MinLength: usize = 8;
@@ -1020,6 +1020,22 @@ impl pallet_nicks::Config for Runtime {
 	type MinLength = MinLength;
 	type MaxLength = MaxLength;
 	type WeightInfo = pallet_nicks::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const MinOrgNameLength:usize = 3;
+	pub const MaxOrgNameLength:usize = 16;
+}
+
+impl pallet_certificate::Config for Runtime {
+	type Event = Event;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type MinOrgNameLength = MinOrgNameLength;
+	type MaxOrgNameLength = MaxOrgNameLength;
+	type OrgId = u32;
+	type CertId = u32;
+	type UnixTime = Timestamp;
+	type WeightInfo = pallet_certificate::weights::SubstrateWeight<Runtime>;
 }
 
 construct_runtime!(
@@ -1061,10 +1077,11 @@ construct_runtime!(
 		Multisig: pallet_multisig::{Module, Call, Storage, Event<T>},
 		Bounties: pallet_bounties::{Module, Call, Storage, Event<T>},
 		Tips: pallet_tips::{Module, Call, Storage, Event<T>},
-		//Assets: pallet_assets::{Module, Call, Storage, Event<T>},
+		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
 		Mmr: pallet_mmr::{Module, Storage},
 		// Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
-		Nicks: pallet_nicks::{Module, Call, Storage, Event<T>}
+		Nicks: pallet_nicks::{Module, Call, Storage, Event<T>},
+		Certificate: pallet_certificate::{Module, Call, Storage, Event<T>}
 	}
 );
 
