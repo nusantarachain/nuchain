@@ -141,25 +141,22 @@ Output akan berada di `target/release/nuchain`.
 
 ## Menjalankan
 
-Perintah berikut akan menjalankan Nuchain node dengan identitas node `unsiq-node01` dan jalan secara lokal.
+Perintah berikut akan menjalankan Nuchain node dengan identitas node `node01` dan jalan secara lokal.
 
 ```bash
-nuchain --base-path=/data/nuchain --name=unsiq-node01
+nuchain --base-path=/data/nuchain --name=node01
 ```
 
 Untuk jalan dan terhubung dengan node-node lainnya di luar sana, maka perlu ditambahkan parameter `--bootnodes`:
 
 ```bash
-nuchain --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NODE-IP>/tcp/30333/p2p/<ID-NODE>
+nuchain --base-path=/data/nuchain --name=node01
 ```
-
-`<OTHER-NODE-IP>` adalah IP dari node lain yang ingin digunakan sebagai titik masuk awal.
-`<ID-NODE>` adalah ID dari node yang akan dijadikan sebagai pintu awal masuknya node kamu ke dalam jaringan utama Nuchain (mainnet).
 
 Apabila node ingin dijalankan sebagai validator maka tambahkan parameter `--validator`, contoh:
 
 ```bash
-nuchain --validator --base-path=/data/nuchain --name=unsiq-node01 --bootnodes=/ip4/<OTHER-NODE-IP>/tcp/30333/p2p/<ID-NODE>
+nuchain --validator --base-path=/data/nuchain --name=node01
 ```
 
 ## Glossary
