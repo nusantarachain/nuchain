@@ -36,13 +36,13 @@ Standar ini dibuat untuk mengimplementasikan mekanisme pembuatan, penerbitan, da
 
 ## Penerbitan
 
-1. Sertifikat hanya bisa diterbitkan oleh organisasi yang terdaftar di Nuchain. Tentang organisasi bisa mereferensi pada [NRC-1](Organisasi).
+1. Sertifikat hanya bisa diterbitkan oleh organisasi yang terdaftar di Nuchain. Tentang organisasi bisa mereferensi pada [Standar Organisasi](NRC-1).
 2. Penerima sertifikat adalah akun pada Nuchain yang direpresentasikan dengan `AccountId` (Nuchain Address).
 3. Sertifikat sifatnya unik per organisasi per jenis sertifikat per akun. Artinya satu penerima hanya bisa menerima satu jenis sertifikat yang sama oleh organisasi yang sama.
 
 ## Pencabutan
 
-1. Sertifikat bisa dicabut oleh penerbit sertifikat dari penerima yang pernah menerimanyaa.
+1. Sertifikat bisa dicabut oleh penerbit sertifikat dari penerima yang pernah menerimanya.
 
 ## Sifat Sertifikat
 
