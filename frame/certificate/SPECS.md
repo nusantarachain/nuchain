@@ -37,7 +37,7 @@ Standar ini dibuat untuk mengimplementasikan mekanisme pembuatan, penerbitan, da
 ## Penerbitan
 
 1. Sertifikat hanya bisa diterbitkan oleh organisasi yang terdaftar di Nuchain. Tentang organisasi bisa mereferensi pada [NRC-1](Organisasi).
-2. Penerima sertifikat adalah akun pada Nuchain yang direpresentasikan dengan AccountId (Nuchain Address).
+2. Penerima sertifikat adalah akun pada Nuchain yang direpresentasikan dengan `AccountId` (Nuchain Address).
 3. Sertifikat sifatnya unik per organisasi per jenis sertifikat per akun. Artinya satu penerima hanya bisa menerima satu jenis sertifikat yang sama oleh organisasi yang sama.
 
 ## Pencabutan
@@ -81,6 +81,7 @@ Terdapat 3 jenis object dalam database:
     * `signed_by` - Tanda tangan digital pejabat yang menerbitkan.
     * `notes` - Catatan yang bisa diisi oleh penerbit.
     * `attachment` - Data lampiran, bisa berupa link ke hash [IPFS](https://ipfs.io/) yang merujuk ke gambar/foto sertifikat offline apabila ada, atau bisa berupa data yang terelasi lainnya.
+    * `expired` - batas waktu kapan keberlakuan sertifikat akan berakhir. Tipedata Unix timestamp, apabila diisi 0 maka sertifikat bersifat abadi.
 
 ### Event
 
@@ -103,7 +104,7 @@ Berikut jenis-jenis error yang mungkin muncul selama operasi:
 Ada 4 object storage yang digunakan:
 
 * `Organizations` dengan jenis `Map` digunakan sebagai registri penyimpanan informasi organisasi.
-* `Certiicates` dengan jenis `Map` digunakan sebagai registri penyimpanan informasi sertifikat.
+* `Certificates` dengan jenis `Map` digunakan sebagai registri penyimpanan informasi sertifikat.
 * `IssuedCertificates` dengan jenis `DoubleMap` digunakan sebagai registri penyimpanan informasi pemilik sertifikat.
 * `OrgIdIndex` dengan jenis `Value` digunakan sebagai ID generator organisasi yang bersifat incremental.
 * `CertIdIndex` dengan jenis `Value` digunakan sebagai ID generator sertifikat yang bersifat incremental.
