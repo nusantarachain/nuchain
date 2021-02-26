@@ -47,9 +47,9 @@ Standar ini dibuat untuk mengimplementasikan mekanisme pembuatan, penerbitan, da
 ## Sifat Sertifikat
 
 1. Sertifikat bisa memiliki batas waktu atau bisa juga selamanya tergantung kebijakan penerbit.
-2. Sertifikat yang memiliki batas waktu dan telah expired lebih dari 3 bulan akan dihapus dari blockchain.
+2. Sertifikat yang memiliki batas waktu dan telah expired lebih dari 3 bulan akan dihapus dari jaringan.
 3. Sertifikat bisa dimusnahkan oleh penerima namun tidak dihapus, hanya ditandai sebagai telah dimusnahkan oleh penerima.
-
+4. Sertifikat bisa memiliki lampiran data, sebagai contoh berupa citra/foto sertifikat offline, lampiran ini hanya berupa link/hash ke IPFS di mana data tersebut berada.
 
 ## Implementasi
 
@@ -64,7 +64,7 @@ Standar ini dibuat untuk mengimplementasikan mekanisme pembuatan, penerbitan, da
 
 ### Object
 
-Terdapat dua jenis object dalam database:
+Terdapat 3 jenis object dalam database:
 
 * `OrgDetail` - berisi informasi detail organisasi: 
     * `name` - nama dari organisasi bertipe bytes (`Vec<u8>`).
@@ -73,6 +73,14 @@ Terdapat dua jenis object dalam database:
 * `CertDetail` - berisi informasi detail sertifikat:
     * `name` - nama dari sertifikat bertipe bytes (`Vec<u8>`).
     * `org_id` - ID dari organisasi yang menerbitkan bertipe `OrgId`.
+* `OwnedCert` - object detail sertifikat yang dimiliki seseorang berisi informasi:
+    * `owner` - ID pemilik (yang menerima) sertifikat, berupa `AccountId`.
+    * `cert_id` - ID referensi dari sertifikat.
+    * `date` - Waktu kapan sertifikat diterima.
+    * `issued_by` - ID dari organisasi penerbit.
+    * `signed_by` - Tanda tangan digital pejabat yang menerbitkan.
+    * `notes` - Catatan yang bisa diisi oleh penerbit.
+    * `attachment` - Data lampiran, bisa berupa link ke hash [IPFS](https://ipfs.io/) yang merujuk ke gambar/foto sertifikat offline apabila ada, atau bisa berupa data yang terelasi lainnya.
 
 ### Event
 
