@@ -1,10 +1,10 @@
 # NRC-2: Manajemen Sertifikat
 
-**Author**: Robin Syihab <obin.mf@gmail.com>
-**Status**: Membutuhkan Komentar
-**Category**: Sertifikat
-**Created**: 2021-02-26
-
+| **Author**   | Robin Syihab |
+| ---:         |     :---      |
+| **Status**   | Membutuhkan Komentar              |
+| **Category** | Sertifikat                        |
+| **Created**  | 2021-02-26                        |
 
 ## Daftar Isi
 
