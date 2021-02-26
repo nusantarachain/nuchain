@@ -40,6 +40,8 @@ pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, HasCompact};
 
+type OrgId = u32;
+type CertId = u64;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -68,12 +70,6 @@ pub mod pallet {
 
         /// The maximum length a name may be.
         type MaxOrgNameLength: Get<usize>;
-
-        /// The ID of organization
-        type OrgId: Member + Parameter + Default + Copy + HasCompact;
-
-        /// Certificate ID
-        type CertId: Member + Parameter + Default + Copy + HasCompact;
 
         /// Time used for marking issued certificate.
         type UnixTime: UnixTime;
@@ -120,41 +116,49 @@ pub mod pallet {
         /// Origin has no authorization to do this operation
         PermissionDenied,
 
+        /// ID already exists
+        IdAlreadyExists,
+
         /// Unknown error occurred
         Unknown,
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance", T::OrgId = "OrgId")]
+    #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance", OrgId = "OrgId")]
     pub enum Event<T: Config> {
         /// Some organization added inside the system.
-        OrgAdded(T::OrgId, T::AccountId),
+        OrgAdded(OrgId, T::AccountId),
 
         /// Some certificate added.
-        CertAdded(T::CertId, T::OrgId),
+        CertAdded(CertId, OrgId),
 
         /// Some cert was issued
-        CertIssued(T::CertId, T::AccountId),
+        CertIssued(CertId, T::AccountId),
     }
 
     #[pallet::storage]
     pub type Organizations<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::OrgId, OrgDetail<T::AccountId>>;
+        StorageMap<_, Blake2_128Concat, OrgId, OrgDetail<T::AccountId>>;
 
     #[pallet::storage]
-    pub type Certificates<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::CertId, CertDetail<T::OrgId>>;
+    pub type Certificates<T: Config> = StorageMap<_, Blake2_128Concat, CertId, CertDetail<OrgId>>;
 
     #[pallet::storage]
     pub type IssuedCertificates<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::OrgId,
+        OrgId,
         Blake2_128Concat,
         T::AccountId,
-        Vec<(T::CertId, Vec<u8>, u64)>,
+        Vec<(CertId, Vec<u8>, u64)>,
     >;
+
+    #[pallet::storage]
+    pub type OrgIdIndex<T> = StorageValue<_, u32>;
+
+    #[pallet::storage]
+    pub type CertIdIndex<T> = StorageValue<_, u64>;
 
     /// Certificate module declaration.
     // pub struct Module<T: Config> for enum Call where origin: T::Origin {
@@ -169,7 +173,6 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::add_org())]
         fn add_org(
             origin: OriginFor<T>,
-            #[pallet::compact] id: T::OrgId,
             name: Vec<u8>,
             admin: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
@@ -184,15 +187,17 @@ pub mod pallet {
                 Error::<T>::TooLong
             );
 
+            let id = Self::next_org_id();
+
             ensure!(
                 !Organizations::<T>::contains_key(id),
-                Error::<T>::AlreadyExists
+                Error::<T>::IdAlreadyExists
             );
 
             let admin = T::Lookup::lookup(admin)?;
 
             Organizations::<T>::insert(
-                id,
+                id as OrgId,
                 OrgDetail {
                     name: name.clone(),
                     admin: admin.clone(),
@@ -214,14 +219,13 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::add_cert())]
         fn add_cert(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: T::OrgId,
-            cert_id: T::CertId,
+            #[pallet::compact] org_id: OrgId,
             name: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
 
             ensure!(name.len() >= 3, Error::<T>::TooShort);
-            ensure!(name.len() <= 16, Error::<T>::TooLong);
+            ensure!(name.len() <= 100, Error::<T>::TooLong);
 
             ensure!(
                 Organizations::<T>::contains_key(org_id),
@@ -232,6 +236,13 @@ pub mod pallet {
             let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::Unknown)?;
 
             ensure!(&org.admin == &sender, Error::<T>::PermissionDenied);
+
+            let cert_id = Self::next_cert_id();
+
+            ensure!(
+                !Certificates::<T>::contains_key(cert_id),
+                Error::<T>::IdAlreadyExists
+            );
 
             Certificates::<T>::insert(
                 cert_id,
@@ -255,14 +266,14 @@ pub mod pallet {
         #[pallet::weight(70_000_000)]
         fn issue_cert(
             origin: OriginFor<T>,
-            org_id: T::OrgId,
-            cert_id: T::CertId,
+            org_id: OrgId,
+            cert_id: CertId,
             desc: Vec<u8>,
             target: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
 
-            let cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
+            let _cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
 
             ensure!(desc.len() < 100, Error::<T>::TooLong);
 
@@ -272,17 +283,38 @@ pub mod pallet {
 
             let target = T::Lookup::lookup(target)?;
 
-            // check is already exists
+            let collections = IssuedCertificates::<T>::get(org_id, &target);
+
+            // pastikan penerima belum memiliki sertifikat yang dimaksud.
             ensure!(
-                !IssuedCertificates::<T>::contains_key(org_id, &target),
+                !collections
+                    .as_ref()
+                    .map(|ref o| o.iter().any(|ref v| v.0 == cert_id))
+                    .unwrap_or(false),
                 Error::<T>::AlreadyExists
             );
 
-            IssuedCertificates::<T>::insert(org_id, &target, vec![(cert_id, desc, Self::now())]);
+            let rv = if let Some(colls) = collections {
+                // apabila sudah pernah diisi update isinya
+                // dengan ditambahkan sertifikat pada koleksi penerima.
+                IssuedCertificates::<T>::try_mutate(org_id, &target, |vs| {
+                    let vs = vs.as_mut().ok_or(Error::<T>::Unknown)?;
+                    vs.push((cert_id, desc, Self::now()));
+                    Ok(().into())
+                })
+            } else {
+                // inisialisasi koleksi pertama.
+                IssuedCertificates::<T>::insert(
+                    org_id,
+                    &target,
+                    vec![(cert_id, desc, Self::now())],
+                );
+                Ok(().into())
+            };
 
             Self::deposit_event(Event::CertIssued(cert_id, target));
 
-            Ok(().into())
+            rv
         }
     }
 }
@@ -290,19 +322,33 @@ pub mod pallet {
 /// The main implementation of this Certificate pallet.
 impl<T: Config> Pallet<T> {
     /// Get the organization detail
-    pub fn organization(id: T::OrgId) -> Option<OrgDetail<T::AccountId>> {
+    pub fn organization(id: OrgId) -> Option<OrgDetail<T::AccountId>> {
         Organizations::<T>::get(id)
     }
 
     /// Get detail of certificate
     ///
-    pub fn certificate(id: T::CertId) -> Option<CertDetail<T::OrgId>> {
+    pub fn certificate(id: CertId) -> Option<CertDetail<OrgId>> {
         Certificates::<T>::get(id)
     }
 
     /// Get current unix timestamp
     pub fn now() -> u64 {
         T::UnixTime::now().as_millis().saturated_into::<u64>()
+    }
+
+    /// Get next organization ID
+    pub fn next_org_id() -> u32 {
+        let next_id = <OrgIdIndex<T>>::try_get().unwrap_or(0).saturating_add(1);
+        <OrgIdIndex<T>>::put(next_id);
+        next_id
+    }
+
+    /// Get next Certificate ID
+    pub fn next_cert_id() -> u64 {
+        let next_id = <CertIdIndex<T>>::try_get().unwrap_or(0).saturating_add(1);
+        <CertIdIndex<T>>::put(next_id);
+        next_id
     }
 }
 

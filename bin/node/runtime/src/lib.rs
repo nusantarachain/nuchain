@@ -1032,8 +1032,6 @@ impl pallet_certificate::Config for Runtime {
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type MinOrgNameLength = MinOrgNameLength;
 	type MaxOrgNameLength = MaxOrgNameLength;
-	type OrgId = u32;
-	type CertId = u32;
 	type UnixTime = Timestamp;
 	type WeightInfo = pallet_certificate::weights::SubstrateWeight<Runtime>;
 }
