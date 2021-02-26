@@ -81,7 +81,7 @@ Terdapat 3 jenis object dalam database:
     * `signed_by` - Tanda tangan digital pejabat yang menerbitkan.
     * `notes` - Catatan yang bisa diisi oleh penerbit.
     * `attachment` - Data lampiran, bisa berupa link ke hash [IPFS](https://ipfs.io/) yang merujuk ke gambar/foto sertifikat offline apabila ada, atau bisa berupa data yang terelasi lainnya.
-    * `expired` - batas waktu kapan keberlakuan sertifikat akan berakhir. Tipedata Unix timestamp, apabila diisi 0 maka sertifikat bersifat abadi.
+    * `expired` - batas waktu kapan keberlakuan sertifikat akan berakhir. Tipe data Unix timestamp, apabila diisi 0 maka sertifikat bersifat abadi.
 
 ### Event
 
@@ -112,6 +112,7 @@ Ada 4 object storage yang digunakan:
 ### Methods
 
 * `add_org` metode untuk menambahkan organisasi baru.
+* `suspend_org` metode untuk memblokir organisasi (auth).
 * `add_cert` metode untuk membuat sertifikat baru.
 * `issue_cert` metode untuk menerbitkan sertifikat untuk seseorang.
 * `revoke` metode untuk mencabut sertifikat yang telah diterbitkan untuk seseorang.
