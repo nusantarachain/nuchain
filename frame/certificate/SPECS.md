@@ -13,7 +13,7 @@
 * [Spesifikasi](#Spesifikasi)
   * [Penerbitan](#Penerbitan)
   * [Pencabutan](#Pencabutan)
-  * [Sifat Sertifikat](#Sifat Sertifikat)
+  * [Sifat Sertifikat](#sifat-sertifikat)
 * [Implementasi](#Implementasi)
   * [Configuration](#Configuration)
   * [Types](#Types)
