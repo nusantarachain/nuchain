@@ -1,6 +1,8 @@
 # Pallet Certificate
 
-Substrate pallet to manage online certificate
+Substrate pallet to manage online certificate.
+
+For specification see: [Spec](SPECS.md)
 
 ## Overview
 

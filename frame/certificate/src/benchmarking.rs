@@ -19,31 +19,19 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
     assert_eq!(event, &system_event);
 }
 
-benchmarks! {
-    add_org {
-        let caller: T::AccountId = whitelisted_caller();
-        let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-    }: _(RawOrigin::Signed(caller.clone()), "Nicko Man".as_bytes().to_vec())
-    verify {
-        assert_last_event::<T>(Event::<T>::NameSet(caller.clone()).into());
-    }
+// benchmarks! {
+//     add_org {
 
-    add_cert {
-        let caller: T::AccountId = whitelisted_caller();
-        let caller_origin: <T as frame_system::Config>::Origin = RawOrigin::Signed(caller.clone()).into();
+//     }: _()
+//     verify {
+//     }
 
-        let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+//     add_cert {
+//     }: _()
+//     verify {
+//     }
 
-        let _ = Certificate::<T>::set_name(caller_origin, "Nicko Man".as_bytes().to_vec());
-
-    }: _(RawOrigin::Signed(caller.clone()))
-    verify {
-        assert_last_event::<T>(Event::<T>::NameCleared(caller.clone(), T::ReservationFee::get()).into());
-    }
-
-    add_cert {
-
-    }: _()
-    verify {}
-}
-
+//     issue_cert {
+//     }: _()
+//     verify {}
+// }
