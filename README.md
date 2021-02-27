@@ -119,8 +119,8 @@ source ~/.cargo/env
 Nuchain menggunakan [WebAssembly](https://webassembly.org/) sebagai core on-chain runtime-nya dan sebagai VM untuk kontrak pintar (smart contract)-nya, sehingga diperlukan Wasm toolchain untuk Rust:
 
 ```bash
-rustup install nightly-2020-10-05
-rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-05
+rustup default nightly-2021-01-29
+rustup target add wasm32-unknown-unknown --toolchain nightly-2021-01-29
 ```
 
 **CATATAN**: Pada contoh di atas menggunakan Rust versi nightly build 2020-10-05 karena telah teruji bisa melakukan kompilasi dengan lancar, namun ini hanya sebagai contoh apabila pada kemudian hari ada perubahan di Rust nightly yang membuat kode Nuchain tidak lagi bisa dikompilasi (tidak kompatibel). Kamu bebas apabila mau menggunakan latest nightly.
