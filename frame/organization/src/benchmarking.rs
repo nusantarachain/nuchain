@@ -1,4 +1,4 @@
-//! Pallet Certificate pallet benchmarking
+//! Pallet Organization pallet benchmarking
 //!
 
 #![cfg(feature = "runtime-benchmarks")]
@@ -9,7 +9,7 @@ use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::{EventRecord, RawOrigin};
 use sp_runtime::traits::Bounded;
 
-use crate::Module as Certificate;
+use crate::Module as Organization;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
     let events = frame_system::Module::<T>::events();
@@ -19,19 +19,19 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
     assert_eq!(event, &system_event);
 }
 
-benchmarks! {
-    add_org {
+// benchmarks! {
+//     create_org {
 
-    }: _()
-    verify {
-    }
+//     }: _()
+//     verify {
+//     }
 
-    add_cert {
-    }: _()
-    verify {
-    }
+//     susppend_org {
+//     }: _()
+//     verify {
+//     }
 
-    issue_cert {
-    }: _()
-    verify {}
-}
+//     kill_org {
+//     }: _()
+//     verify {}
+// }

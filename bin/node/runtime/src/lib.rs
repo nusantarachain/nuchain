@@ -1,6 +1,6 @@
-// This file is part of Substrate.
+// This file is part of Nuchain.
 
-// Copyright (C) 2018-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2018-2021 Rantai Nusantara.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! The Substrate runtime. This can be compiled with `#[no_std]`, ready for Wasm.
+//! The Nuchain runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
@@ -637,16 +637,17 @@ type EnsureRootOrHalfCouncil = EnsureOneOf<
 	EnsureRoot<AccountId>,
 	pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>
 >;
-impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
-	type Event = Event;
-	type AddOrigin = EnsureRootOrHalfCouncil;
-	type RemoveOrigin = EnsureRootOrHalfCouncil;
-	type SwapOrigin = EnsureRootOrHalfCouncil;
-	type ResetOrigin = EnsureRootOrHalfCouncil;
-	type PrimeOrigin = EnsureRootOrHalfCouncil;
-	type MembershipInitialized = TechnicalCommittee;
-	type MembershipChanged = TechnicalCommittee;
-}
+
+// impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
+// 	type Event = Event;
+// 	type AddOrigin = EnsureRootOrHalfCouncil;
+// 	type RemoveOrigin = EnsureRootOrHalfCouncil;
+// 	type SwapOrigin = EnsureRootOrHalfCouncil;
+// 	type ResetOrigin = EnsureRootOrHalfCouncil;
+// 	type PrimeOrigin = EnsureRootOrHalfCouncil;
+// 	type MembershipInitialized = TechnicalCommittee;
+// 	type MembershipChanged = TechnicalCommittee;
+// }
 
 parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);
@@ -1024,17 +1025,29 @@ impl pallet_nicks::Config for Runtime {
 
 parameter_types! {
 	pub const MinOrgNameLength:usize = 3;
-	pub const MaxOrgNameLength:usize = 16;
+	pub const MaxOrgNameLength:usize = 100;
+}
+
+impl pallet_organization::Config for Runtime {
+	type Event = Event;
+	type ForceOrigin = EnsureRootOrHalfCouncil;
+	type MinOrgNameLength = MinOrgNameLength;
+	type MaxOrgNameLength = MaxOrgNameLength;
+	type WeightInfo = pallet_organization::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
 }
 
 impl pallet_certificate::Config for Runtime {
 	type Event = Event;
 	type ForceOrigin = EnsureRoot<AccountId>;
-	type MinOrgNameLength = MinOrgNameLength;
-	type MaxOrgNameLength = MaxOrgNameLength;
-	type UnixTime = Timestamp;
+	type Time = Timestamp;
+	type CreatorOrigin = pallet_organization::EnsureOrgAdmin<Runtime>;
+	type Organization = Organization;
 	type WeightInfo = pallet_certificate::weights::SubstrateWeight<Runtime>;
 }
+
 
 construct_runtime!(
 	pub enum Runtime where
@@ -1056,7 +1069,7 @@ construct_runtime!(
 		Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
-		TechnicalMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+		// TechnicalMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
 		Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event, ValidateUnsigned},
 		Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
 		Contracts: pallet_contracts::{Module, Call, Config<T>, Storage, Event<T>},
@@ -1079,7 +1092,8 @@ construct_runtime!(
 		Mmr: pallet_mmr::{Module, Storage},
 		// Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
 		Nicks: pallet_nicks::{Module, Call, Storage, Event<T>},
-		Certificate: pallet_certificate::{Module, Call, Storage, Event<T>}
+		Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
+		Organization: pallet_organization::{Module, Call, Storage, Event<T>}
 	}
 );
 

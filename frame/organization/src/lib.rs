@@ -1,0 +1,452 @@
+//! # Organization
+//!
+//! - [`Organization::Config`](./trait.Config.html)
+//!
+//! ## Overview
+//!
+//! Organization pallet for Nuchain
+//!
+//! ## Interface
+//!
+//! ### Dispatchable Functions
+//!
+//! * `create_org` -
+//! * `susppend_org` -
+//! * `kill_org` -
+//!
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+use frame_support::{
+    dispatch::DispatchError,
+    ensure,
+    traits::{Currency, EnsureOrigin, Get, OnUnbalanced, ReservableCurrency, UnixTime},
+};
+use frame_system::ensure_signed;
+use sp_runtime::RuntimeDebug;
+use sp_runtime::{
+    traits::{StaticLookup, Zero},
+    SaturatedConversion,
+};
+use sp_std::{fmt::Debug, prelude::*, vec};
+
+pub use pallet::*;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+pub mod weights;
+pub use weights::WeightInfo;
+
+use codec::{Decode, Encode};
+
+type OrgId = u32;
+
+#[frame_support::pallet]
+pub mod pallet {
+
+    use super::*;
+    use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
+    use frame_system::pallet_prelude::*;
+
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// The origin which may forcibly set or remove a name. Root can always do this.
+        type ForceOrigin: EnsureOrigin<Self::Origin>;
+
+        /// Min organization name length
+        type MinOrgNameLength: Get<usize>;
+
+        /// Max organization name length
+        type MaxOrgNameLength: Get<usize>;
+
+        /// Weight information
+        type WeightInfo: WeightInfo;
+    }
+
+    #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+    pub struct Organization<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
+        /// object name
+        pub name: Vec<u8>,
+
+        /// admin of the object
+        pub admin: AccountId,
+
+        /// Official website url
+        pub website: Vec<u8>,
+
+        /// Official email address
+        pub email: Vec<u8>,
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
+        /// The object already exsits
+        AlreadyExists,
+
+        /// Name too long
+        TooLong,
+
+        /// Name too short
+        TooShort,
+
+        /// Object doesn't exist.
+        NotExists,
+
+        /// Origin has no authorization to do this operation
+        PermissionDenied,
+
+        /// ID already exists
+        IdAlreadyExists,
+
+        /// Cannot generate ID
+        CannotGenId,
+
+        /// Unknown error occurred
+        Unknown,
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance", OrgId = "OrgId")]
+    pub enum Event<T: Config> {
+        /// Some object added inside the system.
+        OrganizationAdded(OrgId, T::AccountId),
+
+        /// When object deleted
+        OrganizationDeleted(OrgId),
+    }
+
+    #[pallet::storage]
+    pub type Organizations<T: Config> =
+        StorageMap<_, Blake2_128Concat, OrgId, Organization<T::AccountId>>;
+
+    /// Pair user -> list of handled organizations
+    #[pallet::storage]
+    pub type OrganizationLink<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<OrgId>>;
+
+    // pub trait HasOrganization<T> {
+    //     fn has_organization(&self) -> bool;
+    // }
+
+    // impl<T: Config> HasOrganization<T> for T::AccountId {
+    //     fn has_organization(&self) -> bool {
+    //         OrganizationLink::<T>::get(self).map(|a| a.len() > 0)
+    //     }
+    // }
+
+    pub struct EnsureOrgAdmin<T>(sp_std::marker::PhantomData<T>);
+
+    impl<T: Config> EnsureOrigin<T::Origin> for EnsureOrgAdmin<T> {
+        type Success = (T::AccountId, Vec<OrgId>);
+
+        fn try_origin(o: T::Origin) -> Result<Self::Success, T::Origin> {
+            o.into().and_then(|o| match o {
+                frame_system::RawOrigin::Signed(ref who) => {
+                    let vs = OrganizationLink::<T>::get(who.clone())
+                        .ok_or(T::Origin::from(o.clone()))?;
+                    Ok((who.clone(), vs.clone()))
+                }
+                r => Err(T::Origin::from(r)),
+            })
+        }
+
+        #[cfg(feature = "runtime-benchmarks")]
+        fn successful_origin() -> T::Origin {
+            O::from(RawOrigin::Signed(Default::default()))
+        }
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn object_index)]
+    pub type OrgIdIndex<T> = StorageValue<_, u32>;
+
+    /// Organization module declaration.
+    // pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        /// Add new object.
+        ///
+        /// The dispatch origin for this call must be _Signed_.
+        ///
+        /// # <weight>
+        /// # </weight>
+        #[pallet::weight(T::WeightInfo::create_org())]
+        pub fn create_org(
+            origin: OriginFor<T>,
+            name: Vec<u8>,
+            admin: <T::Lookup as StaticLookup>::Source,
+            website: Vec<u8>,
+            email: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            let _origin = T::ForceOrigin::ensure_origin(origin)?;
+
+            ensure!(
+                name.len() >= T::MinOrgNameLength::get(),
+                Error::<T>::TooShort
+            );
+            ensure!(
+                name.len() <= T::MaxOrgNameLength::get(),
+                Error::<T>::TooLong
+            );
+
+            let id = Self::next_id()?;
+
+            ensure!(
+                !Organizations::<T>::contains_key(id),
+                Error::<T>::IdAlreadyExists
+            );
+
+            let admin = T::Lookup::lookup(admin)?;
+
+            Organizations::<T>::insert(
+                id as OrgId,
+                Organization {
+                    name: name.clone(),
+                    admin: admin.clone(),
+                    website: website.clone(),
+                    email: email.clone(),
+                },
+            );
+
+            // OrganizationLink::<T>::mutate(&admin, |ref mut vs| {
+            //     vs.as_mut().map(|vsi| vsi.push(id))
+            // });
+
+            OrganizationLink::<T>::insert(&admin, vec![id]);
+
+            Self::deposit_event(Event::OrganizationAdded(id, admin));
+
+            Ok(().into())
+        }
+    }
+
+    // -------------------------------------------------------------------
+    //                      GENESIS CONFIGURATION
+    // -------------------------------------------------------------------
+
+    // The genesis config type.
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub dummy: u32,
+        pub bar: Vec<(T::AccountId, u32)>,
+        pub foo: u32,
+    }
+
+    // The default value for the genesis config type.
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self {
+                dummy: Default::default(),
+                bar: Default::default(),
+                foo: Default::default(),
+            }
+        }
+    }
+
+    // The build of genesis for the pallet.
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            // <Dummy<T>>::put(&self.dummy);
+            // for (a, b) in &self.bar {
+            // 	<Bar<T>>::insert(a, b);
+            // }
+            // <Foo<T>>::put(&self.foo);
+        }
+    }
+}
+
+/// The main implementation of this Organization pallet.
+impl<T: Config> Pallet<T> {
+    /// Get the Organization detail
+    pub fn get(id: OrgId) -> Option<Organization<T::AccountId>> {
+        Organizations::<T>::get(id)
+    }
+
+    /// Get next Organization ID
+    pub fn next_id() -> Result<u32, Error<T>> {
+        <OrgIdIndex<T>>::mutate(|o| {
+            *o = Some(o.map_or(1, |vo| vo.saturating_add(1)));
+            *o
+        })
+        .ok_or(Error::<T>::CannotGenId)
+    }
+}
+
+pub trait OrgProvider<T: Config> {
+    fn get(id: OrgId) -> Option<Organization<T::AccountId>>;
+}
+
+impl<T: Config> OrgProvider<T> for Pallet<T> {
+    fn get(id: OrgId) -> Option<Organization<T::AccountId>> {
+        Organizations::<T>::get(id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate as pallet_Organization;
+
+    use frame_support::{assert_noop, assert_ok, ord_parameter_types, parameter_types};
+    use frame_system::EnsureSignedBy;
+    use sp_core::H256;
+    use sp_runtime::{
+        testing::Header,
+        traits::{BadOrigin, BlakeTwo256, IdentityLookup},
+    };
+
+    type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+    type Block = frame_system::mocking::MockBlock<Test>;
+
+    frame_support::construct_runtime!(
+        pub enum Test where
+            Block = Block,
+            NodeBlock = Block,
+            UncheckedExtrinsic = UncheckedExtrinsic,
+        {
+            System: frame_system::{Module, Call, Config, Storage, Event<T>},
+            Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+            Organization: pallet_Organization::{Module, Call, Storage, Event<T>},
+        }
+    );
+
+    parameter_types! {
+        pub const BlockHashCount: u64 = 250;
+        pub BlockWeights: frame_system::limits::BlockWeights =
+            frame_system::limits::BlockWeights::simple_max(1024);
+    }
+    impl frame_system::Config for Test {
+        type BaseCallFilter = ();
+        type BlockWeights = ();
+        type BlockLength = ();
+        type DbWeight = ();
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Call = Call;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = Event;
+        type BlockHashCount = BlockHashCount;
+        type Version = ();
+        type PalletInfo = PalletInfo;
+        type AccountData = pallet_balances::AccountData<u64>;
+        type OnNewAccount = ();
+        type OnKilledAccount = ();
+        type SystemWeightInfo = ();
+        type SS58Prefix = ();
+    }
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 1;
+    }
+    impl pallet_balances::Config for Test {
+        type MaxLocks = ();
+        type Balance = u64;
+        type Event = Event;
+        type DustRemoval = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type AccountStore = System;
+        type WeightInfo = ();
+    }
+    parameter_types! {
+        pub const MinOrgNameLength: usize = 3;
+        pub const MaxOrgNameLength: usize = 16;
+    }
+    ord_parameter_types! {
+        pub const One: u64 = 1;
+    }
+    impl Config for Test {
+        type Event = Event;
+        type ForceOrigin = EnsureSignedBy<One, u64>;
+        type MinOrgNameLength = MinOrgNameLength;
+        type MaxOrgNameLength = MaxOrgNameLength;
+        type WeightInfo = weights::SubstrateWeight<Test>;
+    }
+
+    fn new_test_ext() -> sp_io::TestExternalities {
+        let mut t = frame_system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap();
+        pallet_balances::GenesisConfig::<Test> {
+            balances: vec![(1, 10), (2, 10)],
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+        t.into()
+    }
+
+    #[test]
+    fn force_origin_create_org() {
+        new_test_ext().execute_with(|| {
+            assert_ok!(Organization::create_org(
+                Origin::signed(1),
+                b"ORG1".to_vec(),
+                2,
+                b"".to_vec(),
+                b"".to_vec()
+            ));
+        });
+    }
+
+    #[test]
+    fn non_force_origin_cannot_create_org() {
+        new_test_ext().execute_with(|| {
+            assert_noop!(
+                Organization::create_org(
+                    Origin::signed(2),
+                    b"ORG1".to_vec(),
+                    2,
+                    b"".to_vec(),
+                    b"".to_vec()
+                ),
+                DispatchError::BadOrigin
+            );
+        });
+    }
+
+    #[test]
+    fn org_id_incremented_correctly() {
+        new_test_ext().execute_with(|| {
+            assert_eq!(Pallet::<Test>::next_id().unwrap(), 1);
+            assert_ok!(Organization::create_org(
+                Origin::signed(1),
+                b"ORG2".to_vec(),
+                2,
+                b"".to_vec(),
+                b"".to_vec()
+            ));
+            assert_eq!(Pallet::<Test>::next_id().unwrap(), 3);
+            assert_ok!(Organization::create_org(
+                Origin::signed(1),
+                b"ORG4".to_vec(),
+                2,
+                b"".to_vec(),
+                b"".to_vec()
+            ));
+            assert_eq!(Pallet::<Test>::next_id().unwrap(), 5);
+            assert_eq!(Pallet::<Test>::organization(5), None);
+            assert!(Pallet::<Test>::organization(2)
+                .map(|a| &a.name == b"ORG2")
+                .unwrap_or(false));
+            assert!(Pallet::<Test>::organization(4)
+                .map(|a| &a.name == b"ORG4")
+                .unwrap_or(false));
+        });
+    }
+}

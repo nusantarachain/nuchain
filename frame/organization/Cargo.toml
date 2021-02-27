@@ -1,12 +1,12 @@
 [package]
-name = "pallet-certificate"
+name = "pallet-organization"
 version = "0.0.1"
-authors = ["Robin <obin.mf@gmail.com>"]
+authors = ["Robin Syihab <obin.mf@gmail.com>"]
 edition = "2018"
 license = "Apache-2"
 homepage = ""
 repository = ""
-description = "Substrate pallet to manage online certificate"
+description = "Organization pallet for Nuchain"
 readme = "README.md"
 
 [package.metadata.docs.rs]
@@ -21,13 +21,10 @@ sp-runtime = { version = "3.0.0", default-features = false, path = "../../primit
 frame-benchmarking = { version = "3.0.0", default-features = false, path = "../benchmarking", optional = true }
 frame-support = { version = "3.0.0", default-features = false, path = "../support" }
 frame-system = { version = "3.0.0", default-features = false, path = "../system" }
-pallet-organization = { default-features = false, path = "../organization"}
-pallet-timestamp = { version = "3.0.0", default-features = false, path = "../timestamp" }
 
 [dev-dependencies]
 sp-core = { version = "3.0.0", path = "../../primitives/core" }
 pallet-balances = { version = "3.0.0", path = "../balances" }
-
 
 [features]
 default = ["std"]
@@ -42,3 +39,4 @@ std = [
 	"frame-system/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
+

@@ -11,8 +11,7 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! * `add_org` -
-//! * `add_cert` -
+//! * `create_cert` -
 //! * `issue_cert` -
 //!
 
@@ -21,14 +20,11 @@
 use frame_support::{
     dispatch::DispatchError,
     ensure,
-    traits::{Currency, EnsureOrigin, Get, OnUnbalanced, ReservableCurrency, UnixTime},
+    traits::{EnsureOrigin, Time},
 };
 use frame_system::ensure_signed;
+use sp_runtime::traits::{StaticLookup};
 use sp_runtime::RuntimeDebug;
-use sp_runtime::{
-    traits::{StaticLookup, Zero},
-    SaturatedConversion,
-};
 use sp_std::{fmt::Debug, prelude::*, vec};
 
 pub use pallet::*;
@@ -38,7 +34,7 @@ mod benchmarking;
 pub mod weights;
 pub use weights::WeightInfo;
 
-use codec::{Decode, Encode, HasCompact};
+use codec::{Decode, Encode};
 
 type OrgId = u32;
 type CertId = u64;
@@ -47,8 +43,9 @@ type CertId = u64;
 pub mod pallet {
 
     use super::*;
-    use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
+    use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*, traits::Time};
     use frame_system::pallet_prelude::*;
+    use pallet_organization::OrgProvider;
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
@@ -58,21 +55,21 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + pallet_organization::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// The origin which may forcibly set or remove a name. Root can always do this.
         type ForceOrigin: EnsureOrigin<Self::Origin>;
 
-        /// The minimum length a name may be.
-        type MinOrgNameLength: Get<usize>;
-
-        /// The maximum length a name may be.
-        type MaxOrgNameLength: Get<usize>;
-
         /// Time used for marking issued certificate.
-        type UnixTime: UnixTime;
+        type Time: Time;
+
+        /// Who is allowed to create certificate
+        type CreatorOrigin: EnsureOrigin<Self::Origin, Success = (Self::AccountId, Vec<OrgId>)>;
+
+        /// Organization provider
+        type Organization: pallet_organization::OrgProvider<Self>;
 
         /// Weight information
         type WeightInfo: WeightInfo;
@@ -127,19 +124,12 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance", OrgId = "OrgId")]
     pub enum Event<T: Config> {
-        /// Some organization added inside the system.
-        OrgAdded(OrgId, T::AccountId),
-
         /// Some certificate added.
         CertAdded(CertId, OrgId),
 
         /// Some cert was issued
         CertIssued(CertId, T::AccountId),
     }
-
-    #[pallet::storage]
-    pub type Organizations<T: Config> =
-        StorageMap<_, Blake2_128Concat, OrgId, OrgDetail<T::AccountId>>;
 
     #[pallet::storage]
     pub type Certificates<T: Config> = StorageMap<_, Blake2_128Concat, CertId, CertDetail<OrgId>>;
@@ -151,7 +141,11 @@ pub mod pallet {
         OrgId,
         Blake2_128Concat,
         T::AccountId,
-        Vec<(CertId, Vec<u8>, u64)>,
+        Vec<(
+            CertId,
+            Vec<u8>,
+            <<T as pallet::Config>::Time as Time>::Moment,
+        )>,
     >;
 
     #[pallet::storage]
@@ -164,77 +158,34 @@ pub mod pallet {
     // pub struct Module<T: Config> for enum Call where origin: T::Origin {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Add new organization.
-        ///
-        /// The dispatch origin for this call must be _Signed_.
-        ///
-        /// # <weight>
-        /// # </weight>
-        #[pallet::weight(T::WeightInfo::add_org())]
-        fn add_org(
-            origin: OriginFor<T>,
-            name: Vec<u8>,
-            admin: <T::Lookup as StaticLookup>::Source,
-        ) -> DispatchResultWithPostInfo {
-            let _origin = T::ForceOrigin::ensure_origin(origin)?;
-
-            ensure!(
-                name.len() >= T::MinOrgNameLength::get(),
-                Error::<T>::TooShort
-            );
-            ensure!(
-                name.len() <= T::MaxOrgNameLength::get(),
-                Error::<T>::TooLong
-            );
-
-            let id = Self::next_org_id();
-
-            ensure!(
-                !Organizations::<T>::contains_key(id),
-                Error::<T>::IdAlreadyExists
-            );
-
-            let admin = T::Lookup::lookup(admin)?;
-
-            Organizations::<T>::insert(
-                id as OrgId,
-                OrgDetail {
-                    name: name.clone(),
-                    admin: admin.clone(),
-                    is_suspended: false,
-                },
-            );
-
-            Self::deposit_event(Event::OrgAdded(id, admin));
-
-            Ok(().into())
-        }
-
         /// Create new certificate
         ///
         /// The dispatch origin for this call must be _Signed_.
         ///
         /// # <weight>
         /// # </weight>
-        #[pallet::weight(T::WeightInfo::add_cert())]
-        fn add_cert(
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::create_cert())]
+        pub(super) fn create_cert(
             origin: OriginFor<T>,
             #[pallet::compact] org_id: OrgId,
             name: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            let sender = ensure_signed(origin)?;
+            // let sender = ensure_signed(origin)?;
 
             ensure!(name.len() >= 3, Error::<T>::TooShort);
             ensure!(name.len() <= 100, Error::<T>::TooLong);
 
+            let (sender, org_ids) = T::CreatorOrigin::ensure_origin(origin)?;
+
+            // pastikan origin adalah admin pada organisasi
             ensure!(
-                Organizations::<T>::contains_key(org_id),
-                Error::<T>::NotExists
+                org_ids.iter().any(|id| *id == org_id),
+                Error::<T>::PermissionDenied
             );
 
-            // ensure admin
-            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::Unknown)?;
+            let org = T::Organization::get(org_id).ok_or(Error::<T>::NotExists)?;
 
+            // ensure admin
             ensure!(&org.admin == &sender, Error::<T>::PermissionDenied);
 
             let cert_id = Self::next_cert_id();
@@ -264,7 +215,7 @@ pub mod pallet {
         /// # <weight>
         /// # </weight>
         #[pallet::weight(70_000_000)]
-        fn issue_cert(
+        pub(super) fn issue_cert(
             origin: OriginFor<T>,
             org_id: OrgId,
             cert_id: CertId,
@@ -278,7 +229,7 @@ pub mod pallet {
             ensure!(desc.len() < 100, Error::<T>::TooLong);
 
             // ensure admin
-            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::Unknown)?;
+            let org = T::Organization::get(org_id).ok_or(Error::<T>::Unknown)?;
             ensure!(org.admin == sender, Error::<T>::PermissionDenied);
 
             let target = T::Lookup::lookup(target)?;
@@ -294,12 +245,12 @@ pub mod pallet {
                 Error::<T>::AlreadyExists
             );
 
-            let rv = if let Some(colls) = collections {
+            let rv = if let Some(_colls) = collections {
                 // apabila sudah pernah diisi update isinya
                 // dengan ditambahkan sertifikat pada koleksi penerima.
                 IssuedCertificates::<T>::try_mutate(org_id, &target, |vs| {
                     let vs = vs.as_mut().ok_or(Error::<T>::Unknown)?;
-                    vs.push((cert_id, desc, Self::now()));
+                    vs.push((cert_id, desc, T::Time::now()));
                     Ok(().into())
                 })
             } else {
@@ -307,7 +258,7 @@ pub mod pallet {
                 IssuedCertificates::<T>::insert(
                     org_id,
                     &target,
-                    vec![(cert_id, desc, Self::now())],
+                    vec![(cert_id, desc, T::Time::now())],
                 );
                 Ok(().into())
             };
@@ -320,22 +271,21 @@ pub mod pallet {
 }
 
 /// The main implementation of this Certificate pallet.
-impl<T: Config> Pallet<T> {
-    /// Get the organization detail
-    pub fn organization(id: OrgId) -> Option<OrgDetail<T::AccountId>> {
-        Organizations::<T>::get(id)
-    }
-
+impl<T: Config> Pallet<T>
+where
+    T: pallet_timestamp::Config,
+{
     /// Get detail of certificate
     ///
     pub fn certificate(id: CertId) -> Option<CertDetail<OrgId>> {
         Certificates::<T>::get(id)
     }
 
-    /// Get current unix timestamp
-    pub fn now() -> u64 {
-        T::UnixTime::now().as_millis().saturated_into::<u64>()
-    }
+    // /// Get current unix timestamp
+    // pub fn now() -> T::Moment {
+    //     // T::UnixTime::now().as_millis().saturated_into::<u64>()
+    //     T::now()
+    // }
 
     /// Get next organization ID
     pub fn next_org_id() -> u32 {
@@ -343,7 +293,9 @@ impl<T: Config> Pallet<T> {
         <OrgIdIndex<T>>::put(next_id);
         next_id
     }
+}
 
+impl<T: Config> Pallet<T> {
     /// Get next Certificate ID
     pub fn next_cert_id() -> u64 {
         let next_id = <CertIdIndex<T>>::try_get().unwrap_or(0).saturating_add(1);
@@ -376,6 +328,7 @@ mod tests {
         {
             System: frame_system::{Module, Call, Config, Storage, Event<T>},
             Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+            Organization: pallet_organization::{Module, Call, Storage, Event<T>},
             Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
         }
     );
@@ -424,19 +377,53 @@ mod tests {
     parameter_types! {
         pub const ReservationFee: u64 = 2;
         pub const MinOrgNameLength: usize = 3;
-        pub const MaxOrgNameLength: usize = 16;
+        pub const MaxOrgNameLength: usize = 100;
     }
     ord_parameter_types! {
         pub const One: u64 = 1;
     }
-    impl Config for Test {
+    parameter_types! {
+        pub const MinimumPeriod: u64 = 5;
+    }
+    impl pallet_timestamp::Config for Test {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+        type WeightInfo = ();
+    }
+
+    impl pallet_organization::Config for Test {
         type Event = Event;
-        type Currency = Balances;
-        type ReservationFee = ReservationFee;
-        type Slashed = ();
         type ForceOrigin = EnsureSignedBy<One, u64>;
         type MinOrgNameLength = MinOrgNameLength;
         type MaxOrgNameLength = MaxOrgNameLength;
+        type WeightInfo = pallet_organization::weights::SubstrateWeight<Self>;
+    }
+
+    impl Config for Test {
+        type Event = Event;
+        // type Currency = Balances;
+        // type ReservationFee = ReservationFee;
+        // type Slashed = ();
+        type ForceOrigin = EnsureSignedBy<One, u64>;
+        type MinOrgNameLength = MinOrgNameLength;
+        type MaxOrgNameLength = MaxOrgNameLength;
+        // type Moment = u64;
+        type Time = Self;
+        type CreatorOrigin = pallet_organization::EnsureOrgAdmin<Self>;
+        type Organization = pallet_organization::Pallet<Self>;
+        type WeightInfo = ();
+    }
+
+    impl Time for Test {
+        type Moment = u64;
+        fn now() -> Self::Moment {
+            let start = std::time::SystemTime::now();
+            let since_epoch = start
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("Time went backwards");
+            since_epoch.as_millis() as u64
+        }
     }
 
     fn new_test_ext() -> sp_io::TestExternalities {
@@ -444,77 +431,74 @@ mod tests {
             .build_storage::<Test>()
             .unwrap();
         pallet_balances::GenesisConfig::<Test> {
-            balances: vec![(1, 10), (2, 10)],
+            balances: vec![(1, 10), (2, 10), (3, 20)],
         }
         .assimilate_storage(&mut t)
         .unwrap();
         t.into()
     }
 
+    macro_rules! create_org {
+        ($o:expr, $name:literal, $to:expr) => {
+            assert_ok!(Organization::create_org(
+                Origin::signed(1),
+                $name.to_vec(),
+                $to,
+                b"".to_vec(),
+                b"".to_vec()
+            ));
+        };
+    }
+
     #[test]
     fn issue_cert_should_work() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Certificate::add_org(Origin::signed(2), b"Dave".to_vec()));
-            assert_eq!(Balances::total_balance(&2), 10);
-            assert_ok!(Certificate::issue_cert(Origin::signed(1), 2));
-            assert_eq!(Balances::total_balance(&2), 8);
-            assert_eq!(<OrgOf<Test>>::get(2), None);
+            create_org!(1, b"ORG1", 2);
+            assert_ok!(Certificate::create_cert(
+                Origin::signed(2),
+                1,
+                b"CERT1".to_vec()
+            ));
+            assert_ok!(Certificate::issue_cert(
+                Origin::signed(2),
+                1,
+                1,
+                b"DESC".to_vec(),
+                2
+            ));
+            assert_eq!(Organization::get(2), None);
         });
     }
 
-    // #[test]
-    // fn force_name_should_work() {
-    // 	new_test_ext().execute_with(|| {
-    // 		assert_noop!(
-    // 			Certificate::add_org(Origin::signed(2), b"Dr. David Brubeck, III".to_vec()),
-    // 			Error::<Test>::TooLong,
-    // 		);
+    #[test]
+    fn only_org_admin_can_create_cert() {
+        new_test_ext().execute_with(|| {
+            create_org!(1, b"ORG2", 3);
+            assert_noop!(
+                Certificate::create_cert(Origin::signed(2), 1, b"CERT1".to_vec()),
+                BadOrigin
+            );
+            assert_ok!(Certificate::create_cert(
+                Origin::signed(3),
+                1,
+                b"CERT1".to_vec()
+            ));
+        });
+    }
 
-    // 		assert_ok!(Certificate::add_org(Origin::signed(2), b"Dave".to_vec()));
-    // 		assert_eq!(Balances::reserved_balance(2), 2);
-    // 		assert_ok!(Certificate::force_name(Origin::signed(1), 2, b"Dr. David Brubeck, III".to_vec()));
-    // 		assert_eq!(Balances::reserved_balance(2), 2);
-    // 		assert_eq!(<OrgOf<Test>>::get(2).unwrap(), (b"Dr. David Brubeck, III".to_vec(), 2));
-    // 	});
-    // }
-
-    // #[test]
-    // fn normal_operation_should_work() {
-    // 	new_test_ext().execute_with(|| {
-    // 		assert_ok!(Certificate::add_org(Origin::signed(1), b"Gav".to_vec()));
-    // 		assert_eq!(Balances::reserved_balance(1), 2);
-    // 		assert_eq!(Balances::free_balance(1), 8);
-    // 		assert_eq!(<OrgOf<Test>>::get(1).unwrap().0, b"Gav".to_vec());
-
-    // 		assert_ok!(Certificate::add_org(Origin::signed(1), b"Gavin".to_vec()));
-    // 		assert_eq!(Balances::reserved_balance(1), 2);
-    // 		assert_eq!(Balances::free_balance(1), 8);
-    // 		assert_eq!(<OrgOf<Test>>::get(1).unwrap().0, b"Gavin".to_vec());
-
-    // 		assert_ok!(Certificate::clear_name(Origin::signed(1)));
-    // 		assert_eq!(Balances::reserved_balance(1), 0);
-    // 		assert_eq!(Balances::free_balance(1), 10);
-    // 	});
-    // }
-
-    // #[test]
-    // fn error_catching_should_work() {
-    // 	new_test_ext().execute_with(|| {
-    // 		assert_noop!(Certificate::clear_name(Origin::signed(1)), Error::<Test>::Unnamed);
-
-    // 		assert_noop!(
-    // 			Certificate::add_org(Origin::signed(3), b"Dave".to_vec()),
-    // 			pallet_balances::Error::<Test, _>::InsufficientBalance
-    // 		);
-
-    // 		assert_noop!(Certificate::add_org(Origin::signed(1), b"Ga".to_vec()), Error::<Test>::TooShort);
-    // 		assert_noop!(
-    // 			Certificate::add_org(Origin::signed(1), b"Gavin James Wood, Esquire".to_vec()),
-    // 			Error::<Test>::TooLong
-    // 		);
-    // 		assert_ok!(Certificate::add_org(Origin::signed(1), b"Dave".to_vec()));
-    // 		assert_noop!(Certificate::issue_cert(Origin::signed(2), 1), BadOrigin);
-    // 		assert_noop!(Certificate::force_name(Origin::signed(2), 1, b"Whatever".to_vec()), BadOrigin);
-    // 	});
-    // }
+    #[test]
+    fn only_org_admin_can_issue_cert() {
+        new_test_ext().execute_with(|| {
+            create_org!(1, b"ORG2", 3);
+            assert_ok!(Certificate::create_cert(
+                Origin::signed(3),
+                1,
+                b"CERT1".to_vec()
+            ));
+            assert_noop!(
+                Certificate::issue_cert(Origin::signed(2), 1, 1, b"DESC".to_vec(), 2),
+                Error::<Test>::PermissionDenied
+            );
+        });
+    }
 }

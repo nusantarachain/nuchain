@@ -367,7 +367,7 @@ pub fn build_genesis(
         pallet_grandpa: Some(GrandpaConfig {
             authorities: vec![],
         }),
-        pallet_membership_Instance1: Some(Default::default()),
+        // pallet_membership_Instance1: Some(Default::default()),
         pallet_treasury: Some(Default::default()),
         pallet_society: Some(SocietyConfig {
             members: endowed_accounts

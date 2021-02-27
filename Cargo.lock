@@ -4263,6 +4263,7 @@ dependencies = [
  "pallet-nicks",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-organization",
  "pallet-proxy",
  "pallet-randomness-collective-flip",
  "pallet-recovery",
@@ -4588,6 +4589,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
+ "pallet-organization",
+ "pallet-timestamp",
  "parity-scale-codec",
  "serde",
  "sp-core",
@@ -5024,6 +5027,22 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-organization"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-std",
 ]
 
