@@ -147,11 +147,13 @@ Perintah berikut akan menjalankan Nuchain node dengan identitas node `node01` da
 nuchain --base-path=/data/nuchain --name=node01
 ```
 
-Apabila node ingin dijalankan sebagai validator maka tambahkan parameter `--validator`, contoh:
+Apabila *node* ingin dijalankan sebagai validator maka tambahkan parameter `--validator`, contoh:
 
 ```bash
 nuchain --validator --base-path=/data/nuchain --name=node01
 ```
+
+Untuk lebih detailnya tentang cara menjadi validator bisa baca [menjadi validator](https://github.com/nusantarachain/nuchain/wiki/Menjadi-Validator).
 
 ## Glossary
 
