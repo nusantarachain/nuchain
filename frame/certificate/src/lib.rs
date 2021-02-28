@@ -402,13 +402,7 @@ mod tests {
 
     impl Config for Test {
         type Event = Event;
-        // type Currency = Balances;
-        // type ReservationFee = ReservationFee;
-        // type Slashed = ();
         type ForceOrigin = EnsureSignedBy<One, u64>;
-        type MinOrgNameLength = MinOrgNameLength;
-        type MaxOrgNameLength = MaxOrgNameLength;
-        // type Moment = u64;
         type Time = Self;
         type CreatorOrigin = pallet_organization::EnsureOrgAdmin<Self>;
         type Organization = pallet_organization::Pallet<Self>;

@@ -327,6 +327,7 @@ mod tests {
 		type ForceOrigin = EnsureSignedBy<One, u64>;
 		type MinLength = MinLength;
 		type MaxLength = MaxLength;
+        type WeightInfo = ();
 	}
 
 	fn new_test_ext() -> sp_io::TestExternalities {

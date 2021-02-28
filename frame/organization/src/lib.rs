@@ -18,17 +18,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-    dispatch::DispatchError,
     ensure,
-    traits::{Currency, EnsureOrigin, Get, OnUnbalanced, ReservableCurrency, UnixTime},
+    traits::{
+        Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, OnUnbalanced,
+        ReservableCurrency, WithdrawReasons,
+    },
 };
 use frame_system::ensure_signed;
-use sp_runtime::RuntimeDebug;
-use sp_runtime::{
-    traits::{StaticLookup, Zero},
-    SaturatedConversion,
-};
-use sp_std::{fmt::Debug, prelude::*, vec};
+use sp_runtime::traits::StaticLookup;
+use sp_std::{fmt::Debug, prelude::*};
 
 pub use pallet::*;
 
@@ -45,8 +43,14 @@ type OrgId = u32;
 pub mod pallet {
 
     use super::*;
-    use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
+    use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
+
+    type BalanceOf<T> =
+        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+        <T as frame_system::Config>::AccountId,
+    >>::NegativeImbalance;
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
@@ -59,6 +63,15 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// The currency trait.
+        type Currency: ReservableCurrency<Self::AccountId>;
+
+        /// Reservation fee.
+        type CreationFee: Get<BalanceOf<Self>>;
+
+        /// Payment for treasury
+        type Payment: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
         /// The origin which may forcibly set or remove a name. Root can always do this.
         type ForceOrigin: EnsureOrigin<Self::Origin>;
@@ -181,7 +194,7 @@ pub mod pallet {
         ///
         /// # <weight>
         /// # </weight>
-        #[pallet::weight(T::WeightInfo::create_org())]
+        #[pallet::weight(100_000_000)]
         pub fn create_org(
             origin: OriginFor<T>,
             name: Vec<u8>,
@@ -189,7 +202,7 @@ pub mod pallet {
             website: Vec<u8>,
             email: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            let _origin = T::ForceOrigin::ensure_origin(origin)?;
+            let origin = ensure_signed(origin)?;
 
             ensure!(
                 name.len() >= T::MinOrgNameLength::get(),
@@ -208,6 +221,17 @@ pub mod pallet {
             );
 
             let admin = T::Lookup::lookup(admin)?;
+
+            // Process the payment
+            let cost = T::CreationFee::get();
+
+            // Process payment
+            T::Payment::on_unbalanced(T::Currency::withdraw(
+                &origin,
+                cost,
+                WithdrawReasons::FEE,
+                KeepAlive,
+            )?);
 
             Organizations::<T>::insert(
                 id as OrgId,
@@ -298,14 +322,16 @@ impl<T: Config> OrgProvider<T> for Pallet<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as pallet_Organization;
+    use crate as pallet_organization;
 
-    use frame_support::{assert_noop, assert_ok, ord_parameter_types, parameter_types};
+    use frame_support::{
+        assert_err_ignore_postinfo, assert_ok, ord_parameter_types, parameter_types,
+    };
     use frame_system::EnsureSignedBy;
     use sp_core::H256;
     use sp_runtime::{
         testing::Header,
-        traits::{BadOrigin, BlakeTwo256, IdentityLookup},
+        traits::{BlakeTwo256, IdentityLookup},
     };
 
     type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -319,7 +345,7 @@ mod tests {
         {
             System: frame_system::{Module, Call, Config, Storage, Event<T>},
             Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-            Organization: pallet_Organization::{Module, Call, Storage, Event<T>},
+            Organization: pallet_organization::{Module, Call, Storage, Event<T>},
         }
     );
 
@@ -367,12 +393,16 @@ mod tests {
     parameter_types! {
         pub const MinOrgNameLength: usize = 3;
         pub const MaxOrgNameLength: usize = 16;
+        pub const CreationFee: u64 = 20;
     }
     ord_parameter_types! {
         pub const One: u64 = 1;
     }
     impl Config for Test {
         type Event = Event;
+        type CreationFee = CreationFee;
+        type Currency = Balances;
+        type Payment = ();
         type ForceOrigin = EnsureSignedBy<One, u64>;
         type MinOrgNameLength = MinOrgNameLength;
         type MaxOrgNameLength = MaxOrgNameLength;
@@ -384,7 +414,7 @@ mod tests {
             .build_storage::<Test>()
             .unwrap();
         pallet_balances::GenesisConfig::<Test> {
-            balances: vec![(1, 10), (2, 10)],
+            balances: vec![(1, 50), (2, 10)],
         }
         .assimilate_storage(&mut t)
         .unwrap();
@@ -392,7 +422,7 @@ mod tests {
     }
 
     #[test]
-    fn force_origin_create_org() {
+    fn can_create_organization() {
         new_test_ext().execute_with(|| {
             assert_ok!(Organization::create_org(
                 Origin::signed(1),
@@ -405,18 +435,35 @@ mod tests {
     }
 
     #[test]
-    fn non_force_origin_cannot_create_org() {
+    fn create_org_balance_deducted() {
         new_test_ext().execute_with(|| {
-            assert_noop!(
+            assert_eq!(Balances::total_balance(&1), 50);
+            assert_ok!(Organization::create_org(
+                Origin::signed(1),
+                b"ORG1".to_vec(),
+                2,
+                b"".to_vec(),
+                b"".to_vec()
+            ));
+            assert_eq!(Balances::total_balance(&1), 30);
+        });
+    }
+
+    #[test]
+    fn insufficient_balance_cannot_create_org() {
+        new_test_ext().execute_with(|| {
+            assert_eq!(Balances::total_balance(&2), 10);
+            assert_err_ignore_postinfo!(
                 Organization::create_org(
                     Origin::signed(2),
-                    b"ORG1".to_vec(),
+                    b"ORG2".to_vec(),
                     2,
                     b"".to_vec(),
                     b"".to_vec()
                 ),
-                DispatchError::BadOrigin
+                pallet_balances::Error::<Test, _>::InsufficientBalance
             );
+            assert_eq!(Balances::total_balance(&2), 10);
         });
     }
 
@@ -440,11 +487,11 @@ mod tests {
                 b"".to_vec()
             ));
             assert_eq!(Pallet::<Test>::next_id().unwrap(), 5);
-            assert_eq!(Pallet::<Test>::organization(5), None);
-            assert!(Pallet::<Test>::organization(2)
+            assert_eq!(Pallet::<Test>::get(5), None);
+            assert!(Pallet::<Test>::get(2)
                 .map(|a| &a.name == b"ORG2")
                 .unwrap_or(false));
-            assert!(Pallet::<Test>::organization(4)
+            assert!(Pallet::<Test>::get(4)
                 .map(|a| &a.name == b"ORG4")
                 .unwrap_or(false));
         });
