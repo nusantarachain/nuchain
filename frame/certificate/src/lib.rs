@@ -17,13 +17,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-    dispatch::DispatchError,
-    ensure,
-    traits::{EnsureOrigin, Time},
-};
+use frame_support::{ensure, traits::EnsureOrigin};
 use frame_system::ensure_signed;
-use sp_runtime::traits::{StaticLookup};
+use sp_runtime::traits::StaticLookup;
 use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, prelude::*, vec};
 
@@ -309,7 +305,9 @@ mod tests {
     use super::*;
     use crate as pallet_certificate;
 
-    use frame_support::{assert_noop, assert_ok, ord_parameter_types, parameter_types};
+    use frame_support::{
+        assert_noop, assert_ok, ord_parameter_types, parameter_types, traits::Time,
+    };
     use frame_system::EnsureSignedBy;
     use sp_core::H256;
     use sp_runtime::{
@@ -375,9 +373,9 @@ mod tests {
         type WeightInfo = ();
     }
     parameter_types! {
-        pub const ReservationFee: u64 = 2;
         pub const MinOrgNameLength: usize = 3;
         pub const MaxOrgNameLength: usize = 100;
+        pub const CreationFee: u64 = 20;
     }
     ord_parameter_types! {
         pub const One: u64 = 1;
@@ -394,6 +392,9 @@ mod tests {
 
     impl pallet_organization::Config for Test {
         type Event = Event;
+        type CreationFee = CreationFee;
+        type Currency = Balances;
+        type Payment = ();
         type ForceOrigin = EnsureSignedBy<One, u64>;
         type MinOrgNameLength = MinOrgNameLength;
         type MaxOrgNameLength = MaxOrgNameLength;
@@ -425,7 +426,7 @@ mod tests {
             .build_storage::<Test>()
             .unwrap();
         pallet_balances::GenesisConfig::<Test> {
-            balances: vec![(1, 10), (2, 10), (3, 20)],
+            balances: vec![(1, 50), (2, 10), (3, 20)],
         }
         .assimilate_storage(&mut t)
         .unwrap();

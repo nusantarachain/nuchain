@@ -67,7 +67,7 @@ pub mod pallet {
         /// The currency trait.
         type Currency: ReservableCurrency<Self::AccountId>;
 
-        /// Reservation fee.
+        /// Creation fee.
         type CreationFee: Get<BalanceOf<Self>>;
 
         /// Payment for treasury
@@ -243,11 +243,13 @@ pub mod pallet {
                 },
             );
 
-            // OrganizationLink::<T>::mutate(&admin, |ref mut vs| {
-            //     vs.as_mut().map(|vsi| vsi.push(id))
-            // });
-
-            OrganizationLink::<T>::insert(&admin, vec![id]);
+            if OrganizationLink::<T>::contains_key(&admin) {
+                OrganizationLink::<T>::mutate(&admin, |ref mut vs| {
+                    vs.as_mut().map(|vsi| vsi.push(id))
+                });
+            } else {
+                OrganizationLink::<T>::insert(&admin, sp_std::vec![id]);
+            }
 
             Self::deposit_event(Event::OrganizationAdded(id, admin));
 
