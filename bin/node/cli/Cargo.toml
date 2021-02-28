@@ -172,3 +172,7 @@ try-runtime = [
 	"nuchain-runtime/try-runtime",
 	"try-runtime-cli",
 ]
+testnet = [
+    "pallet-balances/testnet-faucet", 
+    "nuchain-runtime/testnet"
+]
