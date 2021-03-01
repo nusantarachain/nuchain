@@ -23,7 +23,7 @@ Nuchain akan dikembangan dalam **6 fase**:
 
 Marupakan fase awal pengumpulan dukungan dan finalisasi desain sistem.
 
-Pada fase ini pengguna bisa mulai stake ETH token untuk kemudian bisa diklaim dalam bentuk ARA token ketika Nuchain masuk ke fase Genesis (fase 01).
+Pada fase ini sistem telah jalan di versi ujicoba, runtime versi 0.
 
 ### Fase 01: Genesis
 
