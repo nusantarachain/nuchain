@@ -10,7 +10,7 @@ Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web
 
 Mengapa blockchain? 
 
-* Hampir semua aplikasi internet yang ada saat ini berjalan secara terpusat (centralized), salah satu semangat Web 3.0 adalah aplikasi terdistribusi. Blockchain yang secara alamiahnya adalah sistem terdistribusi bisa dijadikan fondasi untuk menuju era aplikasi internet terdistribusi (decentralized).
+* Hampir semua aplikasi internet yang ada saat ini berjalan secara terpusat (centralized), salah satu semangat Web 3.0 adalah aplikasi terdistribusi. Blockchain yang secara alamiahnya adalah sistem terdistribusi bisa dijadikan fondasi untuk menuju era aplikasi internet terdistribusi.
 * Keamanan, sistem blockchain diamankan menggunakan kriptografi di lapisan paling dasarnya, memberikan jaminan keamanan tinggi.
 * Blockchain merupakan *trustless system* sangat bisa diandalkan untuk membangun aplikasi yang membutuhkan jaminan legitimasi tanpa perlu mempercayai satu sama lain.
 * Nuchain bukan didesain untuk menjadi *crypto currency*, tetapi sebagai platform aplikasi terdistibusi (DApps) yang nantinya akan menjadi ekosistem baru di era teknologi digital yang membutuhkan keterbukaan, kejelasan, legitimasi, dan *good governance*.
@@ -162,6 +162,14 @@ Untuk lebih detailnya tentang cara menjadi validator bisa baca [menjadi validato
 * Nominator - adalah individu yang ingin ikut berpartisipasi sebagai validator namun tidak dalam bentuk node/komputer tetapi dalam bentuk *stake* dengan meminjamkan ARA ke validator agar validator memiliki kesempatan besar terpilih sebagai pembuat blok di setiap putarannya. Nominator mendapatkan *rewards* sesuai dengan nilai yang di-*stake* dan prosentase bagi hasil yang ditetapkan oleh validator.
 * DApps - adalah aplikasi yang dibuat untuk bisa jalan di atas jaringan blockchain.
 
+## Kontribusi
+
+Tertarik dengan proyek ini? Anda bisa ikut kontribusi dengan beberapa cara:
+
+* [Menjadi validator](https://github.com/nusantarachain/nuchain/wiki/Menjadi-Validator).
+* Menjadi Nominator.
+* Menjadi pengembang untuk peralatan pendukung Nuchain.
+* Menjadi pengembang kontrak pintar (Smart Contract).
 
 ## Komunitas
 
