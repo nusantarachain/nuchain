@@ -70,6 +70,22 @@ Instalasi ini dibutuhkan apabila ingin menjadi kontributor dengan menjalankan *n
 
 Ada beberapa cara, yang pertama download pre-built binary dari halaman [Releases](https://github.com/nusantarachain/nuchain/releases), unduh sesuai dengan sistem operasi yang kamu gunakan.
 
+
+### Docker
+
+Cara tercepat bisa menggunakan Docker:
+
+```bash
+$ docker run --rm \
+  -v '/var/data:/data' \
+  -p '9933:9933' \
+  -p '9944:9944' \
+  -p '30333:30333' \
+   --name nuchain anvie/nuchain:latest-alpine \
+   nuchain --base-path=/data
+```
+
+
 Atau melakukan kompilasi sendiri dari kode sumber dengan mengikuti panduan sebagai berikut:
 
 ### Dari Kode Sumber
