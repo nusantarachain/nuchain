@@ -183,8 +183,8 @@ Untuk lebih detailnya tentang cara menjadi validator bisa baca [menjadi validato
 Tertarik dengan proyek ini? Anda bisa ikut kontribusi dengan beberapa cara:
 
 * [Menjadi validator](https://github.com/nusantarachain/nuchain/wiki/Menjadi-Validator).
-* Menjadi Nominator.
-* Menjadi pengembang untuk peralatan pendukung Nuchain.
+* [Menjadi Nominator](https://github.com/nusantarachain/nuchain/wiki/Menjadi-Nominator).
+* Menjadi pengembang untuk peralatan pendukung Nuchain seperti mobile App, Block scanner, dll.
 * Menjadi pengembang kontrak pintar (Smart Contract).
 
 ## Komunitas
