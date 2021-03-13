@@ -119,7 +119,7 @@ export OPENSSL_INCLUDE_DIR="/usr/include/openssl-1.0"
 
 ## Persiapan Lingkungan Kerja
 
-Karena Nuchain ditulis menggunakan bahasa pemrograman Rust maka dipelukan beberapa komponen yang dibutuhkan berkaitan dengan Rust.
+Karena Nuchain ditulis menggunakan bahasa pemrograman Rust maka diperlukan beberapa komponen yang dibutuhkan berkaitan dengan Rust.
 
 Gunakan rustup untuk memasang Rust:
 
