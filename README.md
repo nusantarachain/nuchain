@@ -185,6 +185,10 @@ Tertarik dengan proyek ini? Anda bisa ikut kontribusi dengan beberapa cara:
 * Menjadi pengembang untuk peralatan pendukung Nuchain seperti mobile App, Block scanner, dll.
 * Menjadi pengembang kontrak pintar (Smart Contract)/dApps, contoh bisal lihat [di sini](https://github.com/nusantarachain/onchain-apps).
 
+## Dokumentasi
+
+Untuk dokumentasi lebih lengkap baca [Nuchain Wiki](https://github.com/nusantarachain/nuchain/wiki).
+
 ## Komunitas
 
 Bergabunglah dengan komunitas untuk diskusi tentang Nuchain melalui beberapa kanal berikut:
