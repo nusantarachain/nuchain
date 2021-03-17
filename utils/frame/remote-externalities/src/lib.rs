@@ -192,6 +192,7 @@ impl CacheConfig {
 pub struct Builder {
 	inject: Vec<KeyPair>,
 	mode: Mode,
+    #[allow(dead_code)]
 	chain: String,
 }
 
