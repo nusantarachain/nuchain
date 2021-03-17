@@ -1,6 +1,6 @@
-// This file is part of Substrate.
+// This file is part of Nuchain.
 
-// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2021 Nuchain.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -52,9 +52,9 @@ impl SubstrateCli for Cli {
         let spec = match id {
             "" => Box::new(chain_spec::main_config()?),
             "dev" => Box::new(chain_spec::development_config()),
-            "local" => Box::new(chain_spec::local_testnet_config()),
+            "local" => Box::new(chain_spec::local_staging_config()),
             "fir" | "flaming-fir" => Box::new(chain_spec::flaming_fir_config()?),
-            "testnet" => Box::new(chain_spec::testnet_config()),
+            "testnet" => Box::new(chain_spec::testnet_config()?),
             "prod" => Box::new(chain_spec::prod_config()),
             path => Box::new(chain_spec::ChainSpec::from_json_file(
                 std::path::PathBuf::from(path),

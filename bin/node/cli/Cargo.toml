@@ -1,6 +1,6 @@
 [package]
 name = "nuchain-node"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Nusantara Chain <nusantarachain@gmail.com>"]
 description = "Blockchain for Indonesia Society 5.0"
 build = "build.rs"
@@ -40,7 +40,7 @@ serde_json = "1.0.41"
 futures = { version = "0.3.9", features = ["compat"] }
 hex-literal = "0.3.1"
 log = "0.4.8"
-rand = "0.7.2"
+rand = "0.8.3"
 structopt = { version = "0.3.8", optional = true }
 parking_lot = "0.11.1"
 
@@ -122,7 +122,7 @@ sc-service-test = { version = "2.0.0", path = "../../../client/service/test" }
 futures = "0.3.9"
 tempfile = "3.1.0"
 assert_cmd = "1.0"
-nix = "0.19"
+nix = "0.20.0"
 serde_json = "1.0"
 regex = "1"
 platforms = "1.1"
