@@ -4,7 +4,8 @@ NODE_VERSION=$(shell grep 'version = ' bin/node/cli/Cargo.toml | head -1 | cut -
 GIT_REV=$(shell git rev-parse --short HEAD)
 OS:=$(shell uname | sed -e 's/\(.*\)/\L\1/')
 BIN_NAME=nuchain-$(NODE_VERSION)-$(GIT_REV)-$(OS)
-WASM_RUNTIME_OUT=nuchain-runtime-$(GIT_REV).compact.wasm
+RUNTIME_SPEC_VER=$(shell grep -Po 'spec_version: \d+' bin/node/runtime/src/lib.rs | grep -Po '\d+')
+WASM_RUNTIME_OUT=nuchain-runtime-spec_ver_$(RUNTIME_SPEC_VER)-git_$(GIT_REV).compact.wasm
 
 
 check:
@@ -20,6 +21,7 @@ build:
 build-wasm-runtime:
 	@@echo Building WASM runtime...
 	@@cargo build --release -p nuchain-runtime
+	cp target/release/wbuild/nuchain-runtime/nuchain_runtime.compact.wasm bin_archives/$(WASM_RUNTIME_OUT)
 
 package:
 	@@echo Packaging...
