@@ -733,33 +733,24 @@ impl<T> WeightToFeePolynomial for IdentityFee<T> where
 }
 
 
-pub struct LinearWeightToFee<C, B>(sp_std::marker::PhantomData<(C, B)>);
-impl<C, B> WeightToFeePolynomial for LinearWeightToFee<C, B>
-where
-    C: crate::pallet_prelude::Get<B>,
-	B: BaseArithmetic + From<u32> + Copy + Unsigned
+// 0.1x^1
+pub struct NuchainFee<T>(sp_std::marker::PhantomData<T>);
+impl<T> WeightToFeePolynomial for NuchainFee<T> where
+	T: BaseArithmetic + From<u32> + Copy + Unsigned
 {
-    type Balance = B;
+	type Balance = T;
 
-    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        let coefficient = WeightToFeeCoefficient {
-            coeff_integer: C::get(),
-            coeff_frac: Perbill::zero(),
-            negative: false,
-            degree: 1,
-        };
-
-        // Return a smallvec of coefficients. Order does not need to match degrees
-        // because each coefficient has an explicit degree annotation.
-        smallvec!(coefficient)
-    }
-
-	fn calc(weight: &Weight) -> Self::Balance {
-		weight.checked_div(1_000).unwrap_or(*weight)
-			.saturated_into::<Self::Balance>()
+	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		smallvec![
+			WeightToFeeCoefficient {
+				coeff_integer: 1u32.into(),
+				coeff_frac: Perbill::from_percent(10),
+				negative: false,
+				degree: 1
+			}
+		]
 	}
 }
-
 
 
 /// A struct holding value for each `DispatchClass`.

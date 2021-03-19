@@ -77,7 +77,7 @@ pub use sp_core::RuntimeDebug;
 pub use sp_arithmetic::{
 	PerThing, Perquintill, Perbill, Permill, Percent, PerU16, InnerOf, UpperOf,
 	Rational128, FixedI64, FixedI128, FixedU128, FixedPointNumber, FixedPointOperand,
-	traits::SaturatedConversion,
+	traits::SaturatedConversion
 };
 /// Re-export 128 bit helpers.
 pub use sp_arithmetic::helpers_128bit;

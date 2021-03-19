@@ -65,7 +65,7 @@ enum NodeSocket<TTrans: Transport> {
 
 impl<TTrans: Transport> NodeSocket<TTrans> {
 	fn wait_reconnect() -> NodeSocket<TTrans> {
-		let random_delay = rand::thread_rng().gen_range(5, 10);
+		let random_delay = rand::thread_rng().gen_range(5..10);
 		let delay = Delay::new(Duration::from_secs(random_delay));
 		NodeSocket::WaitingReconnect(delay)
 	}

@@ -27,7 +27,7 @@ use sp_std::prelude::*;
 use frame_support::{
 	construct_runtime, parameter_types, debug, RuntimeDebug,
 	weights::{
-		Weight, IdentityFee,
+		Weight, NuchainFee,
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND}, DispatchClass,
 	},
 	traits::{
@@ -51,7 +51,7 @@ use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
 use sp_api::impl_runtime_apis;
 use sp_runtime::{
 	Permill, Perbill, Perquintill, Percent, ApplyExtrinsicResult,
-	impl_opaque_keys, generic, create_runtime_str, ModuleId, FixedPointNumber,
+	impl_opaque_keys, generic, create_runtime_str, ModuleId, FixedPointNumber
 };
 use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::transaction_validity::{TransactionValidity, TransactionSource, TransactionPriority};
@@ -112,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 28,
+	spec_version: 35,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -381,16 +381,13 @@ parameter_types! {
 	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
 	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
-	pub const FeeWeightRatio: u128 = 1;
 }
-
-use frame_support::weights::LinearWeightToFee;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
 	type TransactionByteFee = TransactionByteFee;
 	// type WeightToFee = IdentityFee<Balance>;
-	type WeightToFee = LinearWeightToFee<FeeWeightRatio, Balance>;
+	type WeightToFee = NuchainFee<Balance>;
 	type FeeMultiplierUpdate =
 		TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 }
@@ -461,7 +458,7 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: pallet_staking::EraIndex = 28; // days
+	pub const BondingDuration: pallet_staking::EraIndex = 30; // days
 	pub const SlashDeferDuration: pallet_staking::EraIndex = 22; // 1/4 the bonding duration.
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 256;
@@ -967,46 +964,27 @@ impl pallet_mmr::Config for Runtime {
 	type WeightInfo = ();
 }
 
-// parameter_types! {
-// 	pub const LotteryModuleId: ModuleId = ModuleId(*b"py/lotto");
-// 	pub const MaxCalls: usize = 10;
-// 	pub const MaxGenerateRandom: u32 = 10;
-// }
+parameter_types! {
+	pub const AssetDepositBase: Balance = 100 * DOLLARS;
+	pub const AssetDepositPerZombie: Balance = 1 * DOLLARS;
+	pub const StringLimit: u32 = 50;
+	pub const MetadataDepositBase: Balance = 10 * DOLLARS;
+	pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
+}
 
-// impl pallet_lottery::Config for Runtime {
-// 	type ModuleId = LotteryModuleId;
-// 	type Call = Call;
-// 	type Event = Event;
-// 	type Currency = Balances;
-// 	type Randomness = RandomnessCollectiveFlip;
-// 	type ManagerOrigin = EnsureRoot<AccountId>;
-// 	type MaxCalls = MaxCalls;
-// 	type ValidateCall = Lottery;
-// 	type MaxGenerateRandom = MaxGenerateRandom;
-// 	type WeightInfo = pallet_lottery::weights::SubstrateWeight<Runtime>;
-// }
-
-// parameter_types! {
-// 	pub const AssetDepositBase: Balance = 100 * DOLLARS;
-// 	pub const AssetDepositPerZombie: Balance = 1 * DOLLARS;
-// 	pub const StringLimit: u32 = 50;
-// 	pub const MetadataDepositBase: Balance = 10 * DOLLARS;
-// 	pub const MetadataDepositPerByte: Balance = 1 * DOLLARS;
-// }
-
-// impl pallet_assets::Config for Runtime {
-// 	type Event = Event;
-// 	type Balance = u64;
-// 	type AssetId = u32;
-// 	type Currency = Balances;
-// 	type ForceOrigin = EnsureRoot<AccountId>;
-// 	type AssetDepositBase = AssetDepositBase;
-// 	type AssetDepositPerZombie = AssetDepositPerZombie;
-// 	type StringLimit = StringLimit;
-// 	type MetadataDepositBase = MetadataDepositBase;
-// 	type MetadataDepositPerByte = MetadataDepositPerByte;
-// 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
-// }
+impl pallet_assets::Config for Runtime {
+	type Event = Event;
+	type Balance = u64;
+	type AssetId = u32;
+	type Currency = Balances;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type AssetDepositBase = AssetDepositBase;
+	type AssetDepositPerZombie = AssetDepositPerZombie;
+	type StringLimit = StringLimit;
+	type MetadataDepositBase = MetadataDepositBase;
+	type MetadataDepositPerByte = MetadataDepositPerByte;
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
+}
 
 construct_runtime!(
 	pub enum Runtime where
@@ -1047,9 +1025,8 @@ construct_runtime!(
 		Multisig: pallet_multisig::{Module, Call, Storage, Event<T>},
 		Bounties: pallet_bounties::{Module, Call, Storage, Event<T>},
 		Tips: pallet_tips::{Module, Call, Storage, Event<T>},
-		//Assets: pallet_assets::{Module, Call, Storage, Event<T>},
+		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
 		Mmr: pallet_mmr::{Module, Storage},
-		//Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
 	}
 );
 
