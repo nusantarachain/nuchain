@@ -23,7 +23,7 @@ use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 use structopt::StructOpt;
 
 use sc_keystore::LocalKeystore;
-use node_cli::chain_spec::{self, AccountId};
+use nuchain_node::chain_spec::{self, AccountId};
 use sp_core::{
 	sr25519,
 	crypto::{Public, Ss58Codec},
@@ -98,11 +98,12 @@ fn genesis_constructor(
 
 	let enable_println = true;
 
-	chain_spec::testnet_genesis(
+	chain_spec::build_genesis(
 		authorities,
 		sudo_account.clone(),
 		Some(endowed_accounts.to_vec()),
 		enable_println,
+		None
 	)
 }
 
