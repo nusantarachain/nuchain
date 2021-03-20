@@ -733,7 +733,7 @@ impl<T> WeightToFeePolynomial for IdentityFee<T> where
 }
 
 
-// 0.1x^1
+// 0.5x^1
 pub struct NuchainFee<T>(sp_std::marker::PhantomData<T>);
 impl<T> WeightToFeePolynomial for NuchainFee<T> where
 	T: BaseArithmetic + From<u32> + Copy + Unsigned
@@ -743,8 +743,8 @@ impl<T> WeightToFeePolynomial for NuchainFee<T> where
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 		smallvec![
 			WeightToFeeCoefficient {
-				coeff_integer: 1u32.into(),
-				coeff_frac: Perbill::from_percent(10),
+				coeff_integer: 0u32.into(),
+				coeff_frac: Perbill::from_percent(50),
 				negative: false,
 				degree: 1
 			}
@@ -1035,5 +1035,13 @@ mod tests {
 		assert_eq!(IdentityFee::<Balance>::calc(&0), 0);
 		assert_eq!(IdentityFee::<Balance>::calc(&50), 50);
 		assert_eq!(IdentityFee::<Balance>::calc(&Weight::max_value()), Balance::max_value());
+	}
+
+	#[test]
+	fn nuchain_fee_works(){
+		assert_eq!(NuchainFee::<Balance>::calc(&0), 0);
+		assert_eq!(NuchainFee::<Balance>::calc(&1000), 500);
+		assert_eq!(NuchainFee::<Balance>::calc(&10000), 5000);
+		assert_eq!(NuchainFee::<Balance>::calc(&15000), 7500);
 	}
 }
