@@ -112,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 35,
+	spec_version: 2,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -717,9 +717,9 @@ impl pallet_tips::Config for Runtime {
 
 parameter_types! {
 	pub const TombstoneDeposit: Balance = 10 * DOLLARS;
-	pub const DepositPerContract: Balance = TombstoneDeposit::get();
-	pub const DepositPerStorageByte: Balance = 2 * CENTS;
-	pub const DepositPerStorageItem: Balance = 2 * CENTS;
+	pub const DepositPerContract: Balance = 4 * DepositPerStorageByte::get();
+	pub const DepositPerStorageByte: Balance = 2 * MILLICENTS;
+	pub const DepositPerStorageItem: Balance = 1 * CENTS;
 	pub RentFraction: Perbill = Perbill::from_rational_approximation(1u32, 30 * DAYS);
 	pub const SurchargeReward: Balance = 150 * MILLICENTS;
 	pub const SignedClaimHandicap: u32 = 2;
