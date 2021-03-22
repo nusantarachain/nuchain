@@ -2,15 +2,13 @@
 
 Nuchain (Nusantara Chain) atau Rantara (Rantai Nusantara) adalah sarana untuk menuju Indonesia Society 5.0 melalui teknologi [blockchain](https://id.wikipedia.org/wiki/Rantai_blok).
 
-*TL;DR*: Ini adalah proyek iseng dengan visi besar.
-
 ## Motivasi
 
 Nuchain diciptakan dengan tujuan untuk menyongsong Indonesia Society 5.0 dan Web 3.0 melalui sistem terdistribusi dan aman yang disebut dengan rantai blok (blockchain).
 
 Mengapa blockchain? 
 
-* Hampir semua aplikasi internet yang ada saat ini berjalan secara terpusat (centralized), salah satu semangat Web 3.0 adalah aplikasi terdistribusi. Blockchain yang secara alamiahnya adalah sistem terdistribusi bisa dijadikan fondasi untuk menuju era aplikasi internet terdistribusi (decentralized).
+* Hampir semua aplikasi internet yang ada saat ini berjalan secara terpusat (centralized), salah satu semangat Web 3.0 adalah aplikasi terdistribusi. Blockchain yang secara alamiahnya adalah sistem terdistribusi bisa dijadikan fondasi untuk menuju era aplikasi internet terdistribusi.
 * Keamanan, sistem blockchain diamankan menggunakan kriptografi di lapisan paling dasarnya, memberikan jaminan keamanan tinggi.
 * Blockchain merupakan *trustless system* sangat bisa diandalkan untuk membangun aplikasi yang membutuhkan jaminan legitimasi tanpa perlu mempercayai satu sama lain.
 * Nuchain bukan didesain untuk menjadi *crypto currency*, tetapi sebagai platform aplikasi terdistibusi (DApps) yang nantinya akan menjadi ekosistem baru di era teknologi digital yang membutuhkan keterbukaan, kejelasan, legitimasi, dan *good governance*.
@@ -23,7 +21,7 @@ Nuchain akan dikembangan dalam **6 fase**:
 
 Marupakan fase awal pengumpulan dukungan dan finalisasi desain sistem.
 
-Pada fase ini pengguna bisa mulai stake ETH token untuk kemudian bisa diklaim dalam bentuk ARA token ketika Nuchain masuk ke fase Genesis (fase 01).
+Pada fase ini sistem telah jalan di versi ujicoba, runtime versi 0.
 
 ### Fase 01: Genesis
 
@@ -70,6 +68,22 @@ Instalasi ini dibutuhkan apabila ingin menjadi kontributor dengan menjalankan *n
 
 Ada beberapa cara, yang pertama download pre-built binary dari halaman [Releases](https://github.com/nusantarachain/nuchain/releases), unduh sesuai dengan sistem operasi yang kamu gunakan.
 
+
+### Docker
+
+Cara tercepat bisa menggunakan Docker:
+
+```bash
+$ docker run --rm \
+  -v '/var/data:/data' \
+  -p '9933:9933' \
+  -p '9944:9944' \
+  -p '30333:30333' \
+   --name nuchain anvie/nuchain:latest-alpine \
+   nuchain --base-path=/data
+```
+
+
 Atau melakukan kompilasi sendiri dari kode sumber dengan mengikuti panduan sebagai berikut:
 
 ### Dari Kode Sumber
@@ -105,7 +119,7 @@ export OPENSSL_INCLUDE_DIR="/usr/include/openssl-1.0"
 
 ## Persiapan Lingkungan Kerja
 
-Karena Nuchain ditulis menggunakan bahasa pemrograman Rust maka dipelukan beberapa komponen yang dibutuhkan berkaitan dengan Rust.
+Karena Nuchain ditulis menggunakan bahasa pemrograman Rust maka diperlukan beberapa komponen yang dibutuhkan berkaitan dengan Rust.
 
 Gunakan rustup untuk memasang Rust:
 
@@ -144,13 +158,13 @@ Output akan berada di `target/release/nuchain`.
 Perintah berikut akan menjalankan Nuchain node dengan identitas node `node01` dan jalan secara lokal.
 
 ```bash
-nuchain --base-path=/data/nuchain --name=node01
+nuchain --name=node01
 ```
 
 Apabila *node* ingin dijalankan sebagai validator maka tambahkan parameter `--validator`, contoh:
 
 ```bash
-nuchain --validator --base-path=/data/nuchain --name=node01
+nuchain --validator --name=node01
 ```
 
 Untuk lebih detailnya tentang cara menjadi validator bisa baca [menjadi validator](https://github.com/nusantarachain/nuchain/wiki/Menjadi-Validator).
@@ -162,6 +176,18 @@ Untuk lebih detailnya tentang cara menjadi validator bisa baca [menjadi validato
 * Nominator - adalah individu yang ingin ikut berpartisipasi sebagai validator namun tidak dalam bentuk node/komputer tetapi dalam bentuk *stake* dengan meminjamkan ARA ke validator agar validator memiliki kesempatan besar terpilih sebagai pembuat blok di setiap putarannya. Nominator mendapatkan *rewards* sesuai dengan nilai yang di-*stake* dan prosentase bagi hasil yang ditetapkan oleh validator.
 * DApps - adalah aplikasi yang dibuat untuk bisa jalan di atas jaringan blockchain.
 
+## Kontribusi
+
+Tertarik dengan proyek ini? Anda bisa ikut kontribusi dengan beberapa cara:
+
+* [Menjadi validator](https://github.com/nusantarachain/nuchain/wiki/Menjadi-Validator).
+* [Menjadi nominator](https://github.com/nusantarachain/nuchain/wiki/Menjadi-Nominator).
+* Menjadi pengembang untuk peralatan pendukung Nuchain seperti mobile App, Block scanner, dll.
+* Menjadi pengembang kontrak pintar (Smart Contract)/dApps, contoh bisal lihat [di sini](https://github.com/nusantarachain/onchain-apps).
+
+## Dokumentasi
+
+Untuk dokumentasi lebih lengkap baca [Nuchain Wiki](https://github.com/nusantarachain/nuchain/wiki).
 
 ## Komunitas
 
