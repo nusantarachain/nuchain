@@ -38,3 +38,4 @@ std = [
 	"frame-system/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
+testnet-faucet = []
