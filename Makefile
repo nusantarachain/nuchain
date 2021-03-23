@@ -21,6 +21,11 @@ build-wasm-runtime:
 	@@echo Building WASM runtime...
 	@@cargo build --release -p nuchain-runtime
 
+deb:
+	@@echo Packaging for Debian
+	@@cargo deb -p nuchain-node
+	cp target/debian/nuchain_$(NODE_VERSION)_amd64.deb bin_archives/nuchain-$(NODE_VERSION)-$(GIT_REV)_amd64.deb
+
 package:
 	@@echo Packaging...
 	make build-wasm-runtime
@@ -39,6 +44,7 @@ package:
 	test \
 	build \
 	build-wasm-runtime \
-	package
+	package \
+	deb
 
 
