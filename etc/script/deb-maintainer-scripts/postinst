@@ -1,0 +1,17 @@
+#!/bin/sh
+
+set -e
+
+action="$1"
+config_file="/etc/default/nuchain"
+
+if [ "$action" = "configure" ]; then
+  # Make user and group
+  getent group nuchain >/dev/null 2>&1 || addgroup --system nuchain
+  getent passwd nuchain >/dev/null 2>&1 ||
+    adduser --system --home /home/nuchain --disabled-password \
+    --ingroup nuchain nuchain
+  if [ ! -e "$config_file" ]; then
+    echo 'NUCHAIN_CLI_ARGS="--validator --rpc-cors "*" --unsafe-pruning --pruning=15000' > /etc/default/nuchain
+  fi
+fi
