@@ -22,8 +22,7 @@ build-wasm-runtime:
 	@@cargo build --release -p nuchain-runtime
 
 deb:
-	echo $(DISTRO)
-	@@echo Packaging for Debian
+	@@echo Packaging for $(DISTRO)
 	@@cargo deb -p nuchain-node
 	cp target/debian/nuchain_$(NODE_VERSION)_amd64.deb bin_archives/nuchain-$(NODE_VERSION)-$(GIT_REV)-$(DISTRO)_amd64.deb
 
