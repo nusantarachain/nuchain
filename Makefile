@@ -5,7 +5,7 @@ GIT_REV=$(shell git rev-parse --short HEAD)
 OS:=$(shell uname | sed -e 's/\(.*\)/\L\1/')
 BIN_NAME=nuchain-$(NODE_VERSION)-$(GIT_REV)-$(OS)
 WASM_RUNTIME_OUT=nuchain-runtime-$(GIT_REV).compact.wasm
-DISTRO=$(shell lsb_release -d | grep -oP "(?<=Description:).*(Ubuntu|Debian).*(?=.*)" | xargs | sed -e 's/ /-/g')
+DISTRO=$(shell lsb_release -id | head -1 | cut -f2)-$(shell lsb_release -r | head -1 | cut -f2)-$(shell lsb_release -c | head -1 | cut -f2)
 
 check:
 	cargo check --release
@@ -22,6 +22,7 @@ build-wasm-runtime:
 	@@cargo build --release -p nuchain-runtime
 
 deb:
+	echo $(DISTRO)
 	@@echo Packaging for Debian
 	@@cargo deb -p nuchain-node
 	cp target/debian/nuchain_$(NODE_VERSION)_amd64.deb bin_archives/nuchain-$(NODE_VERSION)-$(GIT_REV)-$(DISTRO)_amd64.deb
