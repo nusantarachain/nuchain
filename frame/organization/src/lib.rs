@@ -82,6 +82,9 @@ pub mod pallet {
         /// Max organization name length
         type MaxOrgNameLength: Get<usize>;
 
+        /// Max number of member for the organization
+        type MaxMemberCount: Get<usize>;
+
         /// Weight information
         type WeightInfo: WeightInfo;
     }
@@ -90,6 +93,9 @@ pub mod pallet {
     pub struct Organization<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
         /// object name
         pub name: Vec<u8>,
+
+        /// Description about the organization.
+        pub description: Vec<u8>,
 
         /// admin of the object
         pub admin: AccountId,
@@ -107,10 +113,13 @@ pub mod pallet {
         AlreadyExists,
 
         /// Name too long
-        TooLong,
+        NameTooLong,
 
         /// Name too short
-        TooShort,
+        NameTooShort,
+
+        /// Description too short
+        DescriptionTooShort,
 
         /// Object doesn't exist.
         NotExists,
@@ -123,6 +132,9 @@ pub mod pallet {
 
         /// Cannot generate ID
         CannotGenId,
+
+        /// Max member count reached
+        MaxMemberReached,
 
         /// Unknown error occurred
         Unknown,
@@ -137,6 +149,12 @@ pub mod pallet {
 
         /// When object deleted
         OrganizationDeleted(OrgId),
+
+        /// Organization has been suspended.
+        OrganizationSuspended(OrgId),
+
+        /// Member added to an organization
+        MemberAdded(OrgId, T::AccountId),
     }
 
     #[pallet::storage]
@@ -148,15 +166,10 @@ pub mod pallet {
     pub type OrganizationLink<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<OrgId>>;
 
-    // pub trait HasOrganization<T> {
-    //     fn has_organization(&self) -> bool;
-    // }
-
-    // impl<T: Config> HasOrganization<T> for T::AccountId {
-    //     fn has_organization(&self) -> bool {
-    //         OrganizationLink::<T>::get(self).map(|a| a.len() > 0)
-    //     }
-    // }
+    /// Membership store, stored as an ordered Vec.
+    #[pallet::storage]
+    #[pallet::getter(fn members)]
+    pub type Members<T: Config> = StorageMap<_, Twox64Concat, OrgId, Vec<T::AccountId>>;
 
     pub struct EnsureOrgAdmin<T>(sp_std::marker::PhantomData<T>);
 
@@ -198,6 +211,7 @@ pub mod pallet {
         pub fn create_org(
             origin: OriginFor<T>,
             name: Vec<u8>,
+            description: Vec<u8>,
             admin: <T::Lookup as StaticLookup>::Source,
             website: Vec<u8>,
             email: Vec<u8>,
@@ -206,11 +220,11 @@ pub mod pallet {
 
             ensure!(
                 name.len() >= T::MinOrgNameLength::get(),
-                Error::<T>::TooShort
+                Error::<T>::NameTooShort
             );
             ensure!(
                 name.len() <= T::MaxOrgNameLength::get(),
-                Error::<T>::TooLong
+                Error::<T>::NameTooLong
             );
 
             let id = Self::next_id()?;
@@ -237,6 +251,7 @@ pub mod pallet {
                 id as OrgId,
                 Organization {
                     name: name.clone(),
+                    description: description.clone(),
                     admin: admin.clone(),
                     website: website.clone(),
                     email: email.clone(),
@@ -252,6 +267,41 @@ pub mod pallet {
             }
 
             Self::deposit_event(Event::OrganizationAdded(id, admin));
+
+            Ok(().into())
+        }
+
+        /// Add member to the organization.
+        ///
+        #[pallet::weight(100_000)]
+        pub fn add_member(
+            origin: OriginFor<T>,
+            org_id: OrgId,
+            account_id: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+
+            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+
+            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+
+            let mut members = <Members<T>>::get(org_id).unwrap_or_else(|| vec![]);
+
+            ensure!(
+                members.len() < T::MaxMemberCount::get(),
+                Error::<T>::MaxMemberReached
+            );
+            ensure!(
+                !members.iter().any(|a| *a == account_id),
+                Error::<T>::IdAlreadyExists
+            );
+
+            members.push(account_id.clone());
+            members.sort();
+
+            <Members<T>>::insert(org_id, members);
+
+            Self::deposit_event(Event::MemberAdded(org_id, account_id));
 
             Ok(().into())
         }
@@ -308,6 +358,13 @@ impl<T: Config> Pallet<T> {
             *o
         })
         .ok_or(Error::<T>::CannotGenId)
+    }
+
+    /// Check whether account is member of the organization
+    pub fn is_member(id: OrgId, account_id: T::AccountId) -> bool {
+        <Members<T>>::get(id)
+            .map(|a| a.iter().any(|id| *id == account_id))
+            .unwrap_or(false)
     }
 }
 
@@ -395,6 +452,7 @@ mod tests {
     parameter_types! {
         pub const MinOrgNameLength: usize = 3;
         pub const MaxOrgNameLength: usize = 16;
+        pub const MaxMemberCount: usize = 300;
         pub const CreationFee: u64 = 20;
     }
     ord_parameter_types! {
@@ -408,6 +466,7 @@ mod tests {
         type ForceOrigin = EnsureSignedBy<One, u64>;
         type MinOrgNameLength = MinOrgNameLength;
         type MaxOrgNameLength = MaxOrgNameLength;
+        type MaxMemberCount = MaxMemberCount;
         type WeightInfo = weights::SubstrateWeight<Test>;
     }
 
@@ -429,6 +488,7 @@ mod tests {
             assert_ok!(Organization::create_org(
                 Origin::signed(1),
                 b"ORG1".to_vec(),
+                b"ORG1 DESCRIPTION".to_vec(),
                 2,
                 b"".to_vec(),
                 b"".to_vec()
@@ -443,6 +503,7 @@ mod tests {
             assert_ok!(Organization::create_org(
                 Origin::signed(1),
                 b"ORG1".to_vec(),
+                b"ORG1 DESCRIPTION".to_vec(),
                 2,
                 b"".to_vec(),
                 b"".to_vec()
@@ -459,6 +520,7 @@ mod tests {
                 Organization::create_org(
                     Origin::signed(2),
                     b"ORG2".to_vec(),
+                    b"ORG2 DESCRIPTION".to_vec(),
                     2,
                     b"".to_vec(),
                     b"".to_vec()
@@ -476,6 +538,7 @@ mod tests {
             assert_ok!(Organization::create_org(
                 Origin::signed(1),
                 b"ORG2".to_vec(),
+                b"ORG2 DESCRIPTION".to_vec(),
                 2,
                 b"".to_vec(),
                 b"".to_vec()
@@ -484,6 +547,7 @@ mod tests {
             assert_ok!(Organization::create_org(
                 Origin::signed(1),
                 b"ORG4".to_vec(),
+                b"ORG4 DESCRIPTION".to_vec(),
                 2,
                 b"".to_vec(),
                 b"".to_vec()
@@ -496,6 +560,44 @@ mod tests {
             assert!(Pallet::<Test>::get(4)
                 .map(|a| &a.name == b"ORG4")
                 .unwrap_or(false));
+        });
+    }
+
+    fn with_org<F>(func: F)
+    where
+        F: FnOnce(OrgId) -> (),
+    {
+        assert_ok!(Organization::create_org(
+            Origin::signed(1),
+            b"ORG1".to_vec(),
+            b"ORG1 DESCRIPTION".to_vec(),
+            2,
+            b"".to_vec(),
+            b"".to_vec(),
+        ));
+        func(<OrgIdIndex<Test>>::get().unwrap());
+    }
+
+    #[test]
+    fn add_member_works() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_ok!(Organization::add_member(Origin::signed(2), org_id, 2));
+                assert_eq!(Organization::is_member(org_id, 2), true);
+            });
+        });
+    }
+
+    #[test]
+    fn add_member_not_allowed_by_non_org_admin() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_err_ignore_postinfo!(
+                    Organization::add_member(Origin::signed(3), org_id, 2),
+                    Error::<Test>::PermissionDenied
+                );
+                assert_eq!(Organization::is_member(org_id, 3), false);
+            });
         });
     }
 }
