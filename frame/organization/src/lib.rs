@@ -45,6 +45,7 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
+    use sp_std::vec;
 
     type BalanceOf<T> =
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -155,6 +156,12 @@ pub mod pallet {
 
         /// Member added to an organization
         MemberAdded(OrgId, T::AccountId),
+
+        /// Member removed from an organization
+        MemberRemoved(OrgId, T::AccountId),
+
+        /// Organization admin changed [from] -> [to].
+        AdminChanged(OrgId, T::AccountId, T::AccountId),
     }
 
     #[pallet::storage]
@@ -302,6 +309,60 @@ pub mod pallet {
             <Members<T>>::insert(org_id, members);
 
             Self::deposit_event(Event::MemberAdded(org_id, account_id));
+
+            Ok(().into())
+        }
+
+        /// Remove member from organization.
+        #[pallet::weight(100_000)]
+        pub fn remove_member(
+            origin: OriginFor<T>,
+            org_id: OrgId,
+            account_id: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+
+            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+
+            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+
+            let mut members = <Members<T>>::get(org_id).ok_or(Error::<T>::NotExists)?;
+
+            ensure!(
+                members.iter().any(|a| *a == account_id),
+                Error::<T>::NotExists
+            );
+
+            members = members.into_iter().filter(|a| *a != account_id).collect();
+            Members::<T>::insert(org_id, members);
+
+            Self::deposit_event(Event::MemberRemoved(org_id, account_id));
+
+            Ok(().into())
+        }
+
+        /// Change organization admin,
+        /// the origin must be current admin or conform to `ForceOrigin`.
+        #[pallet::weight(100_000)]
+        pub(crate) fn set_admin(
+            origin: OriginFor<T>,
+            org_id: OrgId,
+            account_id: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let origin_1 = ensure_signed(origin.clone())?;
+
+            let mut org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+
+            if org.admin != origin_1 {
+                T::ForceOrigin::ensure_origin(origin)?;
+            }
+
+            let old_account = org.admin.clone();
+            org.admin = account_id.clone();
+
+            <Organizations<T>>::insert(org_id, org);
+
+            Self::deposit_event(Event::AdminChanged(org_id, old_account, account_id));
 
             Ok(().into())
         }
@@ -599,5 +660,45 @@ mod tests {
                 assert_eq!(Organization::is_member(org_id, 3), false);
             });
         });
+    }
+
+    #[test]
+    fn remove_member_works() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_ok!(Organization::add_member(Origin::signed(2), org_id, 3));
+                assert_eq!(Organization::is_member(org_id, 3), true);
+                assert_ok!(Organization::remove_member(Origin::signed(2), org_id, 3));
+                assert_eq!(Organization::is_member(org_id, 3), false);
+            });
+        });
+    }
+
+    #[test]
+    fn remove_member_non_admin_not_allowed() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_ok!(Organization::add_member(Origin::signed(2), org_id, 3));
+                assert_eq!(Organization::is_member(org_id, 3), true);
+                assert_err_ignore_postinfo!(
+                    Organization::remove_member(Origin::signed(5), org_id, 3),
+                    Error::<Test>::PermissionDenied
+                );
+                assert_eq!(Organization::is_member(org_id, 3), true);
+            });
+        });
+    }
+
+    
+    #[test]
+    fn set_admin_works(){
+        // @TODO(*): code here
+        unimplemented!();
+    }
+
+    #[test]
+    fn only_admin_or_force_origin_can_set_admin(){
+        // @TODO(*): code here
+        unimplemented!();
     }
 }

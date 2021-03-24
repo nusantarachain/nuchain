@@ -375,6 +375,7 @@ mod tests {
     parameter_types! {
         pub const MinOrgNameLength: usize = 3;
         pub const MaxOrgNameLength: usize = 100;
+        pub const MaxMemberCount: usize = 100;
         pub const CreationFee: u64 = 20;
     }
     ord_parameter_types! {
@@ -398,6 +399,7 @@ mod tests {
         type ForceOrigin = EnsureSignedBy<One, u64>;
         type MinOrgNameLength = MinOrgNameLength;
         type MaxOrgNameLength = MaxOrgNameLength;
+        type MaxMemberCount = MaxMemberCount;
         type WeightInfo = pallet_organization::weights::SubstrateWeight<Self>;
     }
 
