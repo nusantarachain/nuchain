@@ -12,6 +12,6 @@ if [ "$action" = "configure" ]; then
     adduser --system --home /home/nuchain --disabled-password \
     --ingroup nuchain nuchain
   if [ ! -e "$config_file" ]; then
-    echo 'NUCHAIN_CLI_ARGS="--validator --rpc-cors "*" --unsafe-pruning --pruning=15000' > /etc/default/nuchain
+    echo 'NUCHAIN_CLI_ARGS="--validator --rpc-cors="*" --no-mdns' > /etc/default/nuchain
   fi
 fi
