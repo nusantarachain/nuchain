@@ -19,11 +19,11 @@
 
 use frame_support::{ensure, traits::EnsureOrigin};
 use frame_system::ensure_signed;
-use sp_runtime::traits::StaticLookup;
+pub use pallet::*;
+use sp_core::H256;
+use sp_runtime::traits::{Hash, StaticLookup};
 use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, prelude::*, vec};
-
-pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -33,7 +33,7 @@ pub use weights::WeightInfo;
 use codec::{Decode, Encode};
 
 type OrgId = u32;
-type CertId = u64;
+// type CertId<T> = T::Hash;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -86,10 +86,13 @@ pub mod pallet {
     #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
     pub struct CertDetail<OrgId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
         /// Certificate name
-        name: Vec<u8>,
+        pub name: Vec<u8>,
+
+        /// Description about the certificate.
+        pub description: Vec<u8>,
 
         /// Organization owner ID
-        org_id: OrgId,
+        pub org_id: OrgId,
     }
 
     #[pallet::error]
@@ -121,14 +124,21 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance", OrgId = "OrgId")]
     pub enum Event<T: Config> {
         /// Some certificate added.
-        CertAdded(CertId, OrgId),
+        CertAdded(u64, T::Hash, OrgId),
 
         /// Some cert was issued
-        CertIssued(CertId, T::AccountId),
+        CertIssued(T::Hash, T::AccountId),
     }
 
     #[pallet::storage]
-    pub type Certificates<T: Config> = StorageMap<_, Blake2_128Concat, CertId, CertDetail<OrgId>>;
+    pub type Certificates<T: Config> = StorageMap<_, Blake2_128Concat, T::Hash, CertDetail<OrgId>>;
+
+    #[derive(Decode, Encode, Eq, PartialEq, RuntimeDebug)]
+    pub struct CertProof<T: Config> {
+        pub cert_id: T::Hash,
+        pub human_id: Vec<u8>,
+        pub time: <<T as pallet::Config>::Time as Time>::Moment,
+    }
 
     #[pallet::storage]
     pub type IssuedCertificates<T: Config> = StorageDoubleMap<
@@ -136,12 +146,18 @@ pub mod pallet {
         Blake2_128Concat,
         OrgId,
         Blake2_128Concat,
+        T::Hash, // ID of issued certificate
+        CertProof<T>,
+    >;
+
+    #[pallet::storage]
+    pub type IssuedCertificateOwner<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        OrgId,
+        Blake2_128Concat,
         T::AccountId,
-        Vec<(
-            CertId,
-            Vec<u8>,
-            <<T as pallet::Config>::Time as Time>::Moment,
-        )>,
+        Vec<CertProof<T>>,
     >;
 
     #[pallet::storage]
@@ -184,22 +200,23 @@ pub mod pallet {
             // ensure admin
             ensure!(&org.admin == &sender, Error::<T>::PermissionDenied);
 
-            let cert_id = Self::next_cert_id();
+            let cert_id = Self::increment_index();
+            let cert_hash = Self::generate_hash(cert_id);
 
             ensure!(
-                !Certificates::<T>::contains_key(cert_id),
+                !Certificates::<T>::contains_key(cert_hash),
                 Error::<T>::IdAlreadyExists
             );
 
             Certificates::<T>::insert(
-                cert_id,
+                cert_hash,
                 CertDetail {
                     name: name.clone(),
                     org_id: org_id.clone(),
                 },
             );
 
-            Self::deposit_event(Event::CertAdded(cert_id, org_id));
+            Self::deposit_event(Event::CertAdded(cert_id, cert_hash, org_id));
 
             Ok(().into())
         }
@@ -213,10 +230,11 @@ pub mod pallet {
         #[pallet::weight(70_000_000)]
         pub(super) fn issue_cert(
             origin: OriginFor<T>,
-            org_id: OrgId,
-            cert_id: CertId,
+            #[pallet::compact] org_id: OrgId,
+            cert_id: T::Hash,
             desc: Vec<u8>,
-            target: <T::Lookup as StaticLookup>::Source,
+            recipient: Vec<u8>,
+            acc_handler: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
 
@@ -228,15 +246,27 @@ pub mod pallet {
             let org = T::Organization::get(org_id).ok_or(Error::<T>::Unknown)?;
             ensure!(org.admin == sender, Error::<T>::PermissionDenied);
 
-            let target = T::Lookup::lookup(target)?;
+            let acc_handler = T::Lookup::lookup(acc_handler)?;
 
-            let collections = IssuedCertificates::<T>::get(org_id, &target);
+            let issue_id = T::Hashing::hash(
+                &org_id
+                    .to_le_bytes()
+                    .into_iter()
+                    .chain(cert_id.encode().iter())
+                    .chain(desc.iter())
+                    .chain(recipient.iter())
+                    .cloned()
+                    .collect::<Vec<u8>>(),
+            );
+
+            let collections = IssuedCertificates::<T>::get(org_id, &issue_id);
 
             // pastikan penerima belum memiliki sertifikat yang dimaksud.
             ensure!(
                 !collections
                     .as_ref()
-                    .map(|ref o| o.iter().any(|ref v| v.0 == cert_id))
+                    .map(|ref o| o.iter().any(|ref v| v.cert_id == cert_id))
+                    // .map(|ref o| o.cert_id == cert_id)
                     .unwrap_or(false),
                 Error::<T>::AlreadyExists
             );
@@ -244,7 +274,7 @@ pub mod pallet {
             let rv = if let Some(_colls) = collections {
                 // apabila sudah pernah diisi update isinya
                 // dengan ditambahkan sertifikat pada koleksi penerima.
-                IssuedCertificates::<T>::try_mutate(org_id, &target, |vs| {
+                IssuedCertificates::<T>::try_mutate(org_id, &acc_handler, |vs| {
                     let vs = vs.as_mut().ok_or(Error::<T>::Unknown)?;
                     vs.push((cert_id, desc, T::Time::now()));
                     Ok(().into())
@@ -253,13 +283,13 @@ pub mod pallet {
                 // inisialisasi koleksi pertama.
                 IssuedCertificates::<T>::insert(
                     org_id,
-                    &target,
+                    &acc_handler,
                     vec![(cert_id, desc, T::Time::now())],
                 );
                 Ok(().into())
             };
 
-            Self::deposit_event(Event::CertIssued(cert_id, target));
+            Self::deposit_event(Event::CertIssued(cert_id, acc_handler));
 
             rv
         }
@@ -273,7 +303,7 @@ where
 {
     /// Get detail of certificate
     ///
-    pub fn certificate(id: CertId) -> Option<CertDetail<OrgId>> {
+    pub fn get(id: &T::Hash) -> Option<CertDetail<OrgId>> {
         Certificates::<T>::get(id)
     }
 
@@ -283,20 +313,27 @@ where
     //     T::now()
     // }
 
-    /// Get next organization ID
-    pub fn next_org_id() -> u32 {
-        let next_id = <OrgIdIndex<T>>::try_get().unwrap_or(0).saturating_add(1);
-        <OrgIdIndex<T>>::put(next_id);
-        next_id
-    }
+    // /// Get next organization ID
+    // pub fn next_org_id() -> u32 {
+    //     let next_id = <OrgIdIndex<T>>::try_get().unwrap_or(0).saturating_add(1);
+    //     <OrgIdIndex<T>>::put(next_id);
+    //     next_id
+    // }
 }
 
+// use sp_core::Hasher;
+
 impl<T: Config> Pallet<T> {
-    /// Get next Certificate ID
-    pub fn next_cert_id() -> u64 {
+    /// Incerment certificate index
+    pub fn increment_index() -> u64 {
         let next_id = <CertIdIndex<T>>::try_get().unwrap_or(0).saturating_add(1);
         <CertIdIndex<T>>::put(next_id);
         next_id
+    }
+
+    /// Generate hash for randomly generated certificate identification.
+    pub fn generate_hash(index: u64) -> T::Hash {
+        T::Hashing::hash(&index.to_le_bytes())
     }
 }
 
@@ -423,6 +460,27 @@ mod tests {
         }
     }
 
+    type CertEvent = pallet_certificate::Event<Test>;
+
+    fn last_event() -> CertEvent {
+        System::events()
+            .into_iter()
+            .map(|r| r.event)
+            .filter_map(|e| {
+                if let Event::pallet_certificate(inner) = e {
+                    Some(inner)
+                } else {
+                    None
+                }
+            })
+            .last()
+            .expect("Event expected")
+    }
+
+    // fn expect_event<E: Into<Event>>(e: E) {
+    //     assert_eq!(last_event(), e.into());
+    // }
+
     fn new_test_ext() -> sp_io::TestExternalities {
         let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
@@ -440,6 +498,7 @@ mod tests {
             assert_ok!(Organization::create_org(
                 Origin::signed(1),
                 $name.to_vec(),
+                b"".to_vec(),
                 $to,
                 b"".to_vec(),
                 b"".to_vec()
@@ -447,23 +506,41 @@ mod tests {
         };
     }
 
+    fn get_last_created_cert_hash() -> Option<<Test as frame_system::Config>::Hash> {
+        match last_event() {
+            CertEvent::CertAdded(_, hash, _) => Some(hash),
+            _ => None,
+        }
+    }
+
     #[test]
     fn issue_cert_should_work() {
         new_test_ext().execute_with(|| {
+            System::set_block_number(1);
             create_org!(1, b"ORG1", 2);
             assert_ok!(Certificate::create_cert(
                 Origin::signed(2),
                 1,
                 b"CERT1".to_vec()
             ));
-            assert_ok!(Certificate::issue_cert(
-                Origin::signed(2),
-                1,
-                1,
-                b"DESC".to_vec(),
-                2
-            ));
-            assert_eq!(Organization::get(2), None);
+            // let event = last_event();
+            // println!("EVENT: {:#?}", event);
+            let hash = get_last_created_cert_hash().expect("Hash of new created cert");
+            println!("hash: {:#?}", hash);
+            assert_eq!(Certificate::get(&hash).map(|a| a.org_id), Some(1));
+            // assert_eq!(event, TestEvent::CertAdded(0, 1, 2));
+            // let cert_id = match event {
+            //     Event::CertAdded(index, hash, _) => hash,
+            //     _ => 0
+            // };
+            // assert_ok!(Certificate::issue_cert(
+            //     Origin::signed(2),
+            //     1,
+            //     1,
+            //     b"DESC".to_vec(),
+            //     2
+            // ));
+            // assert_eq!(Organization::get(2), None);
         });
     }
 
@@ -483,19 +560,19 @@ mod tests {
         });
     }
 
-    #[test]
-    fn only_org_admin_can_issue_cert() {
-        new_test_ext().execute_with(|| {
-            create_org!(1, b"ORG2", 3);
-            assert_ok!(Certificate::create_cert(
-                Origin::signed(3),
-                1,
-                b"CERT1".to_vec()
-            ));
-            assert_noop!(
-                Certificate::issue_cert(Origin::signed(2), 1, 1, b"DESC".to_vec(), 2),
-                Error::<Test>::PermissionDenied
-            );
-        });
-    }
+    // #[test]
+    // fn only_org_admin_can_issue_cert() {
+    //     new_test_ext().execute_with(|| {
+    //         create_org!(1, b"ORG2", 3);
+    //         assert_ok!(Certificate::create_cert(
+    //             Origin::signed(3),
+    //             1,
+    //             b"CERT1".to_vec()
+    //         ));
+    //         assert_noop!(
+    //             Certificate::issue_cert(Origin::signed(2), 1, 1, b"DESC".to_vec(), 2),
+    //             Error::<Test>::PermissionDenied
+    //         );
+    //     });
+    // }
 }
