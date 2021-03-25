@@ -12,7 +12,6 @@
 //!
 //! * `create_org` -
 //! * `susppend_org` -
-//! * `kill_org` -
 //!
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -28,6 +27,8 @@ use frame_system::ensure_signed;
 use sp_runtime::traits::StaticLookup;
 use sp_std::{fmt::Debug, prelude::*};
 
+use enumflags2::{bitflags, BitFlags};
+
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -35,7 +36,7 @@ mod benchmarking;
 pub mod weights;
 pub use weights::WeightInfo;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, EncodeLike};
 
 type OrgId = u32;
 
@@ -178,6 +179,53 @@ pub mod pallet {
     #[pallet::getter(fn members)]
     pub type Members<T: Config> = StorageMap<_, Twox64Concat, OrgId, Vec<T::AccountId>>;
 
+    #[bitflags(default = Active)]
+    #[repr(u64)]
+    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+    pub enum FlagDataBit {
+        Active          = 0b0000000000000000000000000000000000000000000000000000000000000001,
+        Verified        = 0b0000000000000000000000000000000000000000000000000000000000000010,
+        Government      = 0b0000000000000000000000000000000000000000000000000000000000000100,
+        System          = 0b0000000000000000000000000000000000000000000000000000000000001000,
+        Edu             = 0b0000000000000000000000000000000000000000000000000000000000010000,
+        Company         = 0b0000000000000000000000000000000000000000000000000000000000100000,
+        Foundation      = 0b0000000000000000000000000000000000000000000000000000000001000000,
+    }
+
+    #[derive(Clone, Copy, PartialEq, Default, RuntimeDebug)]
+    pub struct FlagDataBits(pub BitFlags<FlagDataBit>);
+
+    impl Eq for FlagDataBits {}
+    impl Encode for FlagDataBits {
+        fn using_encoded<R, F>(&self, f: F) -> R
+        where
+            F: FnOnce(&[u8]) -> R,
+        {
+            self.0.bits().using_encoded(f)
+        }
+    }
+    impl Decode for FlagDataBits {
+        fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
+            let field = u64::decode(input)?;
+            Ok(Self(
+                BitFlags::<FlagDataBit>::from_bits(field as u64)
+                    .map_err(|_| "invalid flag data value")?,
+            ))
+        }
+    }
+    impl EncodeLike for FlagDataBits {}
+    impl core::ops::Deref for FlagDataBits {
+        type Target = BitFlags<FlagDataBit>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    /// Flag of the organization
+    #[pallet::storage]
+    #[pallet::getter(fn flags)]
+    pub type OrganizationFlagData<T: Config> = StorageMap<_, Twox64Concat, OrgId, FlagDataBits>;
+
     pub struct EnsureOrgAdmin<T>(sp_std::marker::PhantomData<T>);
 
     impl<T: Config> EnsureOrigin<T::Origin> for EnsureOrgAdmin<T> {
@@ -273,7 +321,31 @@ pub mod pallet {
                 OrganizationLink::<T>::insert(&admin, sp_std::vec![id]);
             }
 
+            <OrganizationFlagData<T>>::insert::<_, FlagDataBits>(id, Default::default());
+
             Self::deposit_event(Event::OrganizationAdded(id, admin));
+
+            Ok(().into())
+        }
+
+        /// Set organization flags
+        ///
+        #[pallet::weight(100_000)]
+        pub fn set_flags(
+            origin: OriginFor<T>,
+            #[pallet::compact] org_id: OrgId,
+            flags: FlagDataBits,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+
+            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+
+            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+
+            OrganizationFlagData::<T>::try_mutate(org_id, |v| -> Result<(), DispatchError> {
+                *v = Some(flags);
+                Ok(().into())
+            })?;
 
             Ok(().into())
         }
@@ -283,7 +355,7 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub fn add_member(
             origin: OriginFor<T>,
-            org_id: OrgId,
+            #[pallet::compact] org_id: OrgId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
@@ -317,7 +389,7 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub fn remove_member(
             origin: OriginFor<T>,
-            org_id: OrgId,
+            #[pallet::compact] org_id: OrgId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
@@ -346,7 +418,7 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub(crate) fn set_admin(
             origin: OriginFor<T>,
-            org_id: OrgId,
+            #[pallet::compact] org_id: OrgId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let origin_1 = ensure_signed(origin.clone())?;
@@ -405,6 +477,21 @@ pub mod pallet {
     }
 }
 
+macro_rules! method_is_flag {
+    ($funcname:ident, $flag:ident, $name:expr) => {
+        #[doc = "Check whether organization is "]
+        #[doc=$name]
+        pub fn $funcname(id: OrgId) -> bool {
+            <OrganizationFlagData<T>>::get(id)
+                .map(|a| (*a).contains(FlagDataBit::$flag))
+                .unwrap_or(false)
+        }
+    };
+    ($funcname:ident, $flag:ident) => {
+        method_is_flag!($funcname, $flag, stringify!($flag));
+    };
+}
+
 /// The main implementation of this Organization pallet.
 impl<T: Config> Pallet<T> {
     /// Get the Organization detail
@@ -427,6 +514,11 @@ impl<T: Config> Pallet<T> {
             .map(|a| a.iter().any(|id| *id == account_id))
             .unwrap_or(false)
     }
+
+    method_is_flag!(is_active, Active);
+    method_is_flag!(is_verified, Verified);
+    method_is_flag!(is_gov, Government);
+    method_is_flag!(is_system, System);
 }
 
 pub trait OrgProvider<T: Config> {
@@ -640,6 +732,40 @@ mod tests {
     }
 
     #[test]
+    fn new_created_org_active() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_eq!(Organization::is_active(org_id), true);
+                assert_eq!(Organization::is_verified(org_id), false);
+                assert_eq!(Organization::is_gov(org_id), false);
+                assert_eq!(Organization::is_system(org_id), false);
+            });
+        });
+    }
+
+    #[test]
+    fn set_flags_works() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_eq!(Organization::is_verified(org_id), false);
+                assert_ok!(Organization::set_flags(
+                    Origin::signed(2),
+                    org_id,
+                    FlagDataBits(FlagDataBit::Verified.into())
+                ));
+                assert_eq!(Organization::is_verified(org_id), true);
+                assert_eq!(Organization::is_gov(org_id), false);
+                assert_ok!(Organization::set_flags(
+                    Origin::signed(2),
+                    org_id,
+                    FlagDataBits(FlagDataBit::Government.into())
+                ));
+                assert_eq!(Organization::is_gov(org_id), true);
+            });
+        });
+    }
+
+    #[test]
     fn add_member_works() {
         new_test_ext().execute_with(|| {
             with_org(|org_id| {
@@ -689,15 +815,14 @@ mod tests {
         });
     }
 
-    
     #[test]
-    fn set_admin_works(){
+    fn set_admin_works() {
         // @TODO(*): code here
         unimplemented!();
     }
 
     #[test]
-    fn only_admin_or_force_origin_can_set_admin(){
+    fn only_admin_or_force_origin_can_set_admin() {
         // @TODO(*): code here
         unimplemented!();
     }
