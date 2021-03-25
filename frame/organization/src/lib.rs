@@ -10,8 +10,10 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! * `create_org` -
-//! * `susppend_org` -
+//! * `create_org` - Create organization.
+//! * `suspend_org` - Suspen organization.
+//! * `add_member` - Add account as member to the organization.
+//! * `remove_member` - Remove account member from organization.
 //!
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -107,12 +109,18 @@ pub mod pallet {
 
         /// Official email address
         pub email: Vec<u8>,
+
+        /// Whether the organization suspended or not
+        pub suspended: bool,
     }
 
     #[pallet::error]
     pub enum Error<T> {
         /// The object already exsits
         AlreadyExists,
+
+        /// Already set, no change have made
+        AlreadySet,
 
         /// Name too long
         NameTooLong,
@@ -137,6 +145,9 @@ pub mod pallet {
 
         /// Max member count reached
         MaxMemberReached,
+
+        /// The organization is suspended
+        Suspended,
 
         /// Unknown error occurred
         Unknown,
@@ -183,13 +194,13 @@ pub mod pallet {
     #[repr(u64)]
     #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
     pub enum FlagDataBit {
-        Active          = 0b0000000000000000000000000000000000000000000000000000000000000001,
-        Verified        = 0b0000000000000000000000000000000000000000000000000000000000000010,
-        Government      = 0b0000000000000000000000000000000000000000000000000000000000000100,
-        System          = 0b0000000000000000000000000000000000000000000000000000000000001000,
-        Edu             = 0b0000000000000000000000000000000000000000000000000000000000010000,
-        Company         = 0b0000000000000000000000000000000000000000000000000000000000100000,
-        Foundation      = 0b0000000000000000000000000000000000000000000000000000000001000000,
+        Active = 0b0000000000000000000000000000000000000000000000000000000000000001,
+        Verified = 0b0000000000000000000000000000000000000000000000000000000000000010,
+        Government = 0b0000000000000000000000000000000000000000000000000000000000000100,
+        System = 0b0000000000000000000000000000000000000000000000000000000000001000,
+        Edu = 0b0000000000000000000000000000000000000000000000000000000000010000,
+        Company = 0b0000000000000000000000000000000000000000000000000000000000100000,
+        Foundation = 0b0000000000000000000000000000000000000000000000000000000001000000,
     }
 
     #[derive(Clone, Copy, PartialEq, Default, RuntimeDebug)]
@@ -218,6 +229,11 @@ pub mod pallet {
         type Target = BitFlags<FlagDataBit>;
         fn deref(&self) -> &Self::Target {
             &self.0
+        }
+    }
+    impl core::ops::DerefMut for FlagDataBits {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0
         }
     }
 
@@ -310,6 +326,7 @@ pub mod pallet {
                     admin: admin.clone(),
                     website: website.clone(),
                     email: email.clone(),
+                    suspended: false,
                 },
             );
 
@@ -328,6 +345,32 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// Suspend organization
+        ///
+        /// The dispatch origin for this call must match `T::ForceOrigin`.
+        #[pallet::weight(100_000)]
+        pub fn suspend_org(
+            origin: OriginFor<T>,
+            #[pallet::compact] org_id: OrgId,
+        ) -> DispatchResultWithPostInfo {
+            T::ForceOrigin::ensure_origin(origin)?;
+
+            ensure!(
+                Organizations::<T>::contains_key(&org_id),
+                Error::<T>::NotExists
+            );
+
+            Organizations::<T>::try_mutate(org_id, |org| {
+                org.as_mut()
+                    .map(|org| {
+                        org.suspended = true;
+                    })
+                    .ok_or(Error::<T>::NotExists)
+            })?;
+
+            Ok(().into())
+        }
+
         /// Set organization flags
         ///
         #[pallet::weight(100_000)]
@@ -336,11 +379,18 @@ pub mod pallet {
             #[pallet::compact] org_id: OrgId,
             flags: FlagDataBits,
         ) -> DispatchResultWithPostInfo {
-            let origin = ensure_signed(origin)?;
+            let origin_1 = ensure_signed(origin.clone())?;
 
             let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
 
-            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+            if org.admin != origin_1
+                || flags.contains(FlagDataBit::System)
+                || flags.contains(FlagDataBit::Verified)
+            {
+                T::ForceOrigin::ensure_origin(origin)?;
+            } else {
+                ensure!(!org.suspended, Error::<T>::Suspended);
+            }
 
             OrganizationFlagData::<T>::try_mutate(org_id, |v| -> Result<(), DispatchError> {
                 *v = Some(flags);
@@ -363,6 +413,7 @@ pub mod pallet {
             let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
 
             ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+            ensure!(!org.suspended, Error::<T>::Suspended);
 
             let mut members = <Members<T>>::get(org_id).unwrap_or_else(|| vec![]);
 
@@ -397,6 +448,7 @@ pub mod pallet {
             let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
 
             ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+            ensure!(!org.suspended, Error::<T>::Suspended);
 
             let mut members = <Members<T>>::get(org_id).ok_or(Error::<T>::NotExists)?;
 
@@ -423,18 +475,23 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let origin_1 = ensure_signed(origin.clone())?;
 
-            let mut org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
 
             if org.admin != origin_1 {
                 T::ForceOrigin::ensure_origin(origin)?;
+            } else {
+                ensure!(!org.suspended, Error::<T>::Suspended);
             }
 
-            let old_account = org.admin.clone();
-            org.admin = account_id.clone();
+            ensure!(org.admin != account_id, Error::<T>::AlreadySet);
 
-            <Organizations<T>>::insert(org_id, org);
+            <Organizations<T>>::mutate(&org_id, |org| {
+                if let Some(org) = org {
+                    org.admin = account_id.clone();
+                }
+            });
 
-            Self::deposit_event(Event::AdminChanged(org_id, old_account, account_id));
+            Self::deposit_event(Event::AdminChanged(org_id, org.admin, account_id));
 
             Ok(().into())
         }
@@ -518,7 +575,18 @@ impl<T: Config> Pallet<T> {
     method_is_flag!(is_active, Active);
     method_is_flag!(is_verified, Verified);
     method_is_flag!(is_gov, Government);
+    method_is_flag!(is_foundation, Foundation);
     method_is_flag!(is_system, System);
+
+    /// Check whether organization suspended
+    pub fn is_suspended(id: OrgId) -> bool {
+        Self::get(id).map(|a| a.suspended).unwrap_or(true)
+    }
+
+    /// Get admin of the organization
+    pub fn get_admin(id: OrgId) -> Option<T::AccountId> {
+        Self::get(id).map(|a| a.admin)
+    }
 }
 
 pub trait OrgProvider<T: Config> {
@@ -537,13 +605,14 @@ mod tests {
     use crate as pallet_organization;
 
     use frame_support::{
-        assert_err_ignore_postinfo, assert_ok, ord_parameter_types, parameter_types,
+        assert_err_ignore_postinfo, assert_noop, assert_ok, ord_parameter_types, parameter_types,
     };
     use frame_system::EnsureSignedBy;
     use sp_core::H256;
     use sp_runtime::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup},
+        DispatchError,
     };
 
     type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -751,9 +820,9 @@ mod tests {
                 assert_ok!(Organization::set_flags(
                     Origin::signed(2),
                     org_id,
-                    FlagDataBits(FlagDataBit::Verified.into())
+                    FlagDataBits(FlagDataBit::Foundation.into())
                 ));
-                assert_eq!(Organization::is_verified(org_id), true);
+                assert_eq!(Organization::is_foundation(org_id), true);
                 assert_eq!(Organization::is_gov(org_id), false);
                 assert_ok!(Organization::set_flags(
                     Origin::signed(2),
@@ -761,6 +830,47 @@ mod tests {
                     FlagDataBits(FlagDataBit::Government.into())
                 ));
                 assert_eq!(Organization::is_gov(org_id), true);
+            });
+        });
+    }
+
+    #[test]
+    fn set_flags_system_only_for_force_origin() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                // System
+                assert_noop!(
+                    Organization::set_flags(
+                        Origin::signed(2),
+                        org_id,
+                        FlagDataBits(FlagDataBit::System.into())
+                    ),
+                    DispatchError::BadOrigin
+                );
+                assert_eq!(Organization::is_system(org_id), false);
+                assert_ok!(Organization::set_flags(
+                    Origin::signed(1),
+                    org_id,
+                    FlagDataBits(FlagDataBit::System.into())
+                ));
+                assert_eq!(Organization::is_system(org_id), true);
+
+                // Verified
+                assert_noop!(
+                    Organization::set_flags(
+                        Origin::signed(2),
+                        org_id,
+                        FlagDataBits(FlagDataBit::Verified.into())
+                    ),
+                    DispatchError::BadOrigin
+                );
+                assert_eq!(Organization::is_verified(org_id), false);
+                assert_ok!(Organization::set_flags(
+                    Origin::signed(1),
+                    org_id,
+                    FlagDataBits(FlagDataBit::Verified.into())
+                ));
+                assert_eq!(Organization::is_verified(org_id), true);
             });
         });
     }
@@ -816,14 +926,94 @@ mod tests {
     }
 
     #[test]
+    fn suspend_org_works() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_eq!(Organization::is_suspended(org_id), false);
+                assert_ok!(Organization::suspend_org(Origin::signed(1), org_id));
+                assert_eq!(Organization::is_suspended(org_id), true);
+            });
+        });
+    }
+
+    #[test]
+    fn only_force_origin_can_suspend() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_noop!(
+                    Organization::suspend_org(Origin::signed(2), org_id),
+                    DispatchError::BadOrigin
+                );
+                assert_eq!(Organization::is_suspended(org_id), false);
+            });
+        });
+    }
+
+    #[test]
     fn set_admin_works() {
-        // @TODO(*): code here
-        unimplemented!();
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_eq!(Organization::get_admin(org_id), Some(2));
+                assert_ok!(Organization::set_admin(Origin::signed(2), org_id, 3));
+                assert_eq!(Organization::get_admin(org_id), Some(3));
+            });
+        });
     }
 
     #[test]
     fn only_admin_or_force_origin_can_set_admin() {
-        // @TODO(*): code here
-        unimplemented!();
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_eq!(Organization::get_admin(org_id), Some(2));
+                assert_ok!(Organization::set_admin(Origin::signed(1), org_id, 3));
+                assert_eq!(Organization::get_admin(org_id), Some(3));
+                assert_ok!(Organization::set_admin(Origin::signed(3), org_id, 4));
+                assert_eq!(Organization::get_admin(org_id), Some(4));
+                assert_noop!(
+                    Organization::set_admin(Origin::signed(3), org_id, 2),
+                    DispatchError::BadOrigin
+                );
+                assert_eq!(Organization::get_admin(org_id), Some(4));
+            });
+        });
+    }
+
+    #[test]
+    fn cannot_dispatch_suspended_operation_when_suspended() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_ok!(Organization::suspend_org(Origin::signed(1), org_id));
+                assert_err_ignore_postinfo!(
+                    Organization::add_member(Origin::signed(2), org_id, 3),
+                    Error::<Test>::Suspended
+                );
+                assert_err_ignore_postinfo!(
+                    Organization::remove_member(Origin::signed(2), org_id, 3),
+                    Error::<Test>::Suspended
+                );
+                assert_err_ignore_postinfo!(
+                    Organization::set_flags(
+                        Origin::signed(2),
+                        org_id,
+                        FlagDataBits(FlagDataBit::Company.into())
+                    ),
+                    Error::<Test>::Suspended
+                );
+            });
+        });
+    }
+
+    #[test]
+    fn force_origin_can_set_flags_even_when_suspended() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id| {
+                assert_ok!(Organization::suspend_org(Origin::signed(1), org_id));
+                assert_ok!(Organization::set_flags(
+                    Origin::signed(1),
+                    org_id,
+                    FlagDataBits(FlagDataBit::Government.into())
+                ));
+            });
+        });
     }
 }
