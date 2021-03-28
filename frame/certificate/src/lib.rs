@@ -181,11 +181,15 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] org_id: OrgId,
             name: Vec<u8>,
+            description: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             // let sender = ensure_signed(origin)?;
 
             ensure!(name.len() >= 3, Error::<T>::TooShort);
             ensure!(name.len() <= 100, Error::<T>::TooLong);
+
+            ensure!(description.len() >= 3, Error::<T>::TooShort);
+            ensure!(description.len() <= 1000, Error::<T>::TooLong);
 
             let (sender, org_ids) = T::CreatorOrigin::ensure_origin(origin)?;
 
@@ -213,6 +217,7 @@ pub mod pallet {
                 CertDetail {
                     name: name.clone(),
                     org_id: org_id.clone(),
+                    description: description.clone(),
                 },
             );
 
@@ -232,7 +237,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] org_id: OrgId,
             cert_id: T::Hash,
-            desc: Vec<u8>,
+            notes: Vec<u8>,
             recipient: Vec<u8>,
             acc_handler: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
@@ -240,7 +245,7 @@ pub mod pallet {
 
             let _cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
 
-            ensure!(desc.len() < 100, Error::<T>::TooLong);
+            ensure!(notes.len() < 100, Error::<T>::TooLong);
 
             // ensure admin
             let org = T::Organization::get(org_id).ok_or(Error::<T>::Unknown)?;
@@ -253,45 +258,37 @@ pub mod pallet {
                     .to_le_bytes()
                     .into_iter()
                     .chain(cert_id.encode().iter())
-                    .chain(desc.iter())
+                    .chain(notes.iter())
                     .chain(recipient.iter())
                     .cloned()
                     .collect::<Vec<u8>>(),
             );
 
-            let collections = IssuedCertificates::<T>::get(org_id, &issue_id);
+            let issued = IssuedCertificates::<T>::get(org_id, &issue_id);
 
             // pastikan penerima belum memiliki sertifikat yang dimaksud.
             ensure!(
-                !collections
+                !issued
                     .as_ref()
-                    .map(|ref o| o.iter().any(|ref v| v.cert_id == cert_id))
+                    .map(|ref o| o.cert_id == cert_id)
                     // .map(|ref o| o.cert_id == cert_id)
                     .unwrap_or(false),
                 Error::<T>::AlreadyExists
             );
 
-            let rv = if let Some(_colls) = collections {
-                // apabila sudah pernah diisi update isinya
-                // dengan ditambahkan sertifikat pada koleksi penerima.
-                IssuedCertificates::<T>::try_mutate(org_id, &acc_handler, |vs| {
-                    let vs = vs.as_mut().ok_or(Error::<T>::Unknown)?;
-                    vs.push((cert_id, desc, T::Time::now()));
-                    Ok(().into())
-                })
-            } else {
-                // inisialisasi koleksi pertama.
-                IssuedCertificates::<T>::insert(
-                    org_id,
-                    &acc_handler,
-                    vec![(cert_id, desc, T::Time::now())],
-                );
-                Ok(().into())
-            };
+            // inisialisasi koleksi pertama.
+            IssuedCertificates::<T>::insert(
+                org_id,
+                &issue_id,
+                CertProof {
+                    cert_id: issued.clone(),
+                    human_id: 
+                },
+            );
 
             Self::deposit_event(Event::CertIssued(cert_id, acc_handler));
 
-            rv
+            Ok(().into())
         }
     }
 }
@@ -521,7 +518,8 @@ mod tests {
             assert_ok!(Certificate::create_cert(
                 Origin::signed(2),
                 1,
-                b"CERT1".to_vec()
+                b"CERT1".to_vec(),
+                b"CERT1 description".to_vec()
             ));
             // let event = last_event();
             // println!("EVENT: {:#?}", event);
@@ -549,13 +547,14 @@ mod tests {
         new_test_ext().execute_with(|| {
             create_org!(1, b"ORG2", 3);
             assert_noop!(
-                Certificate::create_cert(Origin::signed(2), 1, b"CERT1".to_vec()),
+                Certificate::create_cert(Origin::signed(2), 1, b"CERT1".to_vec(), b"CERT1 descriptor".to_vec()),
                 BadOrigin
             );
             assert_ok!(Certificate::create_cert(
                 Origin::signed(3),
                 1,
-                b"CERT1".to_vec()
+                b"CERT1".to_vec(),
+                b"CERT1 description".to_vec()
             ));
         });
     }
