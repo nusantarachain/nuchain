@@ -17,7 +17,7 @@ if [ "$action" = "configure" ]; then
         # gunakan saja yang ada dan rename ke standar nama file config baru.
         mv "/etc/default/nuchain" $config_file;
     else
-        echo 'NUCHAIN_CLI_ARGS="--validator --rpc-cors="*" --no-mdns' > $config_file
+        echo 'NUCHAIN_CLI_ARGS=--validator --rpc-cors="*" --no-mdns' > $config_file
     fi
   fi
 fi

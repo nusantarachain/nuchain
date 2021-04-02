@@ -10,6 +10,7 @@ User=nuchain
 Group=nuchain
 Restart=always
 RestartSec=120
+StartLimitBurst=5
 LimitNOFILE=10000
 
 [Install]
