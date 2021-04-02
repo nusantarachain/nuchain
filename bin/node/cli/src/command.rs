@@ -52,7 +52,6 @@ impl SubstrateCli for Cli {
         let spec = match id {
             "" => Box::new(chain_spec::main_config()?),
             "dev" => Box::new(chain_spec::development_config()),
-            "local" => Box::new(chain_spec::local_staging_config()),
             "fir" | "flaming-fir" => Box::new(chain_spec::flaming_fir_config()?),
             "testnet" => Box::new(chain_spec::testnet_config()?),
             "prod" => Box::new(chain_spec::prod_config()),

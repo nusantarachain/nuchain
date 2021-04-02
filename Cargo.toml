@@ -1,8 +1,5 @@
 [workspace]
 members = [
-	"bin/node-template/node",
-	"bin/node-template/pallets/template",
-	"bin/node-template/runtime",
 	"bin/node/bench",
 	"bin/node/browser-testing",
 	"bin/node/cli",
@@ -193,6 +190,7 @@ members = [
 	"utils/frame/rpc/system",
 	"utils/prometheus",
 	"utils/wasm-builder",
+	"build/windows/rotatekey"
 ]
 
 # The list of dependencies below (which can be both direct and indirect dependencies) are crates
@@ -261,3 +259,4 @@ zeroize = { opt-level = 3 }
 [profile.release]
 # Substrate runtime requires unwinding.
 panic = "unwind"
+

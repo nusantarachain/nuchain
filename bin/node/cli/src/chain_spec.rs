@@ -47,7 +47,7 @@ pub use nuchain_runtime::GenesisConfig;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+const MAIN_TELEMETRY_URL: &str = "wss://telemetry.nuchain.network/submit";
 
 /// Node `ChainSpec` extensions.
 ///
@@ -192,7 +192,7 @@ pub fn staging_config() -> ChainSpec {
         staging_config_genesis,
         boot_nodes,
         Some(
-            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+            TelemetryEndpoints::new(vec![(MAIN_TELEMETRY_URL.to_string(), 0)])
                 .expect("Staging telemetry url is valid; qed"),
         ),
         Some("nuct"),
@@ -514,7 +514,7 @@ pub fn prod_config() -> ChainSpec {
         prod_genesis,
         boot_nodes,
         Some(
-            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+            TelemetryEndpoints::new(vec![(MAIN_TELEMETRY_URL.to_string(), 0)])
                 .expect("Staging telemetry url is valid; qed"),
         ),
         Some("nuc"),

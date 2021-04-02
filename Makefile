@@ -6,7 +6,7 @@ OS:=$(shell uname | sed -e 's/\(.*\)/\L\1/')
 BIN_NAME=nuchain-$(NODE_VERSION)-$(GIT_REV)-$(OS)
 RUNTIME_SPEC_VER=$(shell grep -Po 'spec_version: \d+' bin/node/runtime/src/lib.rs | grep -Po '\d+')
 WASM_RUNTIME_OUT=nuchain-runtime-spec_ver_$(RUNTIME_SPEC_VER)-git_$(GIT_REV).compact.wasm
-
+DISTRO=$(shell lsb_release -id | head -1 | cut -f2)-$(shell lsb_release -r | head -1 | cut -f2)-$(shell lsb_release -c | head -1 | cut -f2)
 
 check:
 	cargo check --release
@@ -22,6 +22,12 @@ build-wasm-runtime:
 	@@echo Building WASM runtime...
 	@@cargo build --release -p nuchain-runtime
 	cp target/release/wbuild/nuchain-runtime/nuchain_runtime.compact.wasm bin_archives/$(WASM_RUNTIME_OUT)
+
+deb:
+	echo $(DISTRO)
+	@@echo Packaging for Debian
+	@@cargo deb -p nuchain-node
+	cp target/debian/nuchain_$(NODE_VERSION)_amd64.deb bin_archives/nuchain-$(NODE_VERSION)-$(GIT_REV)-$(DISTRO)_amd64.deb
 
 package:
 	@@echo Packaging...
@@ -41,6 +47,7 @@ package:
 	test \
 	build \
 	build-wasm-runtime \
-	package
+	package \
+	deb
 
 

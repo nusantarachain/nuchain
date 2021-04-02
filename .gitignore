@@ -25,3 +25,5 @@ rls*.log
 .cargo-remote.toml
 *.bin
 bin_archives/
+*.exe
+.env

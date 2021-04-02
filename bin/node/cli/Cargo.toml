@@ -172,7 +172,24 @@ try-runtime = [
 	"nuchain-runtime/try-runtime",
 	"try-runtime-cli",
 ]
-testnet = [
-    "pallet-balances/testnet-faucet", 
-    "nuchain-runtime/testnet"
+
+
+# Configuration for building a .deb package - for use with `cargo-deb`
+[package.metadata.deb]
+name = "nuchain"
+extended-description = "Implementation of a https://nuchain.network node in Rust based on the Substrate framework."
+section = "misc"
+maintainer = "robin.syihab@gmail.com"
+license-file = ["LICENSE", "0"]
+# https://www.debian.org/doc/debian-policy/ch-maintainerscripts.html
+maintainer-scripts = "etc/script/deb-maintainer-scripts"
+assets = [
+	["target/release/nuchain", "/usr/bin/", "755"],
+	["../../../etc/script/nuchain.service", "/etc/systemd/system/", "644"]
 ]
+
+
+
+
+
+
