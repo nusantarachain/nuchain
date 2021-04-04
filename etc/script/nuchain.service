@@ -4,12 +4,13 @@ After=network.target
 Documentation=https://github.com/nusantarachain/nuchain
 
 [Service]
-EnvironmentFile=-/etc/default/nuchain
+EnvironmentFile=-/etc/default/nuchain-env.txt
 ExecStart=/usr/bin/nuchain $NUCHAIN_CLI_ARGS
 User=nuchain
 Group=nuchain
 Restart=always
 RestartSec=120
+StartLimitBurst=5
 LimitNOFILE=10000
 
 [Install]

@@ -116,12 +116,12 @@ Section "Nuchain Binary" SecBin
     CreateDirectory "$SMPROGRAMS\$StartMenuFolder"
 
     CreateShortcut "$SMPROGRAMS\$StartMenuFolder\nuchain.lnk" "$INSTDIR\nuchain.exe" \
-        "--validator --base-path=$DatabaseDir --unsafe-pruning --pruning=1000 --name=WIN-$ComputerName --telemetry-url='wss://telemetry.nuchain.network/submit 0'" "$INSTDIR\nuchain.exe" 2 SW_SHOWNORMAL \
+        "--validator --base-path='$DatabaseDir' --unsafe-pruning --pruning=1000 --name=WIN-$ComputerName --telemetry-url='wss://telemetry.nuchain.network/submit 0'" "$INSTDIR\nuchain.exe" 2 SW_SHOWNORMAL \
         ALT|CONTROL|SHIFT|F5 "Nuchain Node Starter"
 
     ; add to startup menu
     CreateShortcut "$SMSTARTUP\nuchain.lnk" "$INSTDIR\nuchain.exe" \
-        "--validator --base-path=$DatabaseDir --unsafe-pruning --pruning=1000 --name=WIN-$ComputerName --telemetry-url='wss://telemetry.nuchain.network/submit 0'" "$INSTDIR\nuchain.exe" 2 SW_SHOWNORMAL \
+        "--validator --base-path='$DatabaseDir' --unsafe-pruning --pruning=1000 --name=WIN-$ComputerName --telemetry-url='wss://telemetry.nuchain.network/submit 0'" "$INSTDIR\nuchain.exe" 2 SW_SHOWNORMAL \
         ALT|CONTROL|SHIFT|F5 "Nuchain Node Starter"
 
     CreateShortcut "$SMPROGRAMS\$StartMenuFolder\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
