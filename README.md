@@ -172,7 +172,7 @@ Untuk lebih detailnya tentang cara menjadi validator bisa baca [menjadi validato
 ## Glossary
 
 * Validator - adalah node/komputer yang berjalan membuat blok dan memvalidasi setiap blok yang tercipta. Validator bekerja untuk mengamankan jaringan dan mendapatkan benefit dari *rewards* untuk setiap blok yang dibuatnya.
-* ARA - Adalah kode unit bahan bakar yang diperlukan untuk menunjang keberlangsungan jaringan. ARA ini digunakan untuk memberikan *rewards* kepada para validator yang telah mengamankan jaringan.
+* ARA - Adalah kode unit native token atau bahan bakar yang diperlukan untuk menunjang keberlangsungan jaringan. ARA ini digunakan untuk mengamankan sistem dari serangan DoS dan memberikan *rewards* kepada para validator yang telah mengamankan jaringan.
 * Nominator - adalah individu yang ingin ikut berpartisipasi sebagai validator namun tidak dalam bentuk node/komputer tetapi dalam bentuk *stake* dengan meminjamkan ARA ke validator agar validator memiliki kesempatan besar terpilih sebagai pembuat blok di setiap putarannya. Nominator mendapatkan *rewards* sesuai dengan nilai yang di-*stake* dan prosentase bagi hasil yang ditetapkan oleh validator.
 * DApps - adalah aplikasi yang dibuat untuk bisa jalan di atas jaringan blockchain.
 
