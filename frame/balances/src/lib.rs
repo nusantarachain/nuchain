@@ -223,6 +223,8 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 	}
 
+
+
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Transfer some liquid free balance to another account.
@@ -321,6 +323,25 @@ pub mod pallet {
 			Self::deposit_event(Event::BalanceSet(who, free, reserved));
 			Ok(().into())
 		}
+
+        // /// Give caller 10000 ARA for testing (Testnet Only).
+        // /// This will increase the total issuance of the system (`TotalIssuance`).
+        // #[cfg(feature="testnet-faucet")]
+        // #[pallet::weight(0)]
+        // pub(super) fn faucet(origin:OriginFor<T>) -> DispatchResultWithPostInfo {
+        //     let origin = ensure_signed(origin)?;
+
+        //     let existential_deposit = T::ExistentialDeposit::get();
+        //     let total = existential_deposit.saturating_add(T::Balance::from(1_000_000u32))
+        //         .saturating_mul(T::Balance::from(100_000u32));
+
+        //     Self::mutate_account(&origin, |acc| {
+        //         mem::drop(PositiveImbalance::<T, I>::new(total));
+        //         acc.free = acc.free.saturating_add(total);
+        //     })?;
+
+        //     Ok(().into())
+        // }
 
 		/// Exactly as `transfer`, except the origin must be root and the source account may be
 		/// specified.

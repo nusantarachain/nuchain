@@ -47,7 +47,7 @@ pub use nuchain_runtime::GenesisConfig;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+const MAIN_TELEMETRY_URL: &str = "wss://telemetry.nuchain.network/submit";
 
 /// Node `ChainSpec` extensions.
 ///
@@ -74,6 +74,11 @@ pub fn main_config() -> Result<ChainSpec, String> {
     ChainSpec::from_json_bytes(&include_bytes!("../res/nuchain.json")[..])
 }
 
+/// Testnet config
+pub fn testnet_config() -> Result<ChainSpec, String> {
+    ChainSpec::from_json_bytes(&include_bytes!("../res/testnet.json")[..])
+}
+
 fn session_keys(
     grandpa: GrandpaId,
     babe: BabeId,
@@ -88,7 +93,7 @@ fn session_keys(
     }
 }
 
-fn testnet_config_genesis() -> GenesisConfig {
+fn staging_config_genesis() -> GenesisConfig {
     // stash, controller, session-key
     // generated with secret:
     // for i in 1 2 3 4 ; do for j in stash controller; do subkey inspect "$secret"/fir/$j/$i; done; done
@@ -167,12 +172,11 @@ fn testnet_config_genesis() -> GenesisConfig {
         ]),
         false,
         None,
-        true
     )
 }
 
 /// Configuration for testnet
-pub fn testnet_config() -> ChainSpec {
+pub fn staging_config() -> ChainSpec {
     let boot_nodes = vec![];
     let properties = serde_json::from_str(
         r#"{
@@ -185,10 +189,10 @@ pub fn testnet_config() -> ChainSpec {
         "Nuchain Testnet",
         "nuchain_testnet",
         ChainType::Live,
-        testnet_config_genesis,
+        staging_config_genesis,
         boot_nodes,
         Some(
-            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+            TelemetryEndpoints::new(vec![(MAIN_TELEMETRY_URL.to_string(), 0)])
                 .expect("Staging telemetry url is valid; qed"),
         ),
         Some("nuct"),
@@ -247,7 +251,6 @@ pub fn build_genesis(
     endowed_accounts: Option<Vec<AccountId>>,
     enable_println: bool,
     endowment_balance: Option<Balance>,
-    testnet:bool
 ) -> GenesisConfig {
     let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(|| {
         vec![
@@ -275,32 +278,6 @@ pub fn build_genesis(
 
     let endowment: Balance = endowment_balance.unwrap_or_else(|| 1_000_000 * DOLLARS);
     let stash: Balance = endowment / 100;
-
-    let pallet_staking = if testnet {
-        Some(StakingConfig {
-            validator_count: 2,
-            minimum_validator_count: 2,
-            stakers: initial_authorities
-                .iter()
-                .map(|x| (x.0.clone(), x.1.clone(), stash, StakerStatus::Validator))
-                .collect(),
-            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-            slash_reward_fraction: Perbill::from_percent(10),
-            ..Default::default()
-        })
-    }else{
-        Some(StakingConfig {
-            validator_count: initial_authorities.len() as u32 * 2,
-            minimum_validator_count: initial_authorities.len() as u32,
-            stakers: initial_authorities
-                .iter()
-                .map(|x| (x.0.clone(), x.1.clone(), stash, StakerStatus::Validator))
-                .collect(),
-            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-            slash_reward_fraction: Perbill::from_percent(10),
-            ..Default::default()
-        })
-    };
 
     GenesisConfig {
         frame_system: Some(SystemConfig {
@@ -333,7 +310,17 @@ pub fn build_genesis(
                 })
                 .collect::<Vec<_>>(),
         }),
-        pallet_staking,
+        pallet_staking: Some(StakingConfig {
+            validator_count: initial_authorities.len() as u32 * 2,
+            minimum_validator_count: initial_authorities.len() as u32,
+            stakers: initial_authorities
+                .iter()
+                .map(|x| (x.0.clone(), x.1.clone(), stash, StakerStatus::Validator))
+                .collect(),
+            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+            slash_reward_fraction: Perbill::from_percent(10),
+            ..Default::default()
+        }),
         pallet_democracy: Some(DemocracyConfig::default()),
         pallet_elections_phragmen: Some(ElectionsConfig {
             members: endowed_accounts
@@ -389,7 +376,6 @@ fn development_config_genesis() -> GenesisConfig {
         None,
         true,
         None,
-        true
     )
 }
 
@@ -418,12 +404,11 @@ fn local_build_genesis() -> GenesisConfig {
         None,
         false,
         None,
-        true
     )
 }
 
 /// Local testnet config (multivalidator Alice + Bob)
-pub fn local_testnet_config() -> ChainSpec {
+pub fn local_staging_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "Local Testnet",
         "local_testnet",
@@ -507,7 +492,6 @@ fn prod_genesis() -> GenesisConfig {
         ]),
         false,
         Some(100_000 * DOLLARS),
-        false
     )
 }
 
@@ -530,7 +514,7 @@ pub fn prod_config() -> ChainSpec {
         prod_genesis,
         boot_nodes,
         Some(
-            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+            TelemetryEndpoints::new(vec![(MAIN_TELEMETRY_URL.to_string(), 0)])
                 .expect("Staging telemetry url is valid; qed"),
         ),
         Some("nuc"),
@@ -552,7 +536,6 @@ pub(crate) mod tests {
             get_account_id_from_seed::<sr25519::Public>("Alice"),
             None,
             false,
-            true
         )
     }
 
@@ -625,12 +608,12 @@ pub(crate) mod tests {
 
     #[test]
     fn test_create_local_testnet_chain_spec() {
-        local_testnet_config().build_storage().unwrap();
+        local_staging_config().build_storage().unwrap();
     }
 
     #[test]
     fn test_staging_test_net_chain_spec() {
-        staging_testnet_config().build_storage().unwrap();
+        staging_staging_config().build_storage().unwrap();
     }
 
     #[test]
