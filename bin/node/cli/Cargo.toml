@@ -182,7 +182,7 @@ section = "misc"
 maintainer = "robin.syihab@gmail.com"
 license-file = ["LICENSE", "0"]
 # https://www.debian.org/doc/debian-policy/ch-maintainerscripts.html
-maintainer-scripts = "../../../etc/script/deb-maintainer-scripts"
+maintainer-scripts = "etc/script/deb-maintainer-scripts"
 assets = [
 	["target/release/nuchain", "/usr/bin/", "755"],
 	["../../../etc/script/nuchain.service", "/etc/systemd/system/", "644"]
