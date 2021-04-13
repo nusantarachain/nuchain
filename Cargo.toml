@@ -1,5 +1,6 @@
 [workspace]
 members = [
+
 	"bin/node/bench",
 	"bin/node/browser-testing",
 	"bin/node/cli",
@@ -117,6 +118,7 @@ members = [
 	"frame/tips",
 	"frame/utility",
 	"frame/vesting",
+	"frame/geo",
 	"primitives/allocator",
 	"primitives/api",
 	"primitives/api/proc-macro",
@@ -259,4 +261,3 @@ zeroize = { opt-level = 3 }
 [profile.release]
 # Substrate runtime requires unwinding.
 panic = "unwind"
-
