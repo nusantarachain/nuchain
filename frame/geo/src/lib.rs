@@ -75,17 +75,20 @@ pub mod pallet {
 
     #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
     pub struct Location<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
+        /// Location unique ID.
+        pub id: LocationId,
+
         /// Location name
-        name: Vec<u8>,
+        pub name: Vec<u8>,
 
         /// registrar of the Location
-        registrar: AccountId,
+        pub registrar: AccountId,
 
         /// Population of registered people reside in the location.
-        population: u32,
+        pub population: u64,
 
         /// This location is belong to another location.
-        parent_location_id: LocationId,
+        pub parent_location_id: LocationId,
 
         /// Location kind
         /// 1 = Country
@@ -94,11 +97,17 @@ pub mod pallet {
         /// 4 = Sub District
         /// 5 = Village
         /// 6 = Sub Village
-        kind: u16,
+        pub kind: u16,
+
+        /// Latitude Longitude
+        lat_long: Option<Vec<u8>>,
     }
 
     #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
     pub struct ProposedLocationUpdate<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
+        /// Registered location id
+        id: LocationId,
+
         /// Location name
         name: Vec<u8>,
 
@@ -106,7 +115,7 @@ pub mod pallet {
         proposer: AccountId,
 
         /// Population of registered people reside in the location.
-        population: u32,
+        population: u64,
 
         /// This location is belong to another location.
         parent_location_id: LocationId,
@@ -119,6 +128,9 @@ pub mod pallet {
         /// 5 = Village
         /// 6 = Sub Village
         kind: u16,
+
+        /// Latitude Longitude
+        lat_long: Option<Vec<u8>>,
     }
 
     #[pallet::error]
@@ -127,10 +139,10 @@ pub mod pallet {
         AlreadyExists,
 
         /// Name too long
-        TooLong,
+        NameTooLong,
 
         /// Name too short
-        TooShort,
+        NameTooShort,
 
         /// Location doesn't exist.
         NotExists,
@@ -170,6 +182,12 @@ pub mod pallet {
 
         /// Someone propose location data update.
         ProposeLocationUpdate(LocationId, T::AccountId),
+
+        /// Location update proposal has been approved.
+        ProposalApplied(u32),
+
+        /// Location update proposal deleted
+        ProposalDeleted(u32),
     }
 
     /// Index of id -> data
@@ -201,11 +219,11 @@ pub mod pallet {
         ($name:ident) => {
             ensure!(
                 $name.len() >= T::MinLocationNameLength::get(),
-                Error::<T>::TooShort
+                Error::<T>::NameTooShort
             );
             ensure!(
                 $name.len() <= T::MaxLocationNameLength::get(),
-                Error::<T>::TooLong
+                Error::<T>::NameTooLong
             );
         };
     }
@@ -221,13 +239,13 @@ pub mod pallet {
         /// # <weight>
         /// # </weight>
         #[pallet::weight(T::WeightInfo::register_location())]
-        fn register_location(
+        pub fn register_location(
             origin: OriginFor<T>,
             name: Vec<u8>,
-            #[pallet::compact] population: u32,
+            #[pallet::compact] population: u64,
             #[pallet::compact] parent_location_id: LocationId,
             #[pallet::compact] kind: u16,
-            // registrar: <T::Lookup as StaticLookup>::Source,
+            lat_long: Option<Vec<u8>>, // registrar: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
             // T::ForceOrigin::ensure_origin(origin)?;
 
@@ -247,11 +265,13 @@ pub mod pallet {
             Locations::<T>::insert(
                 id as LocationId,
                 Location {
+                    id,
                     name: name.clone(),
                     registrar: registrar.clone(),
                     population: population,
                     parent_location_id,
                     kind,
+                    lat_long,
                 },
             );
 
@@ -267,11 +287,11 @@ pub mod pallet {
         /// The dispatch of this origin call must match `T::ForceOrigin`.
         ///
         #[pallet::weight(100_000)]
-        fn add_registrar(origin: OriginFor<T>, id: T::AccountId) -> DispatchResultWithPostInfo {
+        pub fn add_registrar(origin: OriginFor<T>, id: T::AccountId) -> DispatchResultWithPostInfo {
             T::ForceOrigin::ensure_origin(origin)?;
 
             Registrars::<T>::try_mutate(|d| {
-                if (d.len() >= 100) {
+                if d.len() >= 100 {
                     return Err(Error::<T>::MaxRegistrarsReached);
                 }
                 if !d.contains(&id) {
@@ -289,11 +309,14 @@ pub mod pallet {
         ///
         /// The dispatch origin for this call must match `T::ForceOrigin`.
         #[pallet::weight(100_000)]
-        fn remove_registrar(origin: OriginFor<T>, id: T::AccountId) -> DispatchResultWithPostInfo {
+        pub fn remove_registrar(
+            origin: OriginFor<T>,
+            id: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
             T::ForceOrigin::ensure_origin(origin)?;
 
             Registrars::<T>::try_mutate(|d| {
-                if !d.contains(&id) {
+                if d.contains(&id) {
                     d.retain(|a| *a != id);
                     Ok(())
                 } else {
@@ -311,26 +334,30 @@ pub mod pallet {
         /// The dispatch origin for this call must be _signed_ registrar.
         ///
         #[pallet::weight(100_000)]
-        fn update_location(
+        pub fn update_location(
             origin: OriginFor<T>,
-            name: Vec<u8>,
             id: LocationId,
-            #[pallet::compact] population: u32,
+            name: Vec<u8>,
+            #[pallet::compact] population: u64,
             #[pallet::compact] parent_location_id: LocationId,
             #[pallet::compact] kind: u16,
+            lat_long: Option<Vec<u8>>,
         ) -> DispatchResultWithPostInfo {
             let registrar = Self::ensure_registrar(origin)?;
 
             validate_name!(name);
 
-            Locations::<T>::mutate(id, |d| {
-                if let Some(d) = d {
-                    d.name = name.clone();
-                    d.population = population;
-                    d.parent_location_id = parent_location_id;
-                    d.kind = kind;
-                }
-            });
+            Locations::<T>::try_mutate(id, |d| {
+                d.as_mut()
+                    .map(|d| {
+                        d.name = name.clone();
+                        d.population = population;
+                        d.parent_location_id = parent_location_id;
+                        d.kind = kind;
+                        d.lat_long = lat_long;
+                    })
+                    .ok_or(Error::<T>::NotExists)
+            })?;
 
             Self::deposit_event(Event::LocationUpdated(id, registrar));
 
@@ -340,13 +367,14 @@ pub mod pallet {
         /// Propose update location to the registrar.
         ///
         #[pallet::weight(100_000)]
-        fn propose_update_location(
+        pub fn propose_update_location(
             origin: OriginFor<T>,
             id: LocationId,
             name: Vec<u8>,
-            #[pallet::compact] population: u32,
+            #[pallet::compact] population: u64,
             #[pallet::compact] parent_location_id: LocationId,
             #[pallet::compact] kind: u16,
+            lat_long: Option<Vec<u8>>,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
@@ -358,11 +386,13 @@ pub mod pallet {
             ensure!(props.len() < 100, Error::<T>::MaxProposedUpdates);
 
             props.push(ProposedLocationUpdate {
+                id,
                 name: name.clone(),
                 proposer: origin.clone(),
                 population,
                 parent_location_id,
                 kind,
+                lat_long,
             });
 
             Self::deposit_event(Event::ProposeLocationUpdate(id, origin));
@@ -372,20 +402,75 @@ pub mod pallet {
 
         /// Apply proposal update.
         ///
-        /// This use index
+        /// This use index for getting proposal from ProposedUpdates storage.
+        ///
+        ///  The dispatch origin for this call must match `T::ForceOrigin`.
+        ///
         #[pallet::weight(100_000)]
-        fn apply_proposal_update(origin: OriginFor<T>, index: u32) -> DispatchResultWithPostInfo {
-            // @TODO: code here
+        pub fn apply_proposal_update(
+            origin: OriginFor<T>,
+            index: u32,
+        ) -> DispatchResultWithPostInfo {
+            Self::ensure_registrar(origin)?;
+
+            let mut props = ProposedUpdates::<T>::get();
+
+            /// Limit max proposed updates to 100 records
+            ensure!(props.len() > 0, Error::<T>::NotExists);
+
+            if let Some(p) = props.get(index as usize) {
+                Locations::<T>::try_mutate(p.id, |d| {
+                    d.as_mut()
+                        .map(|d| {
+                            d.name = p.name.clone();
+                            d.population = p.population;
+                            d.parent_location_id = p.parent_location_id;
+                            d.kind = p.kind;
+                        })
+                        .ok_or(Error::<T>::NotExists)
+                })?;
+
+                // remove the proposal
+                props.remove(index as usize);
+
+                Self::deposit_event(Event::ProposalApplied(index));
+            }
+
             Ok(().into())
         }
 
         /// Delete some location data.
         ///
-        /// The dispatch origin for this call must match `T::ForceOrigin`.
+        /// The dispatch origin for this call must be _registrar_.
         ///
         #[pallet::weight(100_000)]
-        fn delete_location(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            // @TODO: code here
+        pub fn delete_location(origin: OriginFor<T>, id: LocationId) -> DispatchResultWithPostInfo {
+            Self::ensure_registrar(origin)?;
+
+            Locations::<T>::remove(id);
+
+            Self::deposit_event(Event::LocationDeleted(id));
+
+            Ok(().into())
+        }
+
+        /// Delete update location proposal.
+        ///
+        /// The dispatch origin for this call must be _registrar_.
+        ///
+        #[pallet::weight(100_000)]
+        pub fn delete_proposal(origin: OriginFor<T>, index: u32) -> DispatchResultWithPostInfo {
+            Self::ensure_registrar(origin)?;
+
+            let mut props = ProposedUpdates::<T>::get();
+            // ensure!(props.len() > 0, Error::<T>::NotExists);
+
+            if props.len() > index as usize {
+                props.remove(index as usize);
+            }
+
+            Self::deposit_event(Event::ProposalDeleted(index));
+
             Ok(().into())
         }
     }
@@ -433,7 +518,7 @@ use frame_system::RawOrigin;
 /// The main implementation of this Geo pallet.
 impl<T: Config> Pallet<T> {
     /// Get the geo detail
-    pub fn geo(id: LocationId) -> Option<Location<T::AccountId>> {
+    pub fn get(id: LocationId) -> Option<Location<T::AccountId>> {
         Locations::<T>::get(id)
     }
 
@@ -444,6 +529,11 @@ impl<T: Config> Pallet<T> {
             .saturating_add(1);
         <LocationIdIndex<T>>::put(next_id);
         next_id
+    }
+
+    /// Get total registered location data.
+    pub fn count() -> u32 {
+        LocationIdIndex::<T>::try_get().unwrap_or(0)
     }
 
     /// Ensure origin is registrar
@@ -467,9 +557,12 @@ impl<T: Config> Pallet<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as pallet_Geo;
+    use crate as pallet_geo;
+    use pallet_geo::Event::*;
 
-    use frame_support::{assert_noop, assert_ok, ord_parameter_types, parameter_types};
+    use frame_support::{
+        assert_err_ignore_postinfo, assert_noop, assert_ok, ord_parameter_types, parameter_types,
+    };
     use frame_system::EnsureSignedBy;
     use sp_core::H256;
     use sp_runtime::{
@@ -488,7 +581,7 @@ mod tests {
         {
             System: frame_system::{Module, Call, Config, Storage, Event<T>},
             Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-            Geo: pallet_Geo::{Module, Call, Storage, Event<T>},
+            Geo: pallet_geo::{Module, Call, Storage, Event<T>},
         }
     );
 
@@ -535,7 +628,7 @@ mod tests {
     }
     parameter_types! {
         pub const MinLocationNameLength: usize = 3;
-        pub const MaxLocationNameLength: usize = 16;
+        pub const MaxLocationNameLength: usize = 100;
     }
     ord_parameter_types! {
         pub const One: u64 = 1;
@@ -560,24 +653,185 @@ mod tests {
         t.into()
     }
 
-    #[test]
-    fn force_origin_able_to_create_location() {
+    fn with_registrar<F>(func: F)
+    where
+        F: FnOnce(<Test as frame_system::Config>::AccountId) -> (),
+    {
         new_test_ext().execute_with(|| {
-            assert_ok!(Geo::register_location(
-                Origin::signed(1),
-                b"ORG1".to_vec(),
-                2
-            ));
+            assert_ok!(Geo::add_registrar(Origin::signed(1), 3));
+            func(3);
         });
     }
 
     #[test]
-    fn non_force_origin_cannot_create_location() {
+    fn add_registrar() {
         new_test_ext().execute_with(|| {
-            assert_noop!(
-                Geo::register_location(Origin::signed(2), b"ORG1".to_vec(), 2),
-                DispatchError::BadOrigin
+            assert_ok!(Geo::add_registrar(Origin::signed(1), 3));
+            assert!(Registrars::<Test>::get().contains(&3));
+            assert!(!Registrars::<Test>::get().contains(&1));
+            assert!(!Registrars::<Test>::get().contains(&2));
+        });
+    }
+
+    #[test]
+    fn remove_registrar() {
+        with_registrar(|id| {
+            assert!(Registrars::<Test>::get().contains(&3));
+            assert_ok!(Geo::remove_registrar(Origin::signed(1), id));
+            assert!(!Registrars::<Test>::get().contains(&3));
+        });
+    }
+
+    #[test]
+    fn add_registrar_only_force_origin() {
+        new_test_ext().execute_with(|| {
+            assert_err_ignore_postinfo!(Geo::add_registrar(Origin::signed(2), 3), BadOrigin);
+            assert!(!Registrars::<Test>::get().contains(&3));
+        });
+    }
+
+    #[test]
+    fn remove_registrar_only_force_origin() {
+        with_registrar(|id| {
+            assert!(Registrars::<Test>::get().contains(&3));
+            assert_err_ignore_postinfo!(Geo::remove_registrar(Origin::signed(2), id), BadOrigin);
+            assert!(Registrars::<Test>::get().contains(&3));
+        });
+    }
+
+    #[test]
+    fn name_too_short() {
+        with_registrar(|id| {
+            System::set_block_number(1);
+            assert_err_ignore_postinfo!(
+                Geo::register_location(Origin::signed(id), b"AB".to_vec(), 10, 0, 2, None),
+                Error::<Test>::NameTooShort
             );
         });
+    }
+
+    #[test]
+    fn name_too_long() {
+        with_registrar(|id| {
+            System::set_block_number(1);
+            assert_err_ignore_postinfo!(Geo::register_location(
+                Origin::signed(id),
+                b"ABC DEF GHI JKL MNO PQR STU VWX YZ ABC DEF GHI JKL MNO PQR STU VWX YZ ABC DEF GHI JKL MNO PQR STU VWX YZ".to_vec(),
+                10,
+                0,
+                2,None
+            ), Error::<Test>::NameTooLong);
+        });
+    }
+
+    #[test]
+    fn test_register_location() {
+        with_registrar(|id| {
+            System::set_block_number(1);
+
+            assert_ok!(Geo::register_location(
+                Origin::signed(id),
+                b"Yogyakarta".to_vec(),
+                3_689_000,
+                0,
+                2,
+                None
+            ));
+
+            assert_eq!(last_reg_loc_id(), Some(1));
+
+            assert_ok!(Geo::register_location(
+                Origin::signed(id),
+                b"Sleman".to_vec(),
+                3_689_000,
+                0,
+                3,
+                None
+            ));
+
+            assert_eq!(last_reg_loc_id(), Some(2));
+
+            // total must be 2
+            assert_eq!(Geo::count(), 2);
+
+            // non registrar cannot register location
+            assert_err_ignore_postinfo!(
+                Geo::register_location(
+                    Origin::signed(4),
+                    b"Yogyakarta".to_vec(),
+                    3_689_000,
+                    0,
+                    2,
+                    None
+                ),
+                BadOrigin
+            );
+        });
+    }
+
+    #[test]
+    fn test_registrar_can_update_location() {
+        with_registrar(|id| {
+            System::set_block_number(1);
+
+            assert_ok!(Geo::register_location(
+                Origin::signed(id),
+                b"Yogyakarta".to_vec(),
+                3_689_000,
+                0,
+                2,
+                None
+            ));
+            let loc_id = last_reg_loc_id().unwrap();
+            assert_ok!(Geo::update_location(
+                Origin::signed(id),
+                loc_id,
+                b"DIY".to_vec(),
+                3_689_001,
+                1,
+                2,
+                None
+            ));
+
+            assert_eq!(Geo::get(loc_id).map(|a| a.id), Some(loc_id));
+            assert_eq!(Geo::get(loc_id).map(|a| a.name), Some(b"DIY".to_vec()));
+            assert_eq!(Geo::get(loc_id).map(|a| a.population), Some(3_689_001));
+            assert_eq!(Geo::get(loc_id).map(|a| a.parent_location_id), Some(1));
+        });
+    }
+
+    #[test]
+    fn canont_update_non_existing_location() {
+        with_registrar(|id| {
+            System::set_block_number(1);
+
+            let loc_id = 2;
+            assert_err_ignore_postinfo!(
+                Geo::update_location(
+                    Origin::signed(id),
+                    loc_id,
+                    b"DIY".to_vec(),
+                    3_689_001,
+                    1,
+                    2,
+                    None
+                ),
+                Error::<Test>::NotExists
+            );
+        });
+    }
+
+    /// Get last registered location id.
+    /// this done by iterating recent event and catch LocationAdded event.
+    fn last_reg_loc_id() -> Option<LocationId> {
+        System::events()
+            .into_iter()
+            .map(|a| a.event)
+            .filter_map(|e| match e {
+                Event::pallet_geo(LocationAdded(id, _)) => Some(id),
+                _ => None,
+            })
+            .collect::<Vec<LocationId>>()
+            .pop()
     }
 }
