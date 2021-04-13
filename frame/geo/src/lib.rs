@@ -106,7 +106,7 @@ pub mod pallet {
     #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
     pub struct ProposedLocationUpdate<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
         /// Registered location id
-        id: LocationId,
+        pub id: LocationId,
 
         /// Location name
         name: Vec<u8>,
@@ -213,7 +213,11 @@ pub mod pallet {
     pub type Registrars<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
     #[pallet::storage]
-    pub type LocationIdIndex<T> = StorageValue<_, u32>;
+    pub type LocationIdIndex<T: Config> = StorageValue<_, u32>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn counter)]
+    pub type LocationCounter<T: Config> = StorageValue<_, u32>;
 
     macro_rules! validate_name {
         ($name:ident) => {
@@ -275,6 +279,8 @@ pub mod pallet {
                 },
             );
 
+            LocationCounter::<T>::mutate(|c| *c = Some(c.map_or(1, |c| c.saturating_add(1))));
+
             Self::deposit_event(Event::LocationAdded(id, registrar));
 
             Ok(().into())
@@ -298,7 +304,7 @@ pub mod pallet {
                     d.push(id);
                     Ok(())
                 } else {
-                    Err(Error::<T>::NotExists)
+                    Err(Error::<T>::AlreadyExists)
                 }
             })?;
 
@@ -395,6 +401,8 @@ pub mod pallet {
                 lat_long,
             });
 
+            ProposedUpdates::<T>::put(props);
+
             Self::deposit_event(Event::ProposeLocationUpdate(id, origin));
 
             Ok(().into())
@@ -448,6 +456,7 @@ pub mod pallet {
             Self::ensure_registrar(origin)?;
 
             Locations::<T>::remove(id);
+            LocationCounter::<T>::mutate(|c| *c = Some(c.map_or(1, |c| c.saturating_sub(1))));
 
             Self::deposit_event(Event::LocationDeleted(id));
 
@@ -468,6 +477,8 @@ pub mod pallet {
             if props.len() > index as usize {
                 props.remove(index as usize);
             }
+
+            ProposedUpdates::<T>::put(props);
 
             Self::deposit_event(Event::ProposalDeleted(index));
 
@@ -533,7 +544,7 @@ impl<T: Config> Pallet<T> {
 
     /// Get total registered location data.
     pub fn count() -> u32 {
-        LocationIdIndex::<T>::try_get().unwrap_or(0)
+        LocationCounter::<T>::try_get().unwrap_or(0)
     }
 
     /// Ensure origin is registrar
@@ -660,6 +671,24 @@ mod tests {
         new_test_ext().execute_with(|| {
             assert_ok!(Geo::add_registrar(Origin::signed(1), 3));
             func(3);
+        });
+    }
+
+    fn with_registrar_and_location<F>(func: F)
+    where
+        F: FnOnce(<Test as frame_system::Config>::AccountId, LocationId) -> (),
+    {
+        with_registrar(|id| {
+            System::set_block_number(1);
+            assert_ok!(Geo::register_location(
+                Origin::signed(id),
+                b"Yogyakarta".to_vec(),
+                3_689_000,
+                0,
+                2,
+                None
+            ));
+            func(3, last_reg_loc_id().unwrap());
         });
     }
 
@@ -803,8 +832,6 @@ mod tests {
     #[test]
     fn canont_update_non_existing_location() {
         with_registrar(|id| {
-            System::set_block_number(1);
-
             let loc_id = 2;
             assert_err_ignore_postinfo!(
                 Geo::update_location(
@@ -819,6 +846,114 @@ mod tests {
                 Error::<Test>::NotExists
             );
         });
+    }
+
+    #[test]
+    fn propose_update_location() {
+        with_registrar_and_location(|reg_id, loc_id| {
+            assert_eq!(ProposedUpdates::<Test>::get().len(), 0);
+            assert_ok!(Geo::propose_update_location(
+                Origin::signed(5),
+                loc_id,
+                b"Surabaya".to_vec(),
+                0,
+                1,
+                2,
+                None
+            ));
+            assert_eq!(ProposedUpdates::<Test>::get().len(), 1);
+        });
+    }
+
+    #[test]
+    fn apply_proposal_update() {
+        with_registrar_and_location(|reg_id, loc_id| {
+            assert_eq!(
+                Geo::get(loc_id).map(|a| a.name),
+                Some(b"Yogyakarta".to_vec())
+            );
+
+            assert_ok!(Geo::propose_update_location(
+                Origin::signed(reg_id),
+                loc_id,
+                b"Surabaya".to_vec(),
+                33,
+                44,
+                3,
+                None
+            ));
+
+            let index: u32 = System::events()
+                .into_iter()
+                .map(|a| a.event)
+                .next()
+                .map(|e| match e {
+                    Event::pallet_geo(ProposalApplied(index)) => index,
+                    _ => 0,
+                })
+                .unwrap();
+
+            assert_ok!(Geo::apply_proposal_update(Origin::signed(reg_id), index));
+            assert_eq!(Geo::get(loc_id).map(|a| a.name), Some(b"Surabaya".to_vec()));
+            assert_eq!(Geo::get(loc_id).map(|a| a.population), Some(33));
+            assert_eq!(Geo::get(loc_id).map(|a| a.parent_location_id), Some(44));
+            assert_eq!(Geo::get(loc_id).map(|a| a.kind), Some(3));
+        });
+    }
+
+    #[test]
+    fn delete_location() {
+        with_registrar_and_location(|reg_id, loc_id| {
+            assert_eq!(Geo::count(), 1);
+            assert_ok!(Geo::delete_location(Origin::signed(reg_id), loc_id));
+            assert_eq!(Geo::count(), 0);
+            assert_eq!(Geo::get(loc_id), None);
+        })
+    }
+
+    #[test]
+    fn delete_proposal() {
+        with_registrar_and_location(|reg_id, loc_id| {
+            assert_ok!(Geo::propose_update_location(
+                Origin::signed(reg_id),
+                loc_id,
+                b"Surabaya".to_vec(),
+                33,
+                44,
+                3,
+                None
+            ));
+
+            let index: u32 = System::events()
+                .into_iter()
+                .map(|a| a.event)
+                .next()
+                .map(|e| match e {
+                    Event::pallet_geo(ProposalApplied(index)) => index,
+                    _ => 0,
+                })
+                .unwrap();
+
+            assert!(ProposedUpdates::<Test>::get()
+                .iter()
+                .find(|a| a.id == loc_id)
+                .is_some());
+            assert_ok!(Geo::delete_proposal(Origin::signed(reg_id), index));
+            assert!(ProposedUpdates::<Test>::get()
+                .iter()
+                .find(|a| a.id == loc_id)
+                .is_none());
+        })
+    }
+
+    #[test]
+    fn non_registrar_cannot_delete_location() {
+        with_registrar_and_location(|reg_id, loc_id| {
+            assert_eq!(Geo::count(), 1);
+            assert_err_ignore_postinfo!(Geo::delete_location(Origin::signed(5), loc_id), BadOrigin);
+            assert_eq!(Geo::count(), 1);
+            assert!(Geo::get(loc_id).is_some());
+        })
     }
 
     /// Get last registered location id.
