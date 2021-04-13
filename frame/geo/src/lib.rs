@@ -109,16 +109,16 @@ pub mod pallet {
         pub id: LocationId,
 
         /// Location name
-        name: Vec<u8>,
+        name: Option<Vec<u8>>,
 
         /// proposer of the Location
         proposer: AccountId,
 
         /// Population of registered people reside in the location.
-        population: u64,
+        population: Option<u64>,
 
         /// This location is belong to another location.
-        parent_location_id: LocationId,
+        parent_location_id: Option<LocationId>,
 
         /// Location kind
         /// 1 = Country
@@ -127,7 +127,7 @@ pub mod pallet {
         /// 4 = Sub District
         /// 5 = Village
         /// 6 = Sub Village
-        kind: u16,
+        kind: Option<u16>,
 
         /// Latitude Longitude
         lat_long: Option<Vec<u8>>,
@@ -199,14 +199,6 @@ pub mod pallet {
     #[pallet::getter(fn proposed_updates)]
     pub type ProposedUpdates<T: Config> =
         StorageValue<_, Vec<ProposedLocationUpdate<T::AccountId>>, ValueQuery>;
-
-    // #[pallet::storage]
-    // pub type LocationLink<T: Config> = StorageMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     LocationId,
-    //     u32, // change me
-    // >;
 
     /// Registrar index
     #[pallet::storage]
@@ -343,23 +335,33 @@ pub mod pallet {
         pub fn update_location(
             origin: OriginFor<T>,
             id: LocationId,
-            name: Vec<u8>,
-            #[pallet::compact] population: u64,
-            #[pallet::compact] parent_location_id: LocationId,
-            #[pallet::compact] kind: u16,
+            name: Option<Vec<u8>>,
+            population: Option<u64>,
+            parent_location_id: Option<LocationId>,
+            kind: Option<u16>,
             lat_long: Option<Vec<u8>>,
         ) -> DispatchResultWithPostInfo {
             let registrar = Self::ensure_registrar(origin)?;
 
-            validate_name!(name);
+            if let Some(name) = name.as_ref() {
+                validate_name!(name);
+            }
 
             Locations::<T>::try_mutate(id, |d| {
                 d.as_mut()
                     .map(|d| {
-                        d.name = name.clone();
-                        d.population = population;
-                        d.parent_location_id = parent_location_id;
-                        d.kind = kind;
+                        if let Some(name) = name {
+                            d.name = name;
+                        }
+                        if let Some(population) = population {
+                            d.population = population;
+                        }
+                        if let Some(parent_location_id) = parent_location_id {
+                            d.parent_location_id = parent_location_id;
+                        }
+                        if let Some(kind) = kind {
+                            d.kind = kind;
+                        }
                         d.lat_long = lat_long;
                     })
                     .ok_or(Error::<T>::NotExists)
@@ -376,15 +378,17 @@ pub mod pallet {
         pub fn propose_update_location(
             origin: OriginFor<T>,
             id: LocationId,
-            name: Vec<u8>,
-            #[pallet::compact] population: u64,
-            #[pallet::compact] parent_location_id: LocationId,
-            #[pallet::compact] kind: u16,
+            name: Option<Vec<u8>>,
+            population: Option<u64>,
+            parent_location_id: Option<LocationId>,
+            kind: Option<u16>,
             lat_long: Option<Vec<u8>>,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            validate_name!(name);
+            if let Some(name) = name.as_ref() {
+                validate_name!(name);
+            }
 
             let mut props = ProposedUpdates::<T>::get();
 
@@ -430,10 +434,19 @@ pub mod pallet {
                 Locations::<T>::try_mutate(p.id, |d| {
                     d.as_mut()
                         .map(|d| {
-                            d.name = p.name.clone();
-                            d.population = p.population;
-                            d.parent_location_id = p.parent_location_id;
-                            d.kind = p.kind;
+                            if let Some(ref name) = p.name {
+                                d.name = name.clone();
+                            }
+                            if let Some(population) = p.population {
+                                d.population = population;
+                            }
+
+                            if let Some(parent_location_id) = p.parent_location_id {
+                                d.parent_location_id = parent_location_id;
+                            }
+                            if let Some(kind) = p.kind {
+                                d.kind = kind;
+                            }
                         })
                         .ok_or(Error::<T>::NotExists)
                 })?;
@@ -815,10 +828,10 @@ mod tests {
             assert_ok!(Geo::update_location(
                 Origin::signed(id),
                 loc_id,
-                b"DIY".to_vec(),
-                3_689_001,
-                1,
-                2,
+                Some(b"DIY".to_vec()),
+                Some(3_689_001),
+                Some(1),
+                Some(3),
                 None
             ));
 
@@ -826,6 +839,7 @@ mod tests {
             assert_eq!(Geo::get(loc_id).map(|a| a.name), Some(b"DIY".to_vec()));
             assert_eq!(Geo::get(loc_id).map(|a| a.population), Some(3_689_001));
             assert_eq!(Geo::get(loc_id).map(|a| a.parent_location_id), Some(1));
+            assert_eq!(Geo::get(loc_id).map(|a| a.kind), Some(3));
         });
     }
 
@@ -837,14 +851,47 @@ mod tests {
                 Geo::update_location(
                     Origin::signed(id),
                     loc_id,
-                    b"DIY".to_vec(),
-                    3_689_001,
-                    1,
-                    2,
+                    Some(b"DIY".to_vec()),
+                    Some(3_689_001),
+                    Some(1),
+                    Some(2),
                     None
                 ),
                 Error::<Test>::NotExists
             );
+        });
+    }
+
+    // Test ini memastikan bahwa user bisa melakukan update secara parsial
+    // pada data lokasi.
+    #[test]
+    fn update_partial() {
+        with_registrar_and_location(|reg_id, loc_id| {
+            assert_eq!(
+                Geo::get(loc_id).map(|a| a.name),
+                Some(b"Yogyakarta".to_vec())
+            );
+            assert_ok!(Geo::propose_update_location(
+                Origin::signed(5),
+                loc_id,
+                None,
+                Some(101),
+                None,
+                None,
+                None
+            ));
+
+            let index = get_last_proposal_id().unwrap();
+
+            assert_ok!(Geo::apply_proposal_update(Origin::signed(reg_id), index));
+
+            // nama tidak berubah karena tidak termasuk dalam update
+            assert_eq!(
+                Geo::get(loc_id).map(|a| a.name),
+                Some(b"Yogyakarta".to_vec())
+            );
+            assert_eq!(Geo::get(loc_id).map(|a| a.population), Some(101));
+            assert_eq!(Geo::get(loc_id).map(|a| a.kind), Some(2));
         });
     }
 
@@ -855,10 +902,10 @@ mod tests {
             assert_ok!(Geo::propose_update_location(
                 Origin::signed(5),
                 loc_id,
-                b"Surabaya".to_vec(),
-                0,
-                1,
-                2,
+                Some(b"Surabaya".to_vec()),
+                Some(0),
+                Some(1),
+                Some(2),
                 None
             ));
             assert_eq!(ProposedUpdates::<Test>::get().len(), 1);
@@ -876,22 +923,14 @@ mod tests {
             assert_ok!(Geo::propose_update_location(
                 Origin::signed(reg_id),
                 loc_id,
-                b"Surabaya".to_vec(),
-                33,
-                44,
-                3,
+                Some(b"Surabaya".to_vec()),
+                Some(33),
+                Some(44),
+                Some(3),
                 None
             ));
 
-            let index: u32 = System::events()
-                .into_iter()
-                .map(|a| a.event)
-                .next()
-                .map(|e| match e {
-                    Event::pallet_geo(ProposalApplied(index)) => index,
-                    _ => 0,
-                })
-                .unwrap();
+            let index: u32 = get_last_proposal_id().unwrap();
 
             assert_ok!(Geo::apply_proposal_update(Origin::signed(reg_id), index));
             assert_eq!(Geo::get(loc_id).map(|a| a.name), Some(b"Surabaya".to_vec()));
@@ -917,10 +956,10 @@ mod tests {
             assert_ok!(Geo::propose_update_location(
                 Origin::signed(reg_id),
                 loc_id,
-                b"Surabaya".to_vec(),
-                33,
-                44,
-                3,
+                Some(b"Surabaya".to_vec()),
+                Some(33),
+                Some(44),
+                Some(3),
                 None
             ));
 
@@ -968,5 +1007,16 @@ mod tests {
             })
             .collect::<Vec<LocationId>>()
             .pop()
+    }
+
+    fn get_last_proposal_id() -> Option<u32> {
+        System::events()
+            .into_iter()
+            .map(|a| a.event)
+            .next()
+            .map(|e| match e {
+                Event::pallet_geo(ProposalApplied(index)) => index,
+                _ => 0,
+            })
     }
 }
