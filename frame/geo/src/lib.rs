@@ -17,9 +17,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::convert::TryInto;
+
 use frame_support::{
+    debug,
     dispatch::DispatchError,
     ensure,
+    sp_runtime::offchain::{
+        self as rt_offchain,
+        storage::StorageValueRef,
+        storage_lock::{StorageLock, Time},
+    },
     traits::{Currency, EnsureOrigin, Get, OnUnbalanced, ReservableCurrency, UnixTime},
 };
 use frame_system::ensure_signed;
@@ -39,6 +47,9 @@ pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, HasCompact};
 
+pub const LISTENER_ENDPOINT: &str = "http://localhost:3835";
+pub const LOCK_TIMEOUT: u64 = 3000; // in milli-seconds
+
 type LocationId = u32;
 
 #[frame_support::pallet]
@@ -52,8 +63,8 @@ pub mod pallet {
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+    // #[pallet::hooks]
+    // impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -163,6 +174,7 @@ pub mod pallet {
         Unknown,
     }
 
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     #[pallet::metadata(
@@ -210,6 +222,10 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn counter)]
     pub type LocationCounter<T: Config> = StorageValue<_, u32>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn ocw_notifs)]
+    pub type OcwNotifs<T: Config> = StorageMap<_, Identity, T::BlockNumber, Vec<Event<T>>>;
 
     macro_rules! validate_name {
         ($name:ident) => {
@@ -499,6 +515,27 @@ pub mod pallet {
         }
     }
 
+    // --------------------------
+    //          HOOKS
+    // --------------------------
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn offchain_worker(block_number: T::BlockNumber) {
+            let mut lock = StorageLock::<Time>::with_deadline(
+                b"geo_notif_ocw::lock",
+                rt_offchain::Duration::from_millis(LOCK_TIMEOUT),
+            );
+            match lock.try_lock() {
+                Ok(_guard) => {
+                    Self::process_notifications(block_number);
+                }
+                Err(_err) => {
+                    debug::info!("[geo_notif_ocw] lock is already acquired");
+                }
+            };
+        }
+    }
+
     // -------------------------------------------------------------------
     //                      GENESIS CONFIGURATION
     // -------------------------------------------------------------------
@@ -506,9 +543,10 @@ pub mod pallet {
     // The genesis config type.
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        pub dummy: u32,
-        pub bar: Vec<(T::AccountId, u32)>,
-        pub foo: u32,
+        // pub dummy: u32,
+        // pub bar: Vec<(T::AccountId, u32)>,
+        // pub foo: u32,
+        _phantom: PhantomData<T>,
     }
 
     // The default value for the genesis config type.
@@ -516,9 +554,10 @@ pub mod pallet {
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
-                dummy: Default::default(),
-                bar: Default::default(),
-                foo: Default::default(),
+                // dummy: Default::default(),
+                // bar: Default::default(),
+                // foo: Default::default(),
+                _phantom: PhantomData,
             }
         }
     }
@@ -538,6 +577,7 @@ pub mod pallet {
 
 use crate::DispatchError::BadOrigin;
 use frame_system::RawOrigin;
+use codec::alloc::string::ToString;
 
 /// The main implementation of this Geo pallet.
 impl<T: Config> Pallet<T> {
@@ -576,7 +616,97 @@ impl<T: Config> Pallet<T> {
             _ => Err(BadOrigin),
         }
     }
+
+    // ------------ OFF-CHAIN WORKER METHODS ------------------
+
+    fn process_notifications(block_number: T::BlockNumber) {
+        let last_processed_block_ref =
+            StorageValueRef::persistent(b"geo::last_processed_block_ref");
+        let mut last_processed_block: u32 = match last_processed_block_ref.get::<T::BlockNumber>() {
+            Some(Some(last_processed_block)) if last_processed_block >= block_number => {
+                debug::info!(
+                    "[geo_ocw] Skipping block {:?}, already processed",
+                    block_number
+                );
+                return;
+            }
+            Some(Some(last_processed_block)) => last_processed_block.try_into().ok().unwrap_or(0),
+            None => 0u32,
+            _ => {
+                debug::error!("[geo_ocw] Error reading geo::last_processed_block data");
+                return;
+            }
+        };
+
+        let start_block = last_processed_block + 1;
+        let end_block = block_number.try_into().ok().unwrap_or(0u32) as u32;
+        if end_block <= start_block {
+            return;
+        }
+        for current_block in start_block..end_block {
+            debug::debug!("[geo_ocw] processing notif for block {}", current_block);
+
+            // if let Ok(Some(extrinsics)) = system::Module::<T>::body_block(block_body){
+            //     for extr in extrinsics {
+            //     }
+            // }
+            if let Some(evs) = OcwNotifs::<T>::get(T::BlockNumber::from(current_block)){
+                for ev in evs {
+                    Self::notify_listener(ev);
+                }
+            }
+
+            last_processed_block = current_block;
+        }
+
+        // save last processed block
+        if last_processed_block >= start_block {
+            last_processed_block_ref.set(&last_processed_block);
+            debug::info!("[geo_ocw] successfully processed block {}", last_processed_block);
+        }
+    }
+
+    fn notify_listener(ev: Event<T>) -> Result<(), &'static str> {
+        let req = sp_runtime::offchain::http::Request::post(&LISTENER_ENDPOINT, vec![ev.to_string()]);
+        
+        let timeout =
+            sp_io::offchain::timestamp().add(sp_runtime::offchain::Duration::from_millis(3000));
+
+        let pending = req
+            .add_header(&"Content-Type", &"text/plain")
+            .deadline(timeout) // Setting the timeout time
+            .send() // Sending the request out by the host
+            .map_err(|_| "http post request building error")?;
+
+        let response = pending
+            .try_wait(timeout)
+            .map_err(|_| "http post request sent error")?
+            .map_err(|_| "http post request sent error")?;
+
+        if response.code != 200 {
+            return Err("http response error");
+        }
+
+        Ok(())
+    }
 }
+
+use pallet::Event::*;
+
+impl<T: Config> std::fmt::Display for Event<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            LocationAdded(loc_id, user_id) => write!(f, r#"""{{"type":"LocationAdded","location_id": {}, "registrar_id": {}}}"""#, loc_id, user_id),
+            LocationUpdated(loc_id, user_id) => write!(f, r#"""{{"type":"LocationUpdated","location_id": {}, "registrar_id": {}}}"""#, loc_id, user_id),
+            LocationDeleted(loc_id) => write!(f, r#"""{{"type":"LocationDeleted","location_id": {}}}"""#, loc_id),
+            ProposeLocationUpdate(loc_id, user_id) => write!(f, r#"""{{"type":"ProposeLocationUpdate","location_id": {}, "proposer":{}}}"""#, loc_id, user_id),
+            ProposalApplied(proposal_index) => write!(f, r#"""{{"type":"ProposalApplied","proposal_index": {}}}"""#, proposal_index),
+            ProposalDeleted(proposal_index) => write!(f, r#"""{{"type":"ProposalDeleted","proposal_index": {}}}"""#, proposal_index),
+            _ => f.write_str("{}")
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
