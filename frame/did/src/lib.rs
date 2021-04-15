@@ -17,17 +17,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-    dispatch::{DispatchResult},
-    ensure,
-    traits::{Time},
-};
+use frame_support::{dispatch::DispatchResult, ensure, traits::Time};
 use frame_system::ensure_signed;
 pub use pallet::*;
 use sp_io::hashing::blake2_256;
-use sp_runtime::{
-    traits::{IdentifyAccount, Verify},
-};
+use sp_runtime::traits::{IdentifyAccount, Verify};
 // use sp_std::{fmt::Debug, prelude::*, vec};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -75,18 +69,10 @@ pub mod pallet {
         type Time: Time;
     }
 
-    // #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
-    // pub struct Delegate<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
-    //     /// Delegate name
-    //     name: Vec<u8>,
-
-    //     /// owner of the Delegate
-    //     owner: AccountId,
-    // }
-
     #[pallet::error]
     pub enum Error<T> {
         NotOwner,
+        AlreadyExists,
         InvalidDelegate,
         BadSignature,
         AttributeNameTooLong,
@@ -97,6 +83,7 @@ pub mod pallet {
         InvalidAttribute,
         Overflow,
         BadTransaction,
+        TransactionNameTooLong,
     }
 
     #[pallet::event]
@@ -355,9 +342,7 @@ pub mod pallet {
     // The genesis config type.
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        pub dummy: u32,
-        pub bar: Vec<(T::AccountId, u32)>,
-        pub foo: u32,
+        _phantom: PhantomData<T>,
     }
 
     // The default value for the genesis config type.
@@ -365,9 +350,7 @@ pub mod pallet {
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
-                dummy: Default::default(),
-                bar: Default::default(),
-                foo: Default::default(),
+                _phantom: Default::default(),
             }
         }
     }
@@ -375,32 +358,12 @@ pub mod pallet {
     // The build of genesis for the pallet.
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-        fn build(&self) {
-            // <Dummy<T>>::put(&self.dummy);
-            // for (a, b) in &self.bar {
-            // 	<Bar<T>>::insert(a, b);
-            // }
-            // <Foo<T>>::put(&self.foo);
-        }
+        fn build(&self) {}
     }
 }
 
 /// The main implementation of this Did pallet.
 impl<T: Config> Pallet<T> {
-    // /// Get the did detail
-    // pub fn did(id: DelegateId) -> Option<Delegate<T::AccountId>> {
-    //     Delegates::<T>::get(id)
-    // }
-
-    // /// Get next did ID
-    // pub fn next_id() -> u32 {
-    //     let next_id = <DelegateIdIndex<T>>::try_get().unwrap_or(0).saturating_add(1);
-    //     <DelegateIdIndex<T>>::put(next_id);
-    //     next_id
-    // }
-    /// Creates a new attribute from a off-chain transaction.
-    ///
-
     /// Get nonce for _identity_ and _name_.
     ///
     fn get_nonce(identity: &T::AccountId, name: &[u8]) -> u64 {
@@ -423,7 +386,10 @@ impl<T: Config> Pallet<T> {
             &transaction.signer,
         )?;
         Self::is_owner(&transaction.identity, &transaction.signer)?;
-        ensure!(transaction.name.len() <= 64, Error::<T>::BadTransaction);
+        ensure!(
+            transaction.name.len() <= 64,
+            Error::<T>::TransactionNameTooLong
+        );
 
         let now_block_number = <frame_system::Module<T>>::block_number();
         let validity = now_block_number + transaction.validity.into();
@@ -512,7 +478,7 @@ impl<T: Config>
         ensure!(who != delegate, Error::<T>::InvalidDelegate);
         ensure!(
             !Self::valid_listed_delegate(identity, delegate_type, delegate).is_ok(),
-            Error::<T>::InvalidDelegate
+            Error::<T>::AlreadyExists
         );
 
         let now_block_number = <frame_system::Module<T>>::block_number();

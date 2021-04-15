@@ -53,7 +53,7 @@ fn validate_delegated_claim() {
             DID::add_delegate(
                 Origin::signed(satoshi_public.clone()),
                 satoshi_public,  // owner
-                nakamoto_public, // new signer delgate
+                nakamoto_public, // new signer delegate
                 delegate_type,   // "Sr25519VerificationKey2018"
                 Some(5)
             ) // valid for 5 blocks
@@ -172,6 +172,7 @@ fn attacker_to_transfer_identity_should_fail() {
     });
 }
 
+
 #[test]
 fn attacker_add_new_delegate_should_fail() {
     new_test_ext().execute_with(|| {
@@ -201,12 +202,101 @@ fn attacker_add_new_delegate_should_fail() {
     });
 }
 
+
+#[test]
+fn revoke_delegate_works() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        // Predefined delegate type: "Sr25519VerificationKey2018"
+        let delegate_type = b"x25519VerificationKey2018".to_vec();
+
+        let satoshi_public = account_key("Satoshi"); // Get Satoshi's public key.
+        let nakamoto_pair = account_pair("Nakamoto"); // Create a new delegate account pair.
+        let nakamoto_public = nakamoto_pair.public(); // Get delegate's public key.
+
+        // Add signer delegate
+        assert_ok!(
+            DID::add_delegate(
+                Origin::signed(satoshi_public.clone()),
+                satoshi_public,  // owner
+                nakamoto_public, // new signer delegate
+                delegate_type.clone(),   // "Sr25519VerificationKey2018"
+                Some(5)
+            ) // valid for 5 blocks
+        );
+
+        System::set_block_number(2);
+
+        assert_ok!(
+            DID::valid_delegate(&satoshi_public, &delegate_type, &nakamoto_public)
+        );
+
+        System::set_block_number(3);
+
+        assert_ok!(
+            DID::revoke_delegate(
+                Origin::signed(satoshi_public),
+                satoshi_public,
+                delegate_type.clone(),
+                nakamoto_public
+            )
+        );
+
+        System::set_block_number(4);
+
+        assert_noop!(
+            DID::valid_delegate(&satoshi_public, &delegate_type, &nakamoto_public),
+            Error::<Test>::InvalidDelegate
+        );
+    });
+}
+
+#[test]
+fn non_owner_cannot_revoke_delegate() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        // Predefined delegate type: "Sr25519VerificationKey2018"
+        let delegate_type = b"x25519VerificationKey2018".to_vec();
+
+        let satoshi_public = account_key("Satoshi"); // Get Satoshi's public key.
+        let nakamoto_pair = account_pair("Nakamoto"); // Create a new delegate account pair.
+        let nakamoto_public = nakamoto_pair.public(); // Get delegate's public key.
+
+        // Add signer delegate
+        assert_ok!(
+            DID::add_delegate(
+                Origin::signed(satoshi_public.clone()),
+                satoshi_public,  // owner
+                nakamoto_public, // new signer delegate
+                delegate_type.clone(),   // "Sr25519VerificationKey2018"
+                Some(5)
+            ) // valid for 5 blocks
+        );
+
+        assert_noop!(
+            DID::revoke_delegate(
+                Origin::signed(account_key("BadBoy")),
+                satoshi_public,
+                delegate_type.clone(),
+                nakamoto_public
+            ),
+            Error::<Test>::NotOwner
+        );
+
+        assert_ok!(
+            DID::valid_delegate(&satoshi_public, &delegate_type, &nakamoto_public)
+        );
+    });
+}
+
 #[test]
 fn add_remove_add_remove_attr() {
     new_test_ext().execute_with(|| {
         let acct = "Alice";
         let vec = vec![7, 7, 7];
-        assert_eq!(DID::nonce_of((account_key(acct), vec.to_vec())), None);
+        assert_eq!(DID::get_nonce(&account_key(acct), &vec), 0);
         assert_ok!(DID::add_attribute(
             Origin::signed(account_key(acct)),
             account_key(acct),
@@ -214,7 +304,7 @@ fn add_remove_add_remove_attr() {
             vec.to_vec(),
             None
         ));
-        assert_eq!(DID::nonce_of((account_key(acct), vec.to_vec())), Some(1));
+        assert_eq!(DID::get_nonce(&account_key(acct), &vec), 1);
         assert_ok!(DID::delete_attribute(
             Origin::signed(account_key(acct)),
             account_key(acct),
@@ -227,7 +317,7 @@ fn add_remove_add_remove_attr() {
             vec.to_vec(),
             None
         ));
-        assert_eq!(DID::nonce_of((account_key(acct), vec.to_vec())), Some(2));
+        assert_eq!(DID::get_nonce(&account_key(acct), &vec), 2);
         assert_ok!(DID::delete_attribute(
             Origin::signed(account_key(acct)),
             account_key(acct),
