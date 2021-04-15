@@ -22,15 +22,16 @@ use frame_system::ensure_signed;
 pub use pallet::*;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{IdentifyAccount, Verify};
-// use sp_std::{fmt::Debug, prelude::*, vec};
+use sp_std::{fmt::Debug, prelude::*, vec};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-use crate::did::Did;
+// use crate::did::Did;
 use crate::types::{Attribute, AttributeTransaction, AttributedId};
 use codec::{Decode, Encode};
 pub use weights::WeightInfo;
+pub use did::Did;
 
 mod did;
 mod types;
@@ -230,14 +231,10 @@ pub mod pallet {
             Self::valid_listed_delegate(&identity, &delegate_type, &delegate)?;
             ensure!(delegate_type.len() <= 64, Error::<T>::InvalidDelegate);
 
-            let now_timestamp = T::Time::now();
-            let now_block_number = <frame_system::Module<T>>::block_number();
+            
 
-            // Update only the validity period to revoke the delegate.
-            <DelegateOf<T>>::mutate((&identity, &delegate_type, &delegate), |b| {
-                *b = Some(now_block_number)
-            });
-            <UpdatedBy<T>>::insert(&identity, (who, now_block_number, now_timestamp));
+            Self::revoke_delegate_intrernal(&identity, &delegate_type, &delegate);
+            
             Self::deposit_event(Event::DelegateRevoked(identity, delegate_type, delegate));
             Ok(().into())
         }
@@ -373,6 +370,18 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Revoke delegate without check
+    pub fn revoke_delegate_intrernal(identity: &T::AccountId, delegate_type: Vec<u8>, delegate: T::AccountId) -> DispatchResult {
+        let now_timestamp = T::Time::now();
+        let now_block_number = <frame_system::Module<T>>::block_number();
+
+        // Update only the validity period to revoke the delegate.
+        <DelegateOf<T>>::mutate((&identity, &delegate_type, &delegate), |b| {
+            *b = Some(now_block_number)
+        });
+        <UpdatedBy<T>>::insert(&identity, (who, now_block_number, now_timestamp));
+    }
+
     fn signed_attribute(
         who: T::AccountId,
         encoded: &[u8],
@@ -434,6 +443,8 @@ impl<T: Config>
     }
 
     /// Validates if a delegate belongs to an identity and it has not expired.
+    /// 
+    /// return Ok if valid.
     fn valid_delegate(
         identity: &T::AccountId,
         delegate_type: &[u8],

@@ -1049,6 +1049,18 @@ impl pallet_certificate::Config for Runtime {
 }
 
 
+// parameter_types! {
+
+// }
+
+impl pallet_did::Config for Runtime {
+	type Event = Event;
+	type Public = Self::AccountId;
+	type Signature = Self::Signature;
+	type Time = Timestamp;
+	type WeightInfo = pallet_did::weights::SubstrateWeight<Runtime>;
+}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -1092,6 +1104,7 @@ construct_runtime!(
 		Mmr: pallet_mmr::{Module, Storage},
 		// Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
 		Nicks: pallet_nicks::{Module, Call, Storage, Event<T>},
+		Did: pallet_did::{Module, Call, Storage, Event<T>},
 		Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
 		Organization: pallet_organization::{Module, Call, Storage, Event<T>}
 	}

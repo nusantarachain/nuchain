@@ -127,6 +127,10 @@ pub mod pallet {
         CertAdded(u64, T::Hash, OrgId),
 
         /// Some cert was issued
+        /// 
+        /// param:
+        ///     1 - Hash of issued certificate.
+        ///     2 - Recipient of certificate.
         CertIssued(T::Hash, T::AccountId),
     }
 
@@ -136,12 +140,16 @@ pub mod pallet {
     #[derive(Decode, Encode, Eq, PartialEq, RuntimeDebug)]
     pub struct CertProof<T: Config> {
         pub cert_id: T::Hash,
+
+        /// Human readable ID representation.
         pub human_id: Vec<u8>,
         pub time: <<T as pallet::Config>::Time as Time>::Moment,
     }
 
+    /// double map pair of: OrgId -> Issue ID -> Proof
     #[pallet::storage]
-    pub type IssuedCertificates<T: Config> = StorageDoubleMap<
+    #[pallet::getter(fn issued_cert)]
+    pub type IssuedCert<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         OrgId,
@@ -151,7 +159,8 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    pub type IssuedCertificateOwner<T: Config> = StorageDoubleMap<
+    #[pallet::getter(fn issued_cert_owner)]
+    pub type IssuedCertOwner<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         OrgId,
@@ -213,6 +222,7 @@ pub mod pallet {
                 CertDetail {
                     name: name.clone(),
                     org_id: org_id.clone(),
+                    description: vec![]
                 },
             );
 
@@ -221,7 +231,10 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Issue certificate
+        /// Issue certificate.
+        /// 
+        /// After organization create certificate; admin should be able to
+        /// issue certificate to someone.
         ///
         /// The dispatch origin for this call must match `T::ForceOrigin`.
         ///
@@ -233,8 +246,8 @@ pub mod pallet {
             #[pallet::compact] org_id: OrgId,
             cert_id: T::Hash,
             desc: Vec<u8>,
-            recipient: Vec<u8>,
-            acc_handler: <T::Lookup as StaticLookup>::Source,
+            recipient: Vec<u8>, // handler sure name
+            // acc_handler: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
 
@@ -246,7 +259,7 @@ pub mod pallet {
             let org = T::Organization::get(org_id).ok_or(Error::<T>::Unknown)?;
             ensure!(org.admin == sender, Error::<T>::PermissionDenied);
 
-            let acc_handler = T::Lookup::lookup(acc_handler)?;
+            // let acc_handler = T::Lookup::lookup(acc_handler)?;
 
             let issue_id = T::Hashing::hash(
                 &org_id
@@ -259,29 +272,25 @@ pub mod pallet {
                     .collect::<Vec<u8>>(),
             );
 
-            let collections = IssuedCertificates::<T>::get(org_id, &issue_id);
+            let cert = IssuedCert::<T>::get(org_id, &issue_id);
 
             // pastikan penerima belum memiliki sertifikat yang dimaksud.
             ensure!(
-                !collections
-                    .as_ref()
-                    .map(|ref o| o.iter().any(|ref v| v.cert_id == cert_id))
-                    // .map(|ref o| o.cert_id == cert_id)
-                    .unwrap_or(false),
+                cert.cert_id != cert_id,
                 Error::<T>::AlreadyExists
             );
 
-            let rv = if let Some(_colls) = collections {
+            let rv = if let Some(_cert) = cert {
                 // apabila sudah pernah diisi update isinya
                 // dengan ditambahkan sertifikat pada koleksi penerima.
-                IssuedCertificates::<T>::try_mutate(org_id, &acc_handler, |vs| {
+                IssuedCertOwner::<T>::try_mutate(org_id, &acc_handler, |vs| {
                     let vs = vs.as_mut().ok_or(Error::<T>::Unknown)?;
                     vs.push((cert_id, desc, T::Time::now()));
                     Ok(().into())
                 })
             } else {
                 // inisialisasi koleksi pertama.
-                IssuedCertificates::<T>::insert(
+                IssuedCertOwner::<T>::insert(
                     org_id,
                     &acc_handler,
                     vec![(cert_id, desc, T::Time::now())],

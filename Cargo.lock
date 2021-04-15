@@ -1310,23 +1310,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "did"
-version = "0.0.1"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
- "pallet-timestamp",
- "parity-scale-codec",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "difference"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4288,6 +4271,7 @@ dependencies = [
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
  "pallet-democracy",
+ "pallet-did",
  "pallet-elections-phragmen",
  "pallet-grandpa",
  "pallet-identity",
@@ -4754,6 +4738,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-did"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-elections"
 version = "3.0.0"
 dependencies = [
@@ -5075,7 +5076,10 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "lazy_static",
  "pallet-balances",
+ "pallet-did",
+ "pallet-timestamp",
  "parity-scale-codec",
  "serde",
  "sp-core",

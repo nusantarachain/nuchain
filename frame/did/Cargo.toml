@@ -1,5 +1,5 @@
 [package]
-name = "did"
+name = "pallet-did"
 version = "0.0.1"
 authors = ["Robin Syihab <robin.syihab@gmail.com>"]
 edition = "2018"
