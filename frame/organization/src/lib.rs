@@ -26,8 +26,8 @@ use frame_support::{
     },
 };
 use frame_system::ensure_signed;
-use sp_core::crypto::{UncheckedFrom, Wraps};
-use sp_runtime::traits::{Hash, MaybeDisplay, StaticLookup};
+use sp_core::crypto::{UncheckedFrom};
+use sp_runtime::traits::{Hash, StaticLookup};
 use sp_std::{fmt::Debug, prelude::*};
 
 use enumflags2::{bitflags, BitFlags};
@@ -40,6 +40,7 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, EncodeLike};
+use pallet_did::{self as did, Did};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -47,7 +48,6 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use pallet_did::{self as did, Did};
     use sp_std::vec;
 
     type BalanceOf<T> =
@@ -161,6 +161,9 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance")]
     pub enum Event<T: Config> {
         /// Some object added inside the system.
+        ///
+        /// 1: organization id (hash)
+        /// 2: creator account id
         OrganizationAdded(T::AccountId, T::AccountId),
 
         /// When object deleted
@@ -302,7 +305,7 @@ pub mod pallet {
             website: Vec<u8>,
             email: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            let origin = ensure_signed(origin)?;
+            let who = ensure_signed(origin.clone())?;
 
             ensure!(
                 name.len() >= T::MinOrgNameLength::get(),
@@ -327,17 +330,17 @@ pub mod pallet {
 
             // Process payment
             T::Payment::on_unbalanced(T::Currency::withdraw(
-                &origin,
+                &who,
                 cost,
                 WithdrawReasons::FEE,
                 KeepAlive,
             )?);
 
-            // generate organization hash
+            // generate organization id (hash)
             let org_id: T::AccountId = UncheckedFrom::unchecked_from(T::Hashing::hash(
                 &index
                     .to_le_bytes()
-                    .into_iter()
+                    .iter()
                     .chain(name.iter())
                     .chain(description.iter())
                     .chain(website.iter())
@@ -375,8 +378,9 @@ pub mod pallet {
             );
 
             // DID add attribute
-            <pallet_did::Module<T>>::create_delegate(&org_id, &org_id, &admin, b"OrgAdmin", None)?;
-            <pallet_did::Module<T>>::create_attribute(&admin, &admin, b"Org", &name, None)?;
+            <pallet_did::Module<T>>::create_attribute(&org_id, &org_id, b"Org", &name, None)?;
+            // Set owner of this organization in DID
+            <pallet_did::Module<T>>::set_owner(&who, &org_id, &admin);
 
             Self::deposit_event(Event::OrganizationAdded(org_id, admin));
 
@@ -421,7 +425,8 @@ pub mod pallet {
 
             let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            if !did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin_1).is_ok()
+            if !(org.admin == origin_1
+                || did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin_1).is_ok())
                 || flags.contains(FlagDataBit::System)
                 || flags.contains(FlagDataBit::Verified)
             {
@@ -448,10 +453,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
-
-            ensure!(did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin).is_ok(), 
-                Error::<T>::PermissionDenied);
+            let org = Self::ensure_access(&origin, &org_id)?;
 
             ensure!(!org.suspended, Error::<T>::Suspended);
 
@@ -488,7 +490,8 @@ pub mod pallet {
             let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
             // ensure!(org.admin == origin, Error::<T>::PermissionDenied);
-            did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)?;
+            // did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)?;
+            Self::ensure_access(&origin, &org_id)?;
 
             ensure!(!org.suspended, Error::<T>::Suspended);
 
@@ -519,18 +522,18 @@ pub mod pallet {
 
             let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            if !did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin_1).is_ok() {
+            if org.admin != origin_1 {
                 T::ForceOrigin::ensure_origin(origin)?;
             } else {
                 ensure!(!org.suspended, Error::<T>::Suspended);
             }
 
-            // ensure!(org.admin != account_id, Error::<T>::AlreadySet);
+            ensure!(org.admin != account_id, Error::<T>::AlreadySet);
 
             // did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)?;
 
-            did::Module::<T>::revoke_delegate_internal(&org_id, b"OrgAdmin", &account_id);
-            did::Module::<T>::create_delegate(&org_id, &org_id, &account_id, b"OrgAdmin", None)?;
+            // did::Module::<T>::revoke_delegate_internal(&org_id, b"OrgAdmin", &account_id);
+            // did::Module::<T>::create_delegate(&org_id, &org_id, &account_id, b"OrgAdmin", None)?;
 
             <Organizations<T>>::mutate(&org_id, |org| {
                 if let Some(org) = org {
@@ -539,6 +542,30 @@ pub mod pallet {
             });
 
             Self::deposit_event(Event::AdminChanged(org_id, account_id));
+
+            Ok(().into())
+        }
+
+        /// Delegate admin access to other.
+        ///
+        /// Use _did_ for share access with expiration.
+        ///
+        /// Only admin of organization can do this operation.
+        ///
+        #[pallet::weight(100_000)]
+        pub(crate) fn delegate_access(
+            origin: OriginFor<T>,
+            org_id: T::AccountId,
+            to: T::AccountId,
+            valid_for: Option<T::BlockNumber>,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
+
+            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+
+            did::Module::<T>::create_delegate(&origin, &org_id, &to, b"OrgAdmin", valid_for)?;
 
             Ok(().into())
         }
@@ -551,9 +578,6 @@ pub mod pallet {
     // The genesis config type.
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        // pub dummy: u32,
-        // pub bar: Vec<(T::AccountId, u32)>,
-        // pub foo: u32,
         _phantom: PhantomData<T>,
     }
 
@@ -562,9 +586,6 @@ pub mod pallet {
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
-                // dummy: Default::default(),
-                // bar: Default::default(),
-                // foo: Default::default(),
                 _phantom: Default::default(),
             }
         }
@@ -573,13 +594,7 @@ pub mod pallet {
     // The build of genesis for the pallet.
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-        fn build(&self) {
-            // <Dummy<T>>::put(&self.dummy);
-            // for (a, b) in &self.bar {
-            // 	<Bar<T>>::insert(a, b);
-            // }
-            // <Foo<T>>::put(&self.foo);
-        }
+        fn build(&self) {}
     }
 }
 
@@ -600,10 +615,23 @@ macro_rules! method_is_flag {
 
 /// The main implementation of this Organization pallet.
 impl<T: Config> Pallet<T> {
-    // /// Get the Organization detail
-    // pub fn get(id: OrgId) -> Option<Organization> {
-    //     Organizations::<T>::get(id)
-    // }
+    /// Memastikan origin dapat akses resource.
+    ///
+    /// Prosedur ini akan memeriksa apakah origin admin
+    /// atau delegator.
+    pub fn ensure_access(
+        origin: &T::AccountId,
+        org_id: &T::AccountId,
+    ) -> Result<Organization<T::AccountId>, Error<T>> {
+        let org = Self::organization(&org_id).ok_or(Error::<T>::NotExists)?;
+
+        if &org.admin != origin {
+            did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)
+                .map_err(|_| Error::<T>::PermissionDenied)?;
+        }
+
+        Ok(org)
+    }
 
     /// Get next Organization ID
     pub fn next_index() -> Result<u64, Error<T>> {
@@ -637,16 +665,6 @@ impl<T: Config> Pallet<T> {
         Self::organization(id).map(|a| a.admin)
     }
 }
-
-// pub trait OrgProvider<T: Config> {
-//     fn get(id: OrgId) -> Option<Organization>;
-// }
-
-// impl<T: Config> OrgProvider<T> for Pallet<T> {
-//     fn get(id: OrgId) -> Option<Organization> {
-//         Organizations::<T>::get(id)
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
@@ -711,10 +729,6 @@ mod tests {
         type SS58Prefix = ();
     }
 
-    // impl Wraps for [u8; 32] {
-    //     type Inner = [u8; 32];
-    // }
-
     parameter_types! {
         pub const ExistentialDeposit: u64 = 1;
     }
@@ -744,12 +758,10 @@ mod tests {
         type WeightInfo = pallet_did::weights::SubstrateWeight<Self>;
     }
 
-    use sp_core::crypto::AccountId32;
-
     parameter_types! {
         pub const MinOrgNameLength: usize = 3;
         pub const MaxOrgNameLength: usize = 16;
-        pub const MaxMemberCount: usize = 300;
+        pub const MaxMemberCount: usize = 3;
         pub const CreationFee: u64 = 20;
     }
 
@@ -788,6 +800,30 @@ mod tests {
         .assimilate_storage(&mut t)
         .unwrap();
         t.into()
+    }
+
+    type OrgEvent = pallet_organization::Event<Test>;
+
+    fn last_event() -> OrgEvent {
+        System::events()
+            .into_iter()
+            .map(|r| r.event)
+            .filter_map(|e| {
+                if let Event::pallet_organization(inner) = e {
+                    Some(inner)
+                } else {
+                    None
+                }
+            })
+            .last()
+            .expect("Event expected")
+    }
+
+    fn last_org_id() -> Option<<Test as frame_system::Config>::AccountId> {
+        match last_event() {
+            OrgEvent::OrganizationAdded(org_id, _) => Some(org_id),
+            _ => None,
+        }
     }
 
     #[test]
@@ -842,6 +878,8 @@ mod tests {
     #[test]
     fn org_id_incremented_correctly() {
         new_test_ext().execute_with(|| {
+            System::set_block_number(1);
+
             assert_eq!(Pallet::<Test>::next_index().unwrap(), 1);
             assert_ok!(Organization::create_org(
                 Origin::signed(*ALICE),
@@ -851,6 +889,8 @@ mod tests {
                 b"".to_vec(),
                 b"".to_vec()
             ));
+            let org_id1 = last_org_id().unwrap();
+
             assert_eq!(Pallet::<Test>::next_index().unwrap(), 3);
             assert_ok!(Organization::create_org(
                 Origin::signed(*ALICE),
@@ -860,12 +900,13 @@ mod tests {
                 b"".to_vec(),
                 b"".to_vec()
             ));
+            let org_id2 = last_org_id().unwrap();
             assert_eq!(Pallet::<Test>::next_index().unwrap(), 5);
             assert_eq!(Pallet::<Test>::organization(*EVE), None);
-            assert!(Pallet::<Test>::organization(*BOB)
+            assert!(Pallet::<Test>::organization(org_id1)
                 .map(|a| &a.name == b"ORG2")
                 .unwrap_or(false));
-            assert!(Pallet::<Test>::organization(*DAVE)
+            assert!(Pallet::<Test>::organization(org_id2)
                 .map(|a| &a.name == b"ORG4")
                 .unwrap_or(false));
         });
@@ -892,7 +933,7 @@ mod tests {
     #[test]
     fn new_created_org_active() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_eq!(Organization::is_active(org_id), true);
                 assert_eq!(Organization::is_verified(org_id), false);
                 assert_eq!(Organization::is_gov(org_id), false);
@@ -904,7 +945,7 @@ mod tests {
     #[test]
     fn set_flags_works() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_eq!(Organization::is_verified(org_id), false);
                 assert_ok!(Organization::set_flags(
                     Origin::signed(*BOB),
@@ -926,7 +967,7 @@ mod tests {
     #[test]
     fn set_flags_system_only_for_force_origin() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 // System
                 assert_noop!(
                     Organization::set_flags(
@@ -967,7 +1008,7 @@ mod tests {
     #[test]
     fn add_member_works() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_ok!(Organization::add_member(
                     Origin::signed(*BOB),
                     org_id,
@@ -981,7 +1022,7 @@ mod tests {
     #[test]
     fn add_member_not_allowed_by_non_org_admin() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_err_ignore_postinfo!(
                     Organization::add_member(Origin::signed(*CHARLIE), org_id, *BOB),
                     Error::<Test>::PermissionDenied
@@ -994,7 +1035,7 @@ mod tests {
     #[test]
     fn remove_member_works() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_ok!(Organization::add_member(
                     Origin::signed(*BOB),
                     org_id,
@@ -1014,7 +1055,7 @@ mod tests {
     #[test]
     fn remove_member_non_admin_not_allowed() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_ok!(Organization::add_member(
                     Origin::signed(*BOB),
                     org_id,
@@ -1031,9 +1072,64 @@ mod tests {
     }
 
     #[test]
+    fn add_member_max_limit() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id, _index| {
+                for i in 1..4 {
+                    assert_ok!(Organization::add_member(
+                        Origin::signed(*BOB),
+                        org_id,
+                        sr25519::Public::from_raw([i as u8; 32])
+                    ));
+                }
+                assert_err_ignore_postinfo!(
+                    Organization::add_member(Origin::signed(*BOB), org_id, *CHARLIE),
+                    Error::<Test>::MaxMemberReached
+                );
+                assert_eq!(Organization::is_member(org_id, *CHARLIE), true);
+            });
+        });
+    }
+
+    #[test]
+    fn delegate_access_works() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id, _index| {
+                System::set_block_number(1);
+
+                // berikan akses kepada DAVE
+                assert_ok!(Organization::delegate_access(
+                    Origin::signed(*BOB),
+                    org_id,
+                    *DAVE,
+                    Some(5) // kasih expiration time 5 block
+                ));
+
+                // di block 3 akses masih valid
+                // dan DAVE bisa add member pada organisasi BOB
+                System::set_block_number(3);
+                assert_ok!(Organization::add_member(
+                    Origin::signed(*DAVE),
+                    org_id,
+                    *CHARLIE
+                ));
+                assert_eq!(Organization::is_member(org_id, *CHARLIE), true);
+
+                // Setelah block ke-5 akses DAVE telah expired
+                System::set_block_number(6);
+                assert_err_ignore_postinfo!(
+                    Organization::add_member(Origin::signed(*DAVE), org_id, *EVE),
+                    Error::<Test>::PermissionDenied
+                );
+                assert_eq!(Organization::is_member(org_id, *EVE), false);
+            });
+        });
+    }
+
+    #[test]
     fn suspend_org_works() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_eq!(Organization::is_suspended(org_id), false);
                 assert_ok!(Organization::suspend_org(Origin::signed(*ALICE), org_id));
                 assert_eq!(Organization::is_suspended(org_id), true);
@@ -1044,7 +1140,7 @@ mod tests {
     #[test]
     fn only_force_origin_can_suspend() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_noop!(
                     Organization::suspend_org(Origin::signed(*BOB), org_id),
                     DispatchError::BadOrigin
@@ -1057,7 +1153,7 @@ mod tests {
     #[test]
     fn set_admin_works() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_eq!(Organization::get_admin(org_id), Some(*BOB));
                 assert_ok!(Organization::set_admin(
                     Origin::signed(*BOB),
@@ -1072,7 +1168,7 @@ mod tests {
     #[test]
     fn only_admin_or_force_origin_can_set_admin() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_eq!(Organization::get_admin(org_id), Some(*BOB));
                 assert_ok!(Organization::set_admin(
                     Origin::signed(*ALICE),
@@ -1098,7 +1194,7 @@ mod tests {
     #[test]
     fn cannot_dispatch_suspended_operation_when_suspended() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_ok!(Organization::suspend_org(Origin::signed(*ALICE), org_id));
                 assert_err_ignore_postinfo!(
                     Organization::add_member(Origin::signed(*BOB), org_id, *CHARLIE),
@@ -1110,7 +1206,7 @@ mod tests {
                 );
                 assert_err_ignore_postinfo!(
                     Organization::set_flags(
-                        Origin::signed(*BOB),
+                        Origin::signed(*BOB), // as org admin
                         org_id,
                         FlagDataBits(FlagDataBit::Company.into())
                     ),
@@ -1123,7 +1219,7 @@ mod tests {
     #[test]
     fn force_origin_can_set_flags_even_when_suspended() {
         new_test_ext().execute_with(|| {
-            with_org(|org_id, index| {
+            with_org(|org_id, _index| {
                 assert_ok!(Organization::suspend_org(Origin::signed(*ALICE), org_id));
                 assert_ok!(Organization::set_flags(
                     Origin::signed(*ALICE),

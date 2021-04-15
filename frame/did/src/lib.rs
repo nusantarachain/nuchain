@@ -22,7 +22,7 @@ use frame_system::ensure_signed;
 pub use pallet::*;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{IdentifyAccount, Verify};
-use sp_std::{fmt::Debug, prelude::*, vec};
+use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -197,18 +197,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
 
-            let now_timestamp = T::Time::now();
-            let now_block_number = <frame_system::Module<T>>::block_number();
-
-            if <OwnerOf<T>>::contains_key(&identity) {
-                // Update to new owner.
-                <OwnerOf<T>>::mutate(&identity, |o| *o = Some(new_owner.clone()));
-            } else {
-                // Add to new owner.
-                <OwnerOf<T>>::insert(&identity, &new_owner);
-            }
-            // Save the update time and block.
-            <UpdatedBy<T>>::insert(&identity, (&who, &now_block_number, &now_timestamp));
+            let now_block_number = Self::set_owner(&who, &identity, &new_owner);
             Self::deposit_event(Event::OwnerChanged(
                 identity,
                 who,
@@ -231,9 +220,7 @@ pub mod pallet {
             Self::valid_listed_delegate(&identity, &delegate_type, &delegate)?;
             ensure!(delegate_type.len() <= 64, Error::<T>::InvalidDelegate);
 
-            
-
-            Self::revoke_delegate_intrernal(&identity, &delegate_type, &delegate);
+            Self::revoke_delegate_internal(&who, &identity, &delegate_type, &delegate);
             
             Self::deposit_event(Event::DelegateRevoked(identity, delegate_type, delegate));
             Ok(().into())
@@ -370,13 +357,33 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Set identity owner.
+    /// 
+    /// This function should not fail.
+    pub fn set_owner(who: &T::AccountId, identity: &T::AccountId, new_owner: &T::AccountId) -> T::BlockNumber {
+        let now_timestamp = T::Time::now();
+        let now_block_number = <frame_system::Module<T>>::block_number();
+
+        if <OwnerOf<T>>::contains_key(&identity) {
+            // Update to new owner.
+            <OwnerOf<T>>::mutate(&identity, |o| *o = Some(new_owner.clone()));
+        } else {
+            // Add to new owner.
+            <OwnerOf<T>>::insert(&identity, &new_owner);
+        }
+        // Save the update time and block.
+        <UpdatedBy<T>>::insert(&identity, (&who, &now_block_number, &now_timestamp));
+
+        now_block_number
+    }
+
     /// Revoke delegate without check
-    pub fn revoke_delegate_intrernal(identity: &T::AccountId, delegate_type: Vec<u8>, delegate: T::AccountId) -> DispatchResult {
+    pub fn revoke_delegate_internal(who: &T::AccountId, identity: &T::AccountId, delegate_type: &Vec<u8>, delegate: &T::AccountId){
         let now_timestamp = T::Time::now();
         let now_block_number = <frame_system::Module<T>>::block_number();
 
         // Update only the validity period to revoke the delegate.
-        <DelegateOf<T>>::mutate((&identity, &delegate_type, &delegate), |b| {
+        <DelegateOf<T>>::mutate((&identity, delegate_type, &delegate), |b| {
             *b = Some(now_block_number)
         });
         <UpdatedBy<T>>::insert(&identity, (who, now_block_number, now_timestamp));
