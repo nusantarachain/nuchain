@@ -26,7 +26,7 @@ use frame_support::{
     },
 };
 use frame_system::ensure_signed;
-use sp_core::crypto::{UncheckedFrom};
+use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::{Hash, StaticLookup};
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -563,6 +563,7 @@ pub mod pallet {
 
             let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
+            ensure!(!org.suspended, Error::<T>::Suspended);
             ensure!(org.admin == origin, Error::<T>::PermissionDenied);
 
             did::Module::<T>::create_delegate(&origin, &org_id, &to, b"OrgAdmin", valid_for)?;
@@ -1122,6 +1123,42 @@ mod tests {
                     Error::<Test>::PermissionDenied
                 );
                 assert_eq!(Organization::is_member(org_id, *EVE), false);
+            });
+        });
+    }
+
+    #[test]
+    fn delegated_account_cannot_delegate_other_account() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id, _index| {
+                System::set_block_number(1);
+
+                // berikan akses kepada DAVE
+                assert_ok!(Organization::delegate_access(
+                    Origin::signed(*BOB),
+                    org_id,
+                    *DAVE,
+                    Some(5) // kasih expiration time 5 block
+                ));
+
+                // DAVE seharusnya tidak bisa akses fungsi delegasi
+                assert_err_ignore_postinfo!(
+                    Organization::delegate_access(Origin::signed(*DAVE), org_id, *CHARLIE, None),
+                    Error::<Test>::PermissionDenied
+                );
+            });
+        });
+    }
+
+    #[test]
+    fn cannot_delegate_when_suspended() {
+        new_test_ext().execute_with(|| {
+            with_org(|org_id, _index| {
+                assert_ok!(Organization::suspend_org(Origin::signed(*ALICE), org_id));
+                assert_err_ignore_postinfo!(
+                    Organization::delegate_access(Origin::signed(*BOB), org_id, *CHARLIE, None),
+                    Error::<Test>::Suspended
+                );
             });
         });
     }
