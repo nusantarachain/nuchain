@@ -26,8 +26,9 @@ use frame_support::{
     },
 };
 use frame_system::ensure_signed;
-use sp_runtime::traits::StaticLookup;
+use sp_runtime::traits::{StaticLookup, MaybeDisplay, Hash};
 use sp_std::{fmt::Debug, prelude::*};
+use sp_core::crypto::{UncheckedFrom, Wraps};
 
 use enumflags2::{bitflags, BitFlags};
 
@@ -40,7 +41,6 @@ pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, EncodeLike};
 
-type OrgId = u32;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -49,6 +49,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use sp_std::vec;
+    use pallet_did::{self as did, Did};
 
     type BalanceOf<T> =
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -64,7 +65,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + did::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -95,14 +96,17 @@ pub mod pallet {
 
     #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
     pub struct Organization<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
+        /// Organization ID
+        pub id: AccountId,
+
         /// object name
         pub name: Vec<u8>,
 
         /// Description about the organization.
         pub description: Vec<u8>,
 
-        /// admin of the object
-        pub admin: AccountId,
+        // /// admin of the object
+        // pub admin: AccountId,
 
         /// Official website url
         pub website: Vec<u8>,
@@ -138,7 +142,7 @@ pub mod pallet {
         PermissionDenied,
 
         /// ID already exists
-        IdAlreadyExists,
+        BadIndex,
 
         /// Cannot generate ID
         CannotGenId,
@@ -155,40 +159,51 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance", OrgId = "OrgId")]
+    #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance")]
     pub enum Event<T: Config> {
         /// Some object added inside the system.
-        OrganizationAdded(OrgId, T::AccountId),
+        OrganizationAdded(T::AccountId, T::AccountId),
 
         /// When object deleted
-        OrganizationDeleted(OrgId),
+        OrganizationDeleted(T::AccountId),
 
         /// Organization has been suspended.
-        OrganizationSuspended(OrgId),
+        OrganizationSuspended(T::AccountId),
 
         /// Member added to an organization
-        MemberAdded(OrgId, T::AccountId),
+        MemberAdded(T::AccountId, T::AccountId),
 
         /// Member removed from an organization
-        MemberRemoved(OrgId, T::AccountId),
+        MemberRemoved(T::AccountId, T::AccountId),
 
-        /// Organization admin changed [from] -> [to].
-        AdminChanged(OrgId, T::AccountId, T::AccountId),
+        /// Organization admin changed.
+        AdminChanged(T::AccountId, T::AccountId),
     }
 
+    /// Pair organization hash -> Organization data
     #[pallet::storage]
+    #[pallet::getter(fn organization)]
     pub type Organizations<T: Config> =
-        StorageMap<_, Blake2_128Concat, OrgId, Organization<T::AccountId>>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, Organization<T::AccountId>>;
+
+    
+    /// Link organization index -> organization hash.
+    /// Useful for lookup organization from hash.
+    #[pallet::storage]
+    #[pallet::getter(fn organization_index)]
+    pub type OrganizationIndexOf<T: Config> =
+        StorageMap<_, Blake2_128Concat, u64, T::AccountId>;
+    
 
     /// Pair user -> list of handled organizations
     #[pallet::storage]
     pub type OrganizationLink<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<OrgId>>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>>;
 
     /// Membership store, stored as an ordered Vec.
     #[pallet::storage]
     #[pallet::getter(fn members)]
-    pub type Members<T: Config> = StorageMap<_, Twox64Concat, OrgId, Vec<T::AccountId>>;
+    pub type Members<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Vec<T::AccountId>>;
 
     #[bitflags(default = Active)]
     #[repr(u64)]
@@ -240,12 +255,12 @@ pub mod pallet {
     /// Flag of the organization
     #[pallet::storage]
     #[pallet::getter(fn flags)]
-    pub type OrganizationFlagData<T: Config> = StorageMap<_, Twox64Concat, OrgId, FlagDataBits>;
+    pub type OrganizationFlagData<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, FlagDataBits>;
 
     pub struct EnsureOrgAdmin<T>(sp_std::marker::PhantomData<T>);
 
     impl<T: Config> EnsureOrigin<T::Origin> for EnsureOrgAdmin<T> {
-        type Success = (T::AccountId, Vec<OrgId>);
+        type Success = (T::AccountId, Vec<T::AccountId>);
 
         fn try_origin(o: T::Origin) -> Result<Self::Success, T::Origin> {
             o.into().and_then(|o| match o {
@@ -266,12 +281,15 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn object_index)]
-    pub type OrgIdIndex<T> = StorageValue<_, u32>;
+    pub type OrgIdIndex<T> = StorageValue<_, u64>;
 
     /// Organization module declaration.
     // pub struct Module<T: Config> for enum Call where origin: T::Origin {
     #[pallet::call]
-    impl<T: Config> Pallet<T> {
+    impl<T: Config> Pallet<T> 
+    where
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>
+     {
         /// Add new object.
         ///
         /// The dispatch origin for this call must be _Signed_.
@@ -298,11 +316,11 @@ pub mod pallet {
                 Error::<T>::NameTooLong
             );
 
-            let id = Self::next_id()?;
+            let index = Self::next_id()?;
 
             ensure!(
-                !Organizations::<T>::contains_key(id),
-                Error::<T>::IdAlreadyExists
+                !OrganizationIndexOf::<T>::contains_key(index),
+                Error::<T>::BadIndex
             );
 
             let admin = T::Lookup::lookup(admin)?;
@@ -318,29 +336,45 @@ pub mod pallet {
                 KeepAlive,
             )?);
 
+            // generate organization hash
+            let org_id:T::AccountId = UncheckedFrom::unchecked_from(T::Hashing::hash(
+                &index.to_le_bytes().into_iter().chain(name.iter())
+                    .chain(description.iter())
+                    .chain(website.iter())
+                    .chain(email.iter())
+                    .cloned()
+                    .collect::<Vec<u8>>()
+            ));
+            
             Organizations::<T>::insert(
-                id as OrgId,
+                org_id.clone(),
                 Organization {
+                    id: org_id.clone(),
                     name: name.clone(),
                     description: description.clone(),
-                    admin: admin.clone(),
+                    // admin: admin.clone(),
                     website: website.clone(),
                     email: email.clone(),
                     suspended: false,
                 },
             );
 
+            <OrganizationIndexOf<T>>::insert(index, org_id.clone());
+
             if OrganizationLink::<T>::contains_key(&admin) {
                 OrganizationLink::<T>::mutate(&admin, |ref mut vs| {
-                    vs.as_mut().map(|vsi| vsi.push(id))
+                    vs.as_mut().map(|vsi| vsi.push(org_id.clone()))
                 });
             } else {
-                OrganizationLink::<T>::insert(&admin, sp_std::vec![id]);
+                OrganizationLink::<T>::insert(&admin, sp_std::vec![org_id.clone()]);
             }
 
-            <OrganizationFlagData<T>>::insert::<_, FlagDataBits>(id, Default::default());
+            <OrganizationFlagData<T>>::insert::<_, FlagDataBits>(org_id.clone(), Default::default());
 
-            Self::deposit_event(Event::OrganizationAdded(id, admin));
+            // DID add attribute
+            <pallet_did::Module<T>>::create_attribute(&org_id, &admin, b"Org", &name, None)?;
+
+            Self::deposit_event(Event::OrganizationAdded(org_id, admin));
 
             Ok(().into())
         }
@@ -351,7 +385,7 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub fn suspend_org(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             T::ForceOrigin::ensure_origin(origin)?;
 
@@ -376,14 +410,14 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub fn set_flags(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
             flags: FlagDataBits,
         ) -> DispatchResultWithPostInfo {
             let origin_1 = ensure_signed(origin.clone())?;
 
-            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            if org.admin != origin_1
+            if !did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin_1).is_ok()
                 || flags.contains(FlagDataBit::System)
                 || flags.contains(FlagDataBit::Verified)
             {
@@ -405,17 +439,19 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub fn add_member(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+            // ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+            did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)?;
+
             ensure!(!org.suspended, Error::<T>::Suspended);
 
-            let mut members = <Members<T>>::get(org_id).unwrap_or_else(|| vec![]);
+            let mut members = <Members<T>>::get(&org_id).unwrap_or_else(|| vec![]);
 
             ensure!(
                 members.len() < T::MaxMemberCount::get(),
@@ -423,13 +459,13 @@ pub mod pallet {
             );
             ensure!(
                 !members.iter().any(|a| *a == account_id),
-                Error::<T>::IdAlreadyExists
+                Error::<T>::BadIndex
             );
 
             members.push(account_id.clone());
             members.sort();
 
-            <Members<T>>::insert(org_id, members);
+            <Members<T>>::insert(&org_id, members);
 
             Self::deposit_event(Event::MemberAdded(org_id, account_id));
 
@@ -440,17 +476,19 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub fn remove_member(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+            // ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+            did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)?;
+
             ensure!(!org.suspended, Error::<T>::Suspended);
 
-            let mut members = <Members<T>>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let mut members = <Members<T>>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
             ensure!(
                 members.iter().any(|a| *a == account_id),
@@ -458,7 +496,7 @@ pub mod pallet {
             );
 
             members = members.into_iter().filter(|a| *a != account_id).collect();
-            Members::<T>::insert(org_id, members);
+            Members::<T>::insert(org_id.clone(), members);
 
             Self::deposit_event(Event::MemberRemoved(org_id, account_id));
 
@@ -470,28 +508,32 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub(crate) fn set_admin(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let origin_1 = ensure_signed(origin.clone())?;
 
-            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            if org.admin != origin_1 {
+            if !did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin_1).is_ok() {
                 T::ForceOrigin::ensure_origin(origin)?;
             } else {
                 ensure!(!org.suspended, Error::<T>::Suspended);
             }
 
-            ensure!(org.admin != account_id, Error::<T>::AlreadySet);
+            // ensure!(org.admin != account_id, Error::<T>::AlreadySet);
 
-            <Organizations<T>>::mutate(&org_id, |org| {
-                if let Some(org) = org {
-                    org.admin = account_id.clone();
-                }
-            });
+            // did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)?;
 
-            Self::deposit_event(Event::AdminChanged(org_id, org.admin, account_id));
+            did::Module::<T>::create_delegate(&origin_1, &org_id, &account_id, b"OrgAdmin", None)?;
+
+            // <Organizations<T>>::mutate(&org_id, |org| {
+            //     if let Some(org) = org {
+            //         org.admin = account_id.clone();
+            //     }
+            // });
+
+            Self::deposit_event(Event::AdminChanged(org_id, account_id));
 
             Ok(().into())
         }
@@ -538,7 +580,7 @@ macro_rules! method_is_flag {
     ($funcname:ident, $flag:ident, $name:expr) => {
         #[doc = "Check whether organization is "]
         #[doc=$name]
-        pub fn $funcname(id: OrgId) -> bool {
+        pub fn $funcname(id: T::AccountId) -> bool {
             <OrganizationFlagData<T>>::get(id)
                 .map(|a| (*a).contains(FlagDataBit::$flag))
                 .unwrap_or(false)
@@ -551,13 +593,13 @@ macro_rules! method_is_flag {
 
 /// The main implementation of this Organization pallet.
 impl<T: Config> Pallet<T> {
-    /// Get the Organization detail
-    pub fn get(id: OrgId) -> Option<Organization<T::AccountId>> {
-        Organizations::<T>::get(id)
-    }
+    // /// Get the Organization detail
+    // pub fn get(id: OrgId) -> Option<Organization> {
+    //     Organizations::<T>::get(id)
+    // }
 
     /// Get next Organization ID
-    pub fn next_id() -> Result<u32, Error<T>> {
+    pub fn next_id() -> Result<u64, Error<T>> {
         <OrgIdIndex<T>>::mutate(|o| {
             *o = Some(o.map_or(1, |vo| vo.saturating_add(1)));
             *o
@@ -566,7 +608,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Check whether account is member of the organization
-    pub fn is_member(id: OrgId, account_id: T::AccountId) -> bool {
+    pub fn is_member(id: T::AccountId, account_id: T::AccountId) -> bool {
         <Members<T>>::get(id)
             .map(|a| a.iter().any(|id| *id == account_id))
             .unwrap_or(false)
@@ -579,25 +621,25 @@ impl<T: Config> Pallet<T> {
     method_is_flag!(is_system, System);
 
     /// Check whether organization suspended
-    pub fn is_suspended(id: OrgId) -> bool {
-        Self::get(id).map(|a| a.suspended).unwrap_or(true)
+    pub fn is_suspended(id: T::AccountId) -> bool {
+        Self::organization(id).map(|a| a.suspended).unwrap_or(true)
     }
 
-    /// Get admin of the organization
-    pub fn get_admin(id: OrgId) -> Option<T::AccountId> {
-        Self::get(id).map(|a| a.admin)
-    }
+    // /// Get admin of the organization
+    // pub fn get_admin(id: T::AccountId) -> Option<T::AccountId> {
+    //     Self::organization(id).map(|a| a.admin)
+    // }
 }
 
-pub trait OrgProvider<T: Config> {
-    fn get(id: OrgId) -> Option<Organization<T::AccountId>>;
-}
+// pub trait OrgProvider<T: Config> {
+//     fn get(id: OrgId) -> Option<Organization>;
+// }
 
-impl<T: Config> OrgProvider<T> for Pallet<T> {
-    fn get(id: OrgId) -> Option<Organization<T::AccountId>> {
-        Organizations::<T>::get(id)
-    }
-}
+// impl<T: Config> OrgProvider<T> for Pallet<T> {
+//     fn get(id: OrgId) -> Option<Organization> {
+//         Organizations::<T>::get(id)
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
