@@ -17,11 +17,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use base58::ToBase58;
 use frame_support::{ensure, traits::EnsureOrigin};
 use frame_system::ensure_signed;
 pub use pallet::*;
-use sp_core::H256;
-use sp_runtime::traits::{Hash, StaticLookup};
+// use sp_core::H256;
+use sp_runtime::traits::Hash;
 use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, prelude::*, vec};
 
@@ -32,8 +33,10 @@ pub use weights::WeightInfo;
 
 use codec::{Decode, Encode};
 
-type OrgId = u32;
+// type T::AccountId = u32;
 // type CertId<T> = T::Hash;
+type CertId = [u8; 32];
+type IssuedId = Vec<u8>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -41,7 +44,7 @@ pub mod pallet {
     use super::*;
     use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*, traits::Time};
     use frame_system::pallet_prelude::*;
-    use pallet_organization::OrgProvider;
+    // use pallet_organization::OrgProvider;
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
@@ -62,37 +65,40 @@ pub mod pallet {
         type Time: Time;
 
         /// Who is allowed to create certificate
-        type CreatorOrigin: EnsureOrigin<Self::Origin, Success = (Self::AccountId, Vec<OrgId>)>;
+        type CreatorOrigin: EnsureOrigin<
+            Self::Origin,
+            Success = (Self::AccountId, Vec<Self::AccountId>),
+        >;
 
-        /// Organization provider
-        type Organization: pallet_organization::OrgProvider<Self>;
+        // /// Organization provider
+        // type Organization: pallet_organization::OrgProvider<Self>;
 
         /// Weight information
         type WeightInfo: WeightInfo;
     }
 
+    // #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+    // pub struct OrgDetail<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
+    //     /// Organization name
+    //     name: Vec<u8>,
+
+    //     /// Admin of the organization.
+    //     admin: AccountId,
+
+    //     /// Whether this organization suspended
+    //     is_suspended: bool,
+    // }
+
     #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
-    pub struct OrgDetail<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
-        /// Organization name
-        name: Vec<u8>,
-
-        /// Admin of the organization.
-        admin: AccountId,
-
-        /// Whether this organization suspended
-        is_suspended: bool,
-    }
-
-    #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
-    pub struct CertDetail<OrgId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
+    pub struct CertDetail<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
         /// Certificate name
         pub name: Vec<u8>,
 
         /// Description about the certificate.
         pub description: Vec<u8>,
 
-        /// Organization owner ID
-        pub org_id: OrgId,
+        /// Organization ID
+        pub org_id: AccountId,
     }
 
     #[pallet::error]
@@ -121,40 +127,59 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance", OrgId = "OrgId")]
+    #[pallet::metadata(
+        T::AccountId = "AccountId",
+        T::Balance = "Balance",
+        T::AccountId = "T::AccountId"
+    )]
     pub enum Event<T: Config> {
         /// Some certificate added.
-        CertAdded(u64, T::Hash, OrgId),
+        CertAdded(u64, CertId, T::AccountId),
 
         /// Some cert was issued
-        /// 
+        ///
         /// param:
         ///     1 - Hash of issued certificate.
         ///     2 - Recipient of certificate.
-        CertIssued(T::Hash, T::AccountId),
+        CertIssued(IssuedId, Option<T::AccountId>),
     }
 
     #[pallet::storage]
-    pub type Certificates<T: Config> = StorageMap<_, Blake2_128Concat, T::Hash, CertDetail<OrgId>>;
+    pub type Certificates<T: Config> =
+        StorageMap<_, Blake2_128Concat, CertId, CertDetail<T::AccountId>>;
 
-    #[derive(Decode, Encode, Eq, PartialEq, RuntimeDebug)]
+    #[derive(Decode, Encode, Clone, Eq, PartialEq, RuntimeDebug)]
     pub struct CertProof<T: Config> {
-        pub cert_id: T::Hash,
+        pub cert_id: CertId,
 
         /// Human readable ID representation.
         pub human_id: Vec<u8>,
         pub time: <<T as pallet::Config>::Time as Time>::Moment,
     }
 
-    /// double map pair of: OrgId -> Issue ID -> Proof
+    impl<T: Config> CertProof<T> {
+        fn new(
+            cert_id: CertId,
+            human_id: Vec<u8>,
+            time: <<T as pallet::Config>::Time as Time>::Moment,
+        ) -> Self {
+            CertProof {
+                cert_id,
+                human_id,
+                time,
+            }
+        }
+    }
+
+    /// double map pair of: T::AccountId -> Issue ID -> Proof
     #[pallet::storage]
     #[pallet::getter(fn issued_cert)]
     pub type IssuedCert<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        OrgId,
+        T::AccountId, // organization id
         Blake2_128Concat,
-        T::Hash, // ID of issued certificate
+        IssuedId, // ID of issued certificate
         CertProof<T>,
     >;
 
@@ -163,14 +188,15 @@ pub mod pallet {
     pub type IssuedCertOwner<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        OrgId,
+        T::AccountId, // organization id
         Blake2_128Concat,
-        T::AccountId,
-        Vec<CertProof<T>>,
+        T::AccountId,      // acc handler id
+        Vec<CertProof<T>>, // proof
     >;
 
     #[pallet::storage]
-    pub type OrgIdIndex<T> = StorageValue<_, u32>;
+    #[pallet::getter(fn account_id_index)]
+    pub type AccountIdIndex<T> = StorageValue<_, u32>;
 
     #[pallet::storage]
     pub type CertIdIndex<T> = StorageValue<_, u64>;
@@ -178,7 +204,10 @@ pub mod pallet {
     /// Certificate module declaration.
     // pub struct Module<T: Config> for enum Call where origin: T::Origin {
     #[pallet::call]
-    impl<T: Config> Pallet<T> {
+    impl<T: Config> Pallet<T>
+    where
+        T::AccountId: AsRef<[u8]>,
+    {
         /// Create new certificate
         ///
         /// The dispatch origin for this call must be _Signed_.
@@ -188,8 +217,9 @@ pub mod pallet {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::create_cert())]
         pub(super) fn create_cert(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
             name: Vec<u8>,
+            description: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             // let sender = ensure_signed(origin)?;
 
@@ -204,35 +234,44 @@ pub mod pallet {
                 Error::<T>::PermissionDenied
             );
 
-            let org = T::Organization::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let org = <pallet_organization::Module<T>>::organization(&org_id)
+                .ok_or(Error::<T>::NotExists)?;
 
             // ensure admin
             ensure!(&org.admin == &sender, Error::<T>::PermissionDenied);
 
-            let cert_id = Self::increment_index();
-            let cert_hash = Self::generate_hash(cert_id);
+            let index = Self::increment_index();
+            let cert_id: CertId = Self::generate_hash(
+                index
+                    .to_le_bytes()
+                    .iter()
+                    .chain(name.iter())
+                    .chain(description.iter())
+                    .cloned()
+                    .collect::<Vec<u8>>(),
+            );
 
             ensure!(
-                !Certificates::<T>::contains_key(cert_hash),
+                !Certificates::<T>::contains_key(cert_id),
                 Error::<T>::IdAlreadyExists
             );
 
             Certificates::<T>::insert(
-                cert_hash,
+                cert_id,
                 CertDetail {
                     name: name.clone(),
                     org_id: org_id.clone(),
-                    description: vec![]
+                    description: vec![],
                 },
             );
 
-            Self::deposit_event(Event::CertAdded(cert_id, cert_hash, org_id));
+            Self::deposit_event(Event::CertAdded(index, cert_id, org_id));
 
             Ok(().into())
         }
 
         /// Issue certificate.
-        /// 
+        ///
         /// After organization create certificate; admin should be able to
         /// issue certificate to someone.
         ///
@@ -243,96 +282,95 @@ pub mod pallet {
         #[pallet::weight(70_000_000)]
         pub(super) fn issue_cert(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
-            cert_id: T::Hash,
-            desc: Vec<u8>,
+            org_id: T::AccountId,
+            cert_id: CertId,
             recipient: Vec<u8>, // handler sure name
-            // acc_handler: <T::Lookup as StaticLookup>::Source,
+            additional_data: Vec<u8>,
+            acc_handler: Option<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
 
             let _cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
 
-            ensure!(desc.len() < 100, Error::<T>::TooLong);
+            ensure!(additional_data.len() < 100, Error::<T>::TooLong);
 
             // ensure admin
-            let org = T::Organization::get(org_id).ok_or(Error::<T>::Unknown)?;
+            let org = <pallet_organization::Module<T>>::organization(&org_id)
+                .ok_or(Error::<T>::Unknown)?;
             ensure!(org.admin == sender, Error::<T>::PermissionDenied);
 
-            // let acc_handler = T::Lookup::lookup(acc_handler)?;
+            Self::ensure_org_access(&sender, &org_id)?;
 
-            let issue_id = T::Hashing::hash(
-                &org_id
-                    .to_le_bytes()
-                    .into_iter()
+            // generate issue id
+            // this id is unique per user per cert.
+
+            let issue_id: IssuedId = Self::generate_issued_id(
+                org_id
+                    .as_ref()
+                    // .to_le_bytes()
+                    .iter()
                     .chain(cert_id.encode().iter())
-                    .chain(desc.iter())
                     .chain(recipient.iter())
+                    .chain(additional_data.iter())
                     .cloned()
                     .collect::<Vec<u8>>(),
             );
 
-            let cert = IssuedCert::<T>::get(org_id, &issue_id);
-
-            // pastikan penerima belum memiliki sertifikat yang dimaksud.
+            // pastikan belum pernah di-issue
             ensure!(
-                cert.cert_id != cert_id,
+                !IssuedCert::<T>::contains_key(&org_id, &issue_id),
                 Error::<T>::AlreadyExists
             );
 
-            let rv = if let Some(_cert) = cert {
+            let proof = CertProof::new(cert_id, recipient, <T as pallet::Config>::Time::now());
+
+            if let Some(ref acc_handler) = acc_handler {
                 // apabila sudah pernah diisi update isinya
                 // dengan ditambahkan sertifikat pada koleksi penerima.
-                IssuedCertOwner::<T>::try_mutate(org_id, &acc_handler, |vs| {
-                    let vs = vs.as_mut().ok_or(Error::<T>::Unknown)?;
-                    vs.push((cert_id, desc, T::Time::now()));
-                    Ok(().into())
-                })
-            } else {
-                // inisialisasi koleksi pertama.
-                IssuedCertOwner::<T>::insert(
-                    org_id,
-                    &acc_handler,
-                    vec![(cert_id, desc, T::Time::now())],
-                );
-                Ok(().into())
-            };
+                IssuedCertOwner::<T>::try_mutate(&org_id, acc_handler, |vs| {
+                    // let vs = vs.as_mut().ok_or(Error::<T>::Unknown)?;
+                    // vs.push((cert_id, desc, T::Time::now()));
+                    if let Some(vs) = vs.as_mut() {
+                        vs.push(proof.clone());
 
-            Self::deposit_event(Event::CertIssued(cert_id, acc_handler));
+                        Ok(())
+                    } else {
+                        Err(Error::<T>::Unknown)
+                    }
+                })?;
+            }
 
-            rv
+            IssuedCert::<T>::insert(&org_id, &issue_id, proof);
+
+            Self::deposit_event(Event::CertIssued(issue_id, acc_handler));
+
+            Ok(().into())
         }
     }
 }
 
+type Organization<T> = pallet_organization::Organization<T>;
+
 /// The main implementation of this Certificate pallet.
-impl<T: Config> Pallet<T>
-where
-    T: pallet_timestamp::Config,
-{
+impl<T: Config> Pallet<T>{
     /// Get detail of certificate
     ///
-    pub fn get(id: &T::Hash) -> Option<CertDetail<OrgId>> {
+    pub fn get(id: &CertId) -> Option<CertDetail<T::AccountId>> {
         Certificates::<T>::get(id)
     }
 
-    // /// Get current unix timestamp
-    // pub fn now() -> T::Moment {
-    //     // T::UnixTime::now().as_millis().saturated_into::<u64>()
-    //     T::now()
-    // }
+    /// Memastikan bahwa akun memiliki akses pada organisasi.
+    /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
+    fn ensure_org_access(
+        who: &T::AccountId,
+        org_id: &T::AccountId,
+    ) -> Result<Organization<T::AccountId>, Error<T>> {
+        let org = pallet_organization::Module::<T>::ensure_access(who, org_id)
+            .map_err(|_| Error::<T>::PermissionDenied)?;
+        ensure!(!org.suspended, Error::<T>::PermissionDenied);
+        Ok(org)
+    }
 
-    // /// Get next organization ID
-    // pub fn next_org_id() -> u32 {
-    //     let next_id = <OrgIdIndex<T>>::try_get().unwrap_or(0).saturating_add(1);
-    //     <OrgIdIndex<T>>::put(next_id);
-    //     next_id
-    // }
-}
-
-// use sp_core::Hasher;
-
-impl<T: Config> Pallet<T> {
     /// Incerment certificate index
     pub fn increment_index() -> u64 {
         let next_id = <CertIdIndex<T>>::try_get().unwrap_or(0).saturating_add(1);
@@ -341,8 +379,28 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Generate hash for randomly generated certificate identification.
-    pub fn generate_hash(index: u64) -> T::Hash {
-        T::Hashing::hash(&index.to_le_bytes())
+    pub fn generate_hash(data: Vec<u8>) -> CertId {
+        let mut hash: [u8; 32] = Default::default();
+        hash.copy_from_slice(&T::Hashing::hash(&data).encode()[..32]);
+        hash
+    }
+
+    /// Generate hash for randomly generated certificate identification.
+    /// 
+    /// Issue ID ini merupakan hash dari data yang
+    /// kemudian di-truncate untuk agar pendek
+    /// dengan cara hanya mengambil 5 chars dari awal dan akhir
+    /// dari hash dalam bentuk base58
+    pub fn generate_issued_id(data: Vec<u8>) -> IssuedId {
+        let hash = T::Hashing::hash(&data).encode().to_base58();
+        let first = hash.chars().take(5);
+        let last = hash.chars().skip(hash.len() - 5);
+        first
+            .into_iter()
+            .chain(last)
+            .collect::<String>()
+            .as_bytes()
+            .to_vec()
     }
 }
 
@@ -355,7 +413,7 @@ mod tests {
         assert_noop, assert_ok, ord_parameter_types, parameter_types, traits::Time,
     };
     use frame_system::EnsureSignedBy;
-    use sp_core::H256;
+    use sp_core::{sr25519, H256};
     use sp_runtime::{
         testing::Header,
         traits::{BadOrigin, BlakeTwo256, IdentityLookup},
@@ -371,7 +429,9 @@ mod tests {
             UncheckedExtrinsic = UncheckedExtrinsic,
         {
             System: frame_system::{Module, Call, Config, Storage, Event<T>},
+            Timestamp: pallet_timestamp::{Module, Call, Storage},
             Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+            Did: pallet_did::{Module, Call, Storage, Event<T>},
             Organization: pallet_organization::{Module, Call, Storage, Event<T>},
             Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
         }
@@ -393,7 +453,7 @@ mod tests {
         type Hash = H256;
         type Call = Call;
         type Hashing = BlakeTwo256;
-        type AccountId = u64;
+        type AccountId = sr25519::Public;
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = Event;
@@ -424,9 +484,9 @@ mod tests {
         pub const MaxMemberCount: usize = 100;
         pub const CreationFee: u64 = 20;
     }
-    ord_parameter_types! {
-        pub const One: u64 = 1;
-    }
+    // ord_parameter_types! {
+    //     pub const One: u64 = 1;
+    // }
     parameter_types! {
         pub const MinimumPeriod: u64 = 5;
     }
@@ -437,12 +497,26 @@ mod tests {
         type WeightInfo = ();
     }
 
+    impl pallet_did::Config for Test {
+        type Event = Event;
+        type Public = sr25519::Public;
+        type Signature = sr25519::Signature;
+        type Time = Timestamp;
+        type WeightInfo = pallet_did::weights::SubstrateWeight<Self>;
+    }
+
+    // use pallet_organization::tests::{ALICE, BOB, CHARLIE, DAVE, EVE};
+
+    ord_parameter_types! {
+        pub const Root: sr25519::Public = sp_keyring::Sr25519Keyring::Alice.public();
+    }
+
     impl pallet_organization::Config for Test {
         type Event = Event;
         type CreationFee = CreationFee;
         type Currency = Balances;
         type Payment = ();
-        type ForceOrigin = EnsureSignedBy<One, u64>;
+        type ForceOrigin = EnsureSignedBy<Root, sr25519::Public>;
         type MinOrgNameLength = MinOrgNameLength;
         type MaxOrgNameLength = MaxOrgNameLength;
         type MaxMemberCount = MaxMemberCount;
@@ -451,10 +525,9 @@ mod tests {
 
     impl Config for Test {
         type Event = Event;
-        type ForceOrigin = EnsureSignedBy<One, u64>;
+        type ForceOrigin = EnsureSignedBy<Root, sr25519::Public>;
         type Time = Self;
         type CreatorOrigin = pallet_organization::EnsureOrgAdmin<Self>;
-        type Organization = pallet_organization::Pallet<Self>;
         type WeightInfo = ();
     }
 
@@ -490,12 +563,14 @@ mod tests {
     //     assert_eq!(last_event(), e.into());
     // }
 
+    use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie, Dave, Eve};
+
     fn new_test_ext() -> sp_io::TestExternalities {
         let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         pallet_balances::GenesisConfig::<Test> {
-            balances: vec![(1, 50), (2, 10), (3, 20)],
+            balances: vec![(Alice.into(), 50), (Bob.into(), 10), (Charlie.into(), 20)],
         }
         .assimilate_storage(&mut t)
         .unwrap();
@@ -503,9 +578,9 @@ mod tests {
     }
 
     macro_rules! create_org {
-        ($o:expr, $name:literal, $to:expr) => {
+        ($name:literal, $to:expr) => {
             assert_ok!(Organization::create_org(
-                Origin::signed(1),
+                Origin::signed(Alice.public()),
                 $name.to_vec(),
                 b"".to_vec(),
                 $to,
@@ -515,73 +590,87 @@ mod tests {
         };
     }
 
-    fn get_last_created_cert_hash() -> Option<<Test as frame_system::Config>::Hash> {
+    fn get_last_created_cert_id() -> Option<CertId> {
         match last_event() {
-            CertEvent::CertAdded(_, hash, _) => Some(hash),
+            CertEvent::CertAdded(_, cert_id, _) => Some(cert_id),
             _ => None,
         }
+    }
+
+    fn get_last_issued_cert_id() -> Option<IssuedId> {
+        match last_event() {
+            CertEvent::CertIssued(cert_id, _) => Some(cert_id),
+            _ => None,
+        }
+    }
+
+    fn last_org_id() -> <Test as frame_system::Config>::AccountId {
+        System::events()
+            .into_iter()
+            .map(|r| r.event)
+            .filter_map(|ev| {
+                if let Event::pallet_organization(
+                    pallet_organization::Event::<Test>::OrganizationAdded(org_id, _),
+                ) = ev
+                {
+                    Some(org_id)
+                } else {
+                    None
+                }
+            })
+            .last()
+            .expect("Org id expected")
     }
 
     #[test]
     fn issue_cert_should_work() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
-            create_org!(1, b"ORG1", 2);
+
+            create_org!(b"ORG1", Bob.into());
+
+            let org_id = last_org_id();
+
             assert_ok!(Certificate::create_cert(
-                Origin::signed(2),
-                1,
-                b"CERT1".to_vec()
+                Origin::signed(Bob.into()),
+                org_id,
+                b"CERT1".to_vec(),
+                b"CERT1 desc".to_vec()
             ));
-            // let event = last_event();
-            // println!("EVENT: {:#?}", event);
-            let hash = get_last_created_cert_hash().expect("Hash of new created cert");
-            println!("hash: {:#?}", hash);
-            assert_eq!(Certificate::get(&hash).map(|a| a.org_id), Some(1));
-            // assert_eq!(event, TestEvent::CertAdded(0, 1, 2));
-            // let cert_id = match event {
-            //     Event::CertAdded(index, hash, _) => hash,
-            //     _ => 0
-            // };
-            // assert_ok!(Certificate::issue_cert(
-            //     Origin::signed(2),
-            //     1,
-            //     1,
-            //     b"DESC".to_vec(),
-            //     2
-            // ));
-            // assert_eq!(Organization::get(2), None);
+
+            let cert_id = get_last_created_cert_id().expect("cert_id of new created cert");
+            println!("cert_id: {:#?}", cert_id.to_base58());
+            assert_eq!(Certificate::get(&cert_id).map(|a| a.org_id), Some(org_id));
+
+            System::set_block_number(2);
+
+            assert_ok!(Certificate::issue_cert(
+                Origin::signed(Bob.into()),
+                org_id,
+                cert_id,
+                b"Dave".to_vec(),
+                b"ADDITIONAL DATA".to_vec(),
+                None
+            ));
+            let issued_id = get_last_issued_cert_id().expect("get last issued id");
+            println!("issued_id: {:?}", std::str::from_utf8(&issued_id));
         });
     }
 
     #[test]
     fn only_org_admin_can_create_cert() {
         new_test_ext().execute_with(|| {
-            create_org!(1, b"ORG2", 3);
+            System::set_block_number(1);
+            create_org!(b"ORG2", Charlie.into());
             assert_noop!(
-                Certificate::create_cert(Origin::signed(2), 1, b"CERT1".to_vec()),
+                Certificate::create_cert(
+                    Origin::signed(Bob.into()),
+                    last_org_id(),
+                    b"CERT1".to_vec(),
+                    b"CERT1 desc".to_vec()
+                ),
                 BadOrigin
             );
-            assert_ok!(Certificate::create_cert(
-                Origin::signed(3),
-                1,
-                b"CERT1".to_vec()
-            ));
         });
     }
-
-    // #[test]
-    // fn only_org_admin_can_issue_cert() {
-    //     new_test_ext().execute_with(|| {
-    //         create_org!(1, b"ORG2", 3);
-    //         assert_ok!(Certificate::create_cert(
-    //             Origin::signed(3),
-    //             1,
-    //             b"CERT1".to_vec()
-    //         ));
-    //         assert_noop!(
-    //             Certificate::issue_cert(Origin::signed(2), 1, 1, b"DESC".to_vec(), 2),
-    //             Error::<Test>::PermissionDenied
-    //         );
-    //     });
-    // }
 }

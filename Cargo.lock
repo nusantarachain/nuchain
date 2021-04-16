@@ -4606,16 +4606,19 @@ dependencies = [
 name = "pallet-certificate"
 version = "0.0.1"
 dependencies = [
+ "base58",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances",
+ "pallet-did",
  "pallet-organization",
  "pallet-timestamp",
  "parity-scale-codec",
  "serde",
  "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]

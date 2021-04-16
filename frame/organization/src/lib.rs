@@ -772,7 +772,6 @@ mod tests {
         pub static ref CHARLIE: sr25519::Public = sr25519::Public::from_raw([3u8; 32]);
         pub static ref DAVE: sr25519::Public = sr25519::Public::from_raw([4u8; 32]);
         pub static ref EVE: sr25519::Public = sr25519::Public::from_raw([5u8; 32]);
-
     }
 
     ord_parameter_types! {
