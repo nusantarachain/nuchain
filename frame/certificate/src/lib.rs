@@ -74,6 +74,9 @@ pub mod pallet {
         // /// Organization provider
         // type Organization: pallet_organization::OrgProvider<Self>;
 
+        // /// Days unit
+        // type DaysUnit: Get<Self::BlockNumber>;
+
         /// Weight information
         type WeightInfo: WeightInfo;
     }
@@ -149,36 +152,47 @@ pub mod pallet {
     pub type Certificates<T: Config> =
         StorageMap<_, Blake2_128Concat, CertId, CertDetail<T::AccountId>>;
 
+    type Moment<T> = <<T as pallet::Config>::Time as Time>::Moment;
+
     #[derive(Decode, Encode, Clone, Eq, PartialEq, RuntimeDebug)]
     pub struct CertProof<T: Config> {
         pub cert_id: CertId,
 
         /// Human readable ID representation.
         pub human_id: Vec<u8>,
-        pub time: <<T as pallet::Config>::Time as Time>::Moment,
+
+        /// Creation time
+        pub time: Moment<T>,
+
+        /// Expiration in days
+        pub expired: Moment<T>,
+
+        /// Flag whether this certificate is revoked
+        pub revoked: bool,
     }
 
     impl<T: Config> CertProof<T> {
         fn new(
             cert_id: CertId,
             human_id: Vec<u8>,
-            time: <<T as pallet::Config>::Time as Time>::Moment,
+            time: Moment<T>,
+            expired: Option<Moment<T>>,
         ) -> Self {
             CertProof {
                 cert_id,
                 human_id,
                 time,
+                expired: expired.unwrap_or_default(),
+                revoked: false,
             }
         }
     }
 
-    /// double map pair of: T::AccountId -> Issue ID -> Proof
+    /// double map pair of: Issued id -> Proof
     #[pallet::storage]
     #[pallet::getter(fn issued_cert)]
-    pub type IssuedCert<T: Config> = StorageDoubleMap<
+    pub type IssuedCert<T: Config> = StorageMap<
         _,
-        Blake2_128Concat,
-        T::AccountId, // organization id
         Blake2_128Concat,
         IssuedId, // ID of issued certificate
         CertProof<T>,
@@ -289,6 +303,7 @@ pub mod pallet {
             recipient: Vec<u8>, // handler sure name
             additional_data: Vec<u8>,
             acc_handler: Option<T::AccountId>,
+            expired: Option<Moment<T>>,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
 
@@ -296,16 +311,13 @@ pub mod pallet {
 
             ensure!(additional_data.len() < 100, Error::<T>::TooLong);
 
-            // ensure admin
+            // ensure access
             let org = <pallet_organization::Module<T>>::organization(&org_id)
                 .ok_or(Error::<T>::Unknown)?;
-            ensure!(org.admin == sender, Error::<T>::PermissionDenied);
-
-            Self::ensure_org_access(&sender, &org_id)?;
+            Self::ensure_org_access2(&sender, &org)?;
 
             // generate issue id
             // this id is unique per user per cert.
-
             let issue_id: IssuedId = Self::generate_issued_id(
                 org_id
                     .as_ref()
@@ -320,21 +332,23 @@ pub mod pallet {
 
             // pastikan belum pernah di-issue
             ensure!(
-                !IssuedCert::<T>::contains_key(&org_id, &issue_id),
+                !IssuedCert::<T>::contains_key(&issue_id),
                 Error::<T>::AlreadyExists
             );
 
-            let proof = CertProof::new(cert_id, recipient, <T as pallet::Config>::Time::now());
+            let proof = CertProof::new(
+                cert_id,
+                recipient,
+                <T as pallet::Config>::Time::now(),
+                expired,
+            );
 
             if let Some(ref acc_handler) = acc_handler {
                 // apabila sudah pernah diisi update isinya
                 // dengan ditambahkan sertifikat pada koleksi penerima.
                 IssuedCertOwner::<T>::try_mutate(&org_id, acc_handler, |vs| {
-                    // let vs = vs.as_mut().ok_or(Error::<T>::Unknown)?;
-                    // vs.push((cert_id, desc, T::Time::now()));
                     if let Some(vs) = vs.as_mut() {
                         vs.push(proof.clone());
-
                         Ok(())
                     } else {
                         Err(Error::<T>::Unknown)
@@ -342,14 +356,59 @@ pub mod pallet {
                 })?;
             }
 
-            IssuedCert::<T>::insert(&org_id, &issue_id, proof);
+            IssuedCert::<T>::insert(&issue_id, proof);
 
             Self::deposit_event(Event::CertIssued(issue_id, acc_handler));
 
             Ok(().into())
         }
+
+        /// Revoke sertifikat berdasarkan issue id-nya.
+        #[pallet::weight(0)]
+        pub(super) fn revoke_certificate(
+            origin: OriginFor<T>,
+            org_id: T::AccountId,
+            issued_id: IssuedId,
+            revoked: bool, // true untuk revoke, false untuk mengembalikan.
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            let org = <pallet_organization::Module<T>>::organization(&org_id)
+                .ok_or(Error::<T>::Unknown)?;
+            Self::ensure_org_access2(&who, &org)?;
+
+            IssuedCert::<T>::try_mutate(&issued_id, |d| {
+                match d {
+                    Some(d) => {
+                        d.revoked = revoked;
+
+                        // // also update expiration time
+                        // // to current time, this force issued cert to
+                        // // expire at the current point of time.
+                        // d.expired = <T as pallet::Config>::Time::now();
+
+                        Ok(())
+                    }
+                    None => Err(Error::<T>::NotExists),
+                }
+            })?;
+
+            Ok(().into())
+        }
+
+        /// Check whether certificate is valid.
+        #[pallet::weight(0)]
+        pub(super) fn validate_certificate(
+            origin: OriginFor<T>,
+            issue_id: IssuedId,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+            Ok(().into())
+        }
     }
 }
+
+use frame_support::traits::Time;
 
 type Organization<T> = pallet_organization::Organization<T>;
 
@@ -369,8 +428,20 @@ impl<T: Config> Pallet<T> {
     ) -> Result<Organization<T::AccountId>, Error<T>> {
         let org = pallet_organization::Module::<T>::ensure_access(who, org_id)
             .map_err(|_| Error::<T>::PermissionDenied)?;
-        ensure!(!org.suspended, Error::<T>::PermissionDenied);
+        Self::ensure_org_access2(who, &org)?;
         Ok(org)
+    }
+
+    /// Memastikan bahwa akun memiliki akses pada organisasi.
+    /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
+    fn ensure_org_access2(
+        who: &T::AccountId,
+        org: &Organization<T::AccountId>,
+    ) -> Result<(), Error<T>> {
+        ensure!(&org.admin == who, Error::<T>::PermissionDenied);
+        ensure!(!org.suspended, Error::<T>::PermissionDenied);
+        // Ok(org)
+        Ok(())
     }
 
     /// Incerment certificate index
@@ -390,7 +461,7 @@ impl<T: Config> Pallet<T> {
     /// Generate Issued ID.
     ///
     /// Issue ID ini merupakan hash dari data yang
-    /// kemudian di-truncate untuk agar pendek
+    /// kemudian di-truncate agar pendek (10 chars)
     /// dengan cara hanya mengambil 5 chars dari awal dan akhir
     /// dari hash dalam bentuk base58, contoh output: 4p9w6uE2Zs
     pub fn generate_issued_id(data: Vec<u8>) -> IssuedId {
@@ -398,6 +469,16 @@ impl<T: Config> Pallet<T> {
         let first = hash.as_bytes().iter().take(5);
         let last = hash.as_bytes().iter().skip(hash.len() - 5);
         first.into_iter().chain(last).cloned().collect::<Vec<u8>>()
+    }
+
+    /// Check whether issued certificate is valid.
+    pub fn valid_certificate(id: &IssuedId) -> bool {
+        Self::issued_cert(id)
+            .map(|proof| {
+                let now = <T as pallet::Config>::Time::now();
+                proof.expired < now && !proof.revoked
+            })
+            .unwrap_or(false)
     }
 }
 
@@ -407,7 +488,8 @@ mod tests {
     use crate as pallet_certificate;
 
     use frame_support::{
-        assert_noop, assert_ok, ord_parameter_types, parameter_types, traits::Time,
+        assert_err_ignore_postinfo, assert_noop, assert_ok, ord_parameter_types, parameter_types,
+        traits::Time,
     };
     use frame_system::EnsureSignedBy;
     use sp_core::{sr25519, H256};
@@ -486,6 +568,7 @@ mod tests {
     // }
     parameter_types! {
         pub const MinimumPeriod: u64 = 5;
+        pub const DaysUnit: u32 = 1;
     }
     impl pallet_timestamp::Config for Test {
         type Moment = u64;
@@ -617,8 +700,10 @@ mod tests {
             .expect("Org id expected")
     }
 
-    #[test]
-    fn issue_cert_should_work() {
+    fn with_org_cert_issued<F>(func: F)
+    where
+        F: FnOnce(<Test as frame_system::Config>::AccountId, CertId, IssuedId),
+    {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
 
@@ -645,11 +730,19 @@ mod tests {
                 cert_id,
                 b"Dave".to_vec(),
                 b"ADDITIONAL DATA".to_vec(),
+                None,
                 None
             ));
             let issued_id = get_last_issued_cert_id().expect("get last issued id");
             println!("issued_id: {:?}", std::str::from_utf8(&issued_id));
-        });
+
+            func(org_id, cert_id, issued_id);
+        })
+    }
+
+    #[test]
+    fn issue_cert_should_work() {
+        with_org_cert_issued(|_, _, _| {});
     }
 
     #[test]
@@ -666,6 +759,51 @@ mod tests {
                 ),
                 BadOrigin
             );
+        });
+    }
+
+    #[test]
+    fn revoke_issued_cert_should_work() {
+        with_org_cert_issued(|org_id, cert_id, issued_id| {
+            assert_eq!(Certificate::valid_certificate(&issued_id), true);
+
+            assert_ok!(Certificate::revoke_certificate(
+                Origin::signed(Bob.into()),
+                org_id,
+                issued_id.clone(),
+                true
+            ));
+
+            assert_eq!(Certificate::valid_certificate(&issued_id), false);
+
+            // balikin lagi
+            assert_ok!(Certificate::revoke_certificate(
+                Origin::signed(Bob.into()),
+                org_id,
+                issued_id.clone(),
+                false
+            ));
+
+            assert_eq!(Certificate::valid_certificate(&issued_id), true);
+        });
+    }
+
+    #[test]
+    fn only_org_admin_can_revoke() {
+        with_org_cert_issued(|org_id, cert_id, issued_id| {
+            assert_eq!(Certificate::valid_certificate(&issued_id), true);
+
+            assert_err_ignore_postinfo!(
+                Certificate::revoke_certificate(
+                    Origin::signed(Charlie.into()),
+                    org_id,
+                    issued_id.clone(),
+                    true
+                ),
+                Error::<Test>::PermissionDenied
+            );
+
+            assert_eq!(Certificate::valid_certificate(&issued_id), true);
         });
     }
 }
