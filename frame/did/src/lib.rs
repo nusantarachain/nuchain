@@ -30,8 +30,8 @@ mod benchmarking;
 // use crate::did::Did;
 use crate::types::{Attribute, AttributeTransaction, AttributedId};
 use codec::{Decode, Encode};
-pub use weights::WeightInfo;
 pub use did::Did;
+pub use weights::WeightInfo;
 
 mod did;
 mod types;
@@ -197,13 +197,8 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             Self::is_owner(&identity, &who)?;
 
-            let now_block_number = Self::set_owner(&who, &identity, &new_owner);
-            Self::deposit_event(Event::OwnerChanged(
-                identity,
-                who,
-                new_owner,
-                now_block_number,
-            ));
+            Self::set_owner(&who, &identity, &new_owner);
+
             Ok(().into())
         }
 
@@ -221,7 +216,7 @@ pub mod pallet {
             ensure!(delegate_type.len() <= 64, Error::<T>::InvalidDelegate);
 
             Self::revoke_delegate_internal(&who, &identity, &delegate_type, &delegate);
-            
+
             Self::deposit_event(Event::DelegateRevoked(identity, delegate_type, delegate));
             Ok(().into())
         }
@@ -358,9 +353,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Set identity owner.
-    /// 
+    ///
     /// This function should not fail.
-    pub fn set_owner(who: &T::AccountId, identity: &T::AccountId, new_owner: &T::AccountId) -> T::BlockNumber {
+    pub fn set_owner(who: &T::AccountId, identity: &T::AccountId, new_owner: &T::AccountId) {
         let now_timestamp = T::Time::now();
         let now_block_number = <frame_system::Module<T>>::block_number();
 
@@ -374,11 +369,21 @@ impl<T: Config> Pallet<T> {
         // Save the update time and block.
         <UpdatedBy<T>>::insert(&identity, (&who, &now_block_number, &now_timestamp));
 
-        now_block_number
+        Self::deposit_event(Event::<T>::OwnerChanged(
+            identity.clone(),
+            who.clone(),
+            new_owner.clone(),
+            now_block_number,
+        ));
     }
 
     /// Revoke delegate without check
-    pub fn revoke_delegate_internal(who: &T::AccountId, identity: &T::AccountId, delegate_type: &Vec<u8>, delegate: &T::AccountId){
+    pub fn revoke_delegate_internal(
+        who: &T::AccountId,
+        identity: &T::AccountId,
+        delegate_type: &Vec<u8>,
+        delegate: &T::AccountId,
+    ) {
         let now_timestamp = T::Time::now();
         let now_block_number = <frame_system::Module<T>>::block_number();
 
@@ -450,7 +455,7 @@ impl<T: Config>
     }
 
     /// Validates if a delegate belongs to an identity and it has not expired.
-    /// 
+    ///
     /// return Ok if valid.
     fn valid_delegate(
         identity: &T::AccountId,

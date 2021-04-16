@@ -313,8 +313,8 @@ pub mod pallet {
             origin: OriginFor<T>,
             org_id: T::AccountId,
             cert_id: CertId,
-            recipient: Vec<u8>, // handler sure name
-            additional_data: Vec<u8>,
+            recipient: Vec<u8>, // person name
+            additional_data: Option<Vec<u8>>,
             acc_handler: Option<T::AccountId>,
             expired: Option<Moment<T>>,
         ) -> DispatchResultWithPostInfo {
@@ -322,7 +322,9 @@ pub mod pallet {
 
             let _cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
 
-            ensure!(additional_data.len() < 100, Error::<T>::TooLong);
+            if let Some(ref additional_data) = additional_data {
+                ensure!(additional_data.len() < 100, Error::<T>::TooLong);
+            }
 
             // ensure access
             let org = <pallet_organization::Module<T>>::organization(&org_id)
@@ -338,7 +340,7 @@ pub mod pallet {
                     .iter()
                     .chain(cert_id.encode().iter())
                     .chain(recipient.iter())
-                    .chain(additional_data.iter())
+                    .chain(additional_data.unwrap_or_else(|| vec![]).iter())
                     .cloned()
                     .collect::<Vec<u8>>(),
             );
@@ -747,7 +749,7 @@ mod tests {
                 org_id,
                 cert_id,
                 b"Dave".to_vec(),
-                b"ADDITIONAL DATA".to_vec(),
+                Some(b"ADDITIONAL DATA".to_vec()),
                 None,
                 None
             ));
