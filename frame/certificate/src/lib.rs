@@ -103,6 +103,9 @@ pub mod pallet {
 
         /// Organization ID
         pub org_id: AccountId,
+
+        /// Name of person who publish the certificate.
+        pub signer_name: Vec<u8>,
     }
 
     #[pallet::error]
@@ -235,11 +238,20 @@ pub mod pallet {
             org_id: T::AccountId,
             name: Vec<u8>,
             description: Vec<u8>,
+            signer_name: Option<Vec<u8>>,
         ) -> DispatchResultWithPostInfo {
             // let sender = ensure_signed(origin)?;
 
             ensure!(name.len() >= 3, Error::<T>::TooShort);
             ensure!(name.len() <= 100, Error::<T>::TooLong);
+
+            let signer_name = if let Some(signer_name) = signer_name {
+                ensure!(signer_name.len() >= 3, Error::<T>::TooShort);
+                ensure!(signer_name.len() <= 100, Error::<T>::TooLong);
+                signer_name
+            } else {
+                b"".to_vec()
+            };
 
             let (sender, org_ids) = T::CreatorOrigin::ensure_origin(origin)?;
 
@@ -277,6 +289,7 @@ pub mod pallet {
                     name: name.clone(),
                     org_id: org_id.clone(),
                     description: vec![],
+                    signer_name,
                 },
             );
 
@@ -715,12 +728,17 @@ mod tests {
                 Origin::signed(Bob.into()),
                 org_id,
                 b"CERT1".to_vec(),
-                b"CERT1 desc".to_vec()
+                b"CERT1 desc".to_vec(),
+                Some(b"Grohl".to_vec())
             ));
 
             let cert_id = get_last_created_cert_id().expect("cert_id of new created cert");
             println!("cert_id: {:#?}", cert_id.to_base58());
             assert_eq!(Certificate::get(&cert_id).map(|a| a.org_id), Some(org_id));
+            assert_eq!(
+                Certificate::get(&cert_id).map(|a| a.signer_name),
+                Some(b"Grohl".to_vec())
+            );
 
             System::set_block_number(2);
 
@@ -755,7 +773,8 @@ mod tests {
                     Origin::signed(Bob.into()),
                     last_org_id(),
                     b"CERT1".to_vec(),
-                    b"CERT1 desc".to_vec()
+                    b"CERT1 desc".to_vec(),
+                    None
                 ),
                 BadOrigin
             );
