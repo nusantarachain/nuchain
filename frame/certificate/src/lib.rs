@@ -18,6 +18,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use base58::ToBase58;
+
 use frame_support::{ensure, traits::EnsureOrigin};
 use frame_system::ensure_signed;
 pub use pallet::*;
@@ -353,7 +354,7 @@ pub mod pallet {
 type Organization<T> = pallet_organization::Organization<T>;
 
 /// The main implementation of this Certificate pallet.
-impl<T: Config> Pallet<T>{
+impl<T: Config> Pallet<T> {
     /// Get detail of certificate
     ///
     pub fn get(id: &CertId) -> Option<CertDetail<T::AccountId>> {
@@ -386,22 +387,17 @@ impl<T: Config> Pallet<T>{
         hash
     }
 
-    /// Generate hash for randomly generated certificate identification.
-    /// 
+    /// Generate Issued ID.
+    ///
     /// Issue ID ini merupakan hash dari data yang
     /// kemudian di-truncate untuk agar pendek
     /// dengan cara hanya mengambil 5 chars dari awal dan akhir
-    /// dari hash dalam bentuk base58
+    /// dari hash dalam bentuk base58, contoh output: 4p9w6uE2Zs
     pub fn generate_issued_id(data: Vec<u8>) -> IssuedId {
         let hash = T::Hashing::hash(&data).encode().to_base58();
-        let first = hash.chars().take(5);
-        let last = hash.chars().skip(hash.len() - 5);
-        first
-            .into_iter()
-            .chain(last)
-            .collect::<String>()
-            .as_bytes()
-            .to_vec()
+        let first = hash.as_bytes().iter().take(5);
+        let last = hash.as_bytes().iter().skip(hash.len() - 5);
+        first.into_iter().chain(last).cloned().collect::<Vec<u8>>()
     }
 }
 
@@ -506,8 +502,6 @@ mod tests {
         type WeightInfo = pallet_did::weights::SubstrateWeight<Self>;
     }
 
-    // use pallet_organization::tests::{ALICE, BOB, CHARLIE, DAVE, EVE};
-
     ord_parameter_types! {
         pub const Root: sr25519::Public = sp_keyring::Sr25519Keyring::Alice.public();
     }
@@ -564,7 +558,7 @@ mod tests {
     //     assert_eq!(last_event(), e.into());
     // }
 
-    use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie, Dave, Eve};
+    use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie};
 
     fn new_test_ext() -> sp_io::TestExternalities {
         let mut t = frame_system::GenesisConfig::default()

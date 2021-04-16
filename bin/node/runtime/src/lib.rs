@@ -72,6 +72,7 @@ use pallet_session::{historical as pallet_session_historical};
 use sp_inherents::{InherentData, CheckInherentsResult};
 use static_assertions::const_assert;
 use pallet_contracts::weights::WeightInfo;
+// use sp_core::sr25519;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -1026,13 +1027,19 @@ impl pallet_nicks::Config for Runtime {
 parameter_types! {
 	pub const MinOrgNameLength:usize = 3;
 	pub const MaxOrgNameLength:usize = 100;
+	pub const CreationFee: u128 = 10 * DOLLARS;
+	pub const MaxMemberCount: usize = 1000;
 }
 
 impl pallet_organization::Config for Runtime {
 	type Event = Event;
+	type CreationFee = CreationFee;
+	type Currency = Balances;
+	type Payment = Treasury;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
 	type MinOrgNameLength = MinOrgNameLength;
 	type MaxOrgNameLength = MaxOrgNameLength;
+	type MaxMemberCount = MaxMemberCount;
 	type WeightInfo = pallet_organization::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1044,7 +1051,6 @@ impl pallet_certificate::Config for Runtime {
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type Time = Timestamp;
 	type CreatorOrigin = pallet_organization::EnsureOrgAdmin<Runtime>;
-	type Organization = Organization;
 	type WeightInfo = pallet_certificate::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1055,8 +1061,9 @@ impl pallet_certificate::Config for Runtime {
 
 impl pallet_did::Config for Runtime {
 	type Event = Event;
-	type Public = Self::AccountId;
-	type Signature = Self::Signature;
+	// type Public = sr25519::Public;
+	type Public = <Signature as traits::Verify>::Signer;
+	type Signature = Signature;
 	type Time = Timestamp;
 	type WeightInfo = pallet_did::weights::SubstrateWeight<Runtime>;
 }
@@ -1102,11 +1109,10 @@ construct_runtime!(
 		Tips: pallet_tips::{Module, Call, Storage, Event<T>},
 		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
 		Mmr: pallet_mmr::{Module, Storage},
-		// Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
 		Nicks: pallet_nicks::{Module, Call, Storage, Event<T>},
 		Did: pallet_did::{Module, Call, Storage, Event<T>},
-		Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
-		Organization: pallet_organization::{Module, Call, Storage, Event<T>}
+		Organization: pallet_organization::{Module, Call, Storage, Event<T>},
+		Certificate: pallet_certificate::{Module, Call, Storage, Event<T>}
 	}
 );
 
