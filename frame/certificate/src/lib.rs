@@ -275,7 +275,8 @@ pub mod pallet {
         /// After organization create certificate; admin should be able to
         /// issue certificate to someone.
         ///
-        /// The dispatch origin for this call must match `T::ForceOrigin`.
+        /// The dispatch origin for this call must be _signed_
+        /// and has access to organization as admin.
         ///
         /// # <weight>
         /// # </weight>
