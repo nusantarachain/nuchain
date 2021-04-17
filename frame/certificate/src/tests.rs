@@ -224,12 +224,12 @@ impl CertDetail<<Test as frame_system::Config>::AccountId> {
             name: b"CERT1".to_vec(),
             description: b"CERT1 desc".to_vec(),
             org_id,
-            signer_name: None,
+            signer_name: vec![],
         }
     }
 
     fn signer(mut self, signer_name: Vec<u8>) -> Self {
-        self.signer_name = Some(signer_name);
+        self.signer_name = signer_name;
         self
     }
 }
@@ -258,7 +258,7 @@ where
             Some(b"CERT1 desc".to_vec())
         );
         assert_eq!(
-            Certificate::get(&cert_id).and_then(|a| a.signer_name),
+            Certificate::get(&cert_id).map(|a| a.signer_name),
             Some(b"Grohl".to_vec())
         );
 
@@ -270,7 +270,7 @@ where
             cert_id,
             (*ORG_CERT_REF).clone(),
             b"Dave Grohl".to_vec(),
-            Some(b"ADDITIONAL DATA".to_vec()),
+            b"ADDITIONAL DATA".to_vec(),
             None,
             None
         ));
@@ -315,8 +315,8 @@ fn create_cert_works() {
                     Some(b"CERT1 desc".to_vec())
                 );
                 assert_eq!(
-                    Certificate::get(&cert_id).and_then(|cert| cert.signer_name),
-                    None
+                    Certificate::get(&cert_id).map(|cert| cert.signer_name),
+                    Some(vec![])
                 );
             }
             _ => assert!(false, "no event"),
@@ -342,7 +342,7 @@ fn issue_cert_with_account_handler_works() {
             cert_id,
             (*ORG_CERT_REF).clone(),
             b"Dave".to_vec(),
-            Some(b"ADDITIONAL DATA".to_vec()),
+            b"ADDITIONAL DATA".to_vec(),
             Some(Charlie.into()),
             None
         ));

@@ -105,7 +105,7 @@ pub mod pallet {
         pub org_id: AccountId,
 
         /// Name of person who publish the certificate.
-        pub signer_name: Option<Vec<u8>>,
+        pub signer_name: Vec<u8>,
     }
 
     #[pallet::error]
@@ -184,25 +184,6 @@ pub mod pallet {
         pub additional_data: Option<Vec<u8>>,
     }
 
-    // impl<T: Config> CertProof<T> {
-    //     fn new(
-    //         cert_id: CertId,
-    //         human_id: Vec<u8>,
-    //         time: Moment<T>,
-    //         expired: Option<Moment<T>>,
-    //         additional_data: Option<Vec<u8>>,
-    //     ) -> Self {
-    //         CertProof {
-    //             cert_id,
-    //             human_id,
-    //             time,
-    //             expired: expired.unwrap_or_default(),
-    //             revoked: false,
-    //             additional_data,
-    //         }
-    //     }
-    // }
-
     /// double map pair of: Issued id -> Proof
     #[pallet::storage]
     #[pallet::getter(fn issued_cert)]
@@ -223,10 +204,6 @@ pub mod pallet {
         T::AccountId,      // acc handler id
         Vec<CertProof<T>>, // proof
     >;
-
-    // #[pallet::storage]
-    // #[pallet::getter(fn account_id_index)]
-    // pub type AccountIdIndex<T> = StorageValue<_, u32>;
 
     #[pallet::storage]
     pub type CertIdIndex<T> = StorageValue<_, u64>;
@@ -257,10 +234,7 @@ pub mod pallet {
             ensure!(detail.description.len() >= 3, Error::<T>::TooShort);
             ensure!(detail.description.len() <= 1000, Error::<T>::TooLong);
 
-            if let Some(ref signer_name) = detail.signer_name {
-                ensure!(signer_name.len() >= 3, Error::<T>::TooShort);
-                ensure!(signer_name.len() <= 100, Error::<T>::TooLong);
-            };
+            ensure!(detail.signer_name.len() <= 100, Error::<T>::TooLong);
 
             // ensure access
             let org = <pallet_organization::Module<T>>::organization(&detail.org_id)
@@ -299,7 +273,7 @@ pub mod pallet {
             cert_id: CertId,
             human_id: Vec<u8>, // human readable provider based id, eg: ORG/KOM/11321
             recipient: Vec<u8>, // person name
-            additional_data: Option<Vec<u8>>,
+            additional_data: Vec<u8>,
             acc_handler: Option<T::AccountId>,
             expired: Option<Moment<T>>,
         ) -> DispatchResultWithPostInfo {
@@ -307,9 +281,8 @@ pub mod pallet {
 
             let _cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
 
-            if let Some(ref additional_data) = additional_data {
-                ensure!(additional_data.len() < 100, Error::<T>::TooLong);
-            }
+            ensure!(additional_data.len() < 100, Error::<T>::TooLong);
+
             ensure!(human_id.len() < 100, Error::<T>::TooLong);
             ensure!(recipient.len() < 100, Error::<T>::TooLong);
 
@@ -318,15 +291,12 @@ pub mod pallet {
                 .ok_or(Error::<T>::OrganizationNotExists)?;
             Self::ensure_org_access2(&sender, &org)?;
 
-            let additional_data = additional_data.unwrap_or_else(|| vec![]);
-
             // generate issue id
             // this id is unique per user per cert.
             let issue_id: IssuedId = Self::generate_issued_id(
                 &org,
                 org_id
                     .as_ref()
-                    // .to_le_bytes()
                     .iter()
                     .chain(cert_id.encode().iter())
                     .chain(human_id.iter())
@@ -342,14 +312,6 @@ pub mod pallet {
                 Error::<T>::AlreadyExists
             );
 
-            // let proof = CertProof::new(
-            //     cert_id,
-            //     human_id,
-            //     recipient,
-            //     <T as pallet::Config>::Time::now(),
-            //     expired,
-            //     Some(additional_data),
-            // );
             let proof = CertProof {
                 cert_id,
                 human_id,
