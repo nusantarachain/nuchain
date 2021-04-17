@@ -32,6 +32,7 @@ sp-keyring = { version = "3.0.0", path = "../../primitives/keyring" }
 pallet-balances = { version = "3.0.0", path = "../balances" }
 pallet-did = { default-features = false, path = "../did"}
 pallet-timestamp = { default-features = false, path = "../timestamp"}
+lazy_static = "1.4.0"
 
 [features]
 default = ["std"]

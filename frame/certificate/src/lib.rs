@@ -105,7 +105,7 @@ pub mod pallet {
         pub org_id: AccountId,
 
         /// Name of person who publish the certificate.
-        pub signer_name: Vec<u8>,
+        pub signer_name: Option<Vec<u8>>,
     }
 
     #[pallet::error]
@@ -162,10 +162,14 @@ pub mod pallet {
 
     #[derive(Decode, Encode, Clone, Eq, PartialEq, RuntimeDebug)]
     pub struct CertProof<T: Config> {
+        /// ID of certificate
         pub cert_id: CertId,
 
-        /// Human readable ID representation.
+        /// Human readable provider based ID representation.
         pub human_id: Vec<u8>,
+
+        /// Recipient person name of the certificate
+        pub recipient: Vec<u8>,
 
         /// Creation time
         pub time: Moment<T>,
@@ -173,31 +177,31 @@ pub mod pallet {
         /// Expiration in days
         pub expired: Moment<T>,
 
-        /// Flag whether this certificate is revoked
+        /// Flag whether this given certificate is revoked
         pub revoked: bool,
 
-        /// Additional data
+        /// Additional data to embed
         pub additional_data: Option<Vec<u8>>,
     }
 
-    impl<T: Config> CertProof<T> {
-        fn new(
-            cert_id: CertId,
-            human_id: Vec<u8>,
-            time: Moment<T>,
-            expired: Option<Moment<T>>,
-            additional_data: Option<Vec<u8>>,
-        ) -> Self {
-            CertProof {
-                cert_id,
-                human_id,
-                time,
-                expired: expired.unwrap_or_default(),
-                revoked: false,
-                additional_data,
-            }
-        }
-    }
+    // impl<T: Config> CertProof<T> {
+    //     fn new(
+    //         cert_id: CertId,
+    //         human_id: Vec<u8>,
+    //         time: Moment<T>,
+    //         expired: Option<Moment<T>>,
+    //         additional_data: Option<Vec<u8>>,
+    //     ) -> Self {
+    //         CertProof {
+    //             cert_id,
+    //             human_id,
+    //             time,
+    //             expired: expired.unwrap_or_default(),
+    //             revoked: false,
+    //             additional_data,
+    //         }
+    //     }
+    // }
 
     /// double map pair of: Issued id -> Proof
     #[pallet::storage]
@@ -243,73 +247,37 @@ pub mod pallet {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::create_cert())]
         pub(super) fn create_cert(
             origin: OriginFor<T>,
-            org_id: T::AccountId,
-            name: Vec<u8>,
-            description: Vec<u8>,
-            signer_name: Option<Vec<u8>>,
+            detail: CertDetail<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
 
-            ensure!(name.len() >= 3, Error::<T>::TooShort);
-            ensure!(name.len() <= 100, Error::<T>::TooLong);
+            ensure!(detail.name.len() >= 3, Error::<T>::TooShort);
+            ensure!(detail.name.len() <= 100, Error::<T>::TooLong);
 
-            ensure!(description.len() >= 3, Error::<T>::TooShort);
-            ensure!(description.len() <= 1000, Error::<T>::TooLong);
+            ensure!(detail.description.len() >= 3, Error::<T>::TooShort);
+            ensure!(detail.description.len() <= 1000, Error::<T>::TooLong);
 
-            let signer_name = if let Some(signer_name) = signer_name {
+            if let Some(ref signer_name) = detail.signer_name {
                 ensure!(signer_name.len() >= 3, Error::<T>::TooShort);
                 ensure!(signer_name.len() <= 100, Error::<T>::TooLong);
-                signer_name
-            } else {
-                b"".to_vec()
             };
 
-            // let (sender, org_ids) = T::CreatorOrigin::ensure_origin(origin)?;
-
-            // // pastikan origin adalah admin pada organisasi
-            // ensure!(
-            //     org_ids.iter().any(|id| *id == org_id),
-            //     Error::<T>::PermissionDenied
-            // );
-
-            // let org = <pallet_organization::Module<T>>::organization(&org_id)
-            //     .ok_or(Error::<T>::OrganizationNotExists)?;
-
-            // ensure admin
-            // ensure!(&org.admin == &sender, Error::<T>::PermissionDenied);
-
             // ensure access
-            let org = <pallet_organization::Module<T>>::organization(&org_id)
+            let org = <pallet_organization::Module<T>>::organization(&detail.org_id)
                 .ok_or(Error::<T>::OrganizationNotExists)?;
             Self::ensure_org_access2(&sender, &org)?;
 
             let index = Self::increment_index();
-            let cert_id: CertId = Self::generate_hash(
-                index
-                    .to_le_bytes()
-                    .iter()
-                    .chain(name.iter())
-                    .chain(description.iter())
-                    .cloned()
-                    .collect::<Vec<u8>>(),
-            );
+            let cert_id: CertId = Self::generate_hash(detail.encode());
 
             ensure!(
                 !Certificates::<T>::contains_key(cert_id),
                 Error::<T>::IdAlreadyExists
             );
 
-            Certificates::<T>::insert(
-                cert_id,
-                CertDetail {
-                    name: name.clone(),
-                    org_id: org_id.clone(),
-                    description: description.clone(),
-                    signer_name,
-                },
-            );
+            Self::deposit_event(Event::CertAdded(index, cert_id, detail.org_id.clone()));
 
-            Self::deposit_event(Event::CertAdded(index, cert_id, org_id));
+            Certificates::<T>::insert(cert_id, detail);
 
             Ok(().into())
         }
@@ -329,6 +297,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             org_id: T::AccountId,
             cert_id: CertId,
+            human_id: Vec<u8>, // human readable provider based id, eg: ORG/KOM/11321
             recipient: Vec<u8>, // person name
             additional_data: Option<Vec<u8>>,
             acc_handler: Option<T::AccountId>,
@@ -341,6 +310,8 @@ pub mod pallet {
             if let Some(ref additional_data) = additional_data {
                 ensure!(additional_data.len() < 100, Error::<T>::TooLong);
             }
+            ensure!(human_id.len() < 100, Error::<T>::TooLong);
+            ensure!(recipient.len() < 100, Error::<T>::TooLong);
 
             // ensure access
             let org = <pallet_organization::Module<T>>::organization(&org_id)
@@ -352,11 +323,13 @@ pub mod pallet {
             // generate issue id
             // this id is unique per user per cert.
             let issue_id: IssuedId = Self::generate_issued_id(
+                &org,
                 org_id
                     .as_ref()
                     // .to_le_bytes()
                     .iter()
                     .chain(cert_id.encode().iter())
+                    .chain(human_id.iter())
                     .chain(recipient.iter())
                     .chain(additional_data.iter())
                     .cloned()
@@ -369,25 +342,34 @@ pub mod pallet {
                 Error::<T>::AlreadyExists
             );
 
-            let proof = CertProof::new(
+            // let proof = CertProof::new(
+            //     cert_id,
+            //     human_id,
+            //     recipient,
+            //     <T as pallet::Config>::Time::now(),
+            //     expired,
+            //     Some(additional_data),
+            // );
+            let proof = CertProof {
                 cert_id,
+                human_id,
                 recipient,
-                <T as pallet::Config>::Time::now(),
-                expired,
-                Some(additional_data),
-            );
+                time: <T as pallet::Config>::Time::now(),
+                expired: expired.unwrap_or_default(),
+                revoked: false,
+                additional_data: Some(additional_data),
+            };
 
             if let Some(ref acc_handler) = acc_handler {
                 // apabila sudah pernah diisi update isinya
                 // dengan ditambahkan sertifikat pada koleksi penerima.
-                IssuedCertOwner::<T>::try_mutate(&org_id, acc_handler, |vs| {
+                IssuedCertOwner::<T>::mutate(&org_id, acc_handler, |vs| {
                     if let Some(vs) = vs.as_mut() {
                         vs.push(proof.clone());
-                        Ok(())
                     } else {
-                        Err(Error::<T>::Unknown)
+                        *vs = Some(vec![proof.clone()]);
                     }
-                })?;
+                });
             }
 
             IssuedCert::<T>::insert(&issue_id, proof);
@@ -434,7 +416,7 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub(super) fn validate_certificate(
             origin: OriginFor<T>,
-            issue_id: IssuedId,
+            issued_id: IssuedId,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             Ok(().into())
@@ -495,14 +477,21 @@ impl<T: Config> Pallet<T> {
     /// Generate Issued ID.
     ///
     /// Issue ID ini merupakan hash dari data yang
-    /// kemudian di-truncate agar pendek (10 chars)
+    /// kemudian di-truncate agar pendek (10 chars) + karakter awal nama organisasi.
+    ///
     /// dengan cara hanya mengambil 5 chars dari awal dan akhir
     /// dari hash dalam bentuk base58, contoh output: 4p9w6uE2Zs
-    pub fn generate_issued_id(data: Vec<u8>) -> IssuedId {
+    pub fn generate_issued_id(org: &Organization<T::AccountId>, data: Vec<u8>) -> IssuedId {
         let hash = T::Hashing::hash(&data).encode().to_base58();
-        let first = hash.as_bytes().iter().take(5);
+        let first = hash.as_bytes().iter().skip(2).take(5);
         let last = hash.as_bytes().iter().skip(hash.len() - 5);
-        first.into_iter().chain(last).cloned().collect::<Vec<u8>>()
+        org.name
+            .iter()
+            .take(1)
+            .chain(first)
+            .chain(last)
+            .cloned()
+            .collect::<Vec<u8>>()
     }
 
     /// Check whether issued certificate is valid.
