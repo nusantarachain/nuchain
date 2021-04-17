@@ -4723,6 +4723,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "lazy_static",
  "pallet-balances",
  "pallet-did",
  "pallet-organization",
