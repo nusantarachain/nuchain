@@ -105,7 +105,7 @@ pub mod pallet {
         pub org_id: AccountId,
 
         /// Name of person who publish the certificate.
-        pub signer_name: Vec<u8>,
+        pub signer_name: Option<Vec<u8>>,
     }
 
     #[pallet::error]
@@ -162,10 +162,14 @@ pub mod pallet {
 
     #[derive(Decode, Encode, Clone, Eq, PartialEq, RuntimeDebug)]
     pub struct CertProof<T: Config> {
+        /// ID of certificate
         pub cert_id: CertId,
 
-        /// Human readable ID representation.
+        /// Human readable provider based ID representation.
         pub human_id: Vec<u8>,
+
+        /// Recipient person name of the certificate
+        pub recipient: Vec<u8>,
 
         /// Creation time
         pub time: Moment<T>,
@@ -173,31 +177,31 @@ pub mod pallet {
         /// Expiration in days
         pub expired: Moment<T>,
 
-        /// Flag whether this certificate is revoked
+        /// Flag whether this given certificate is revoked
         pub revoked: bool,
 
-        /// Additional data
+        /// Additional data to embed
         pub additional_data: Option<Vec<u8>>,
     }
 
-    impl<T: Config> CertProof<T> {
-        fn new(
-            cert_id: CertId,
-            human_id: Vec<u8>,
-            time: Moment<T>,
-            expired: Option<Moment<T>>,
-            additional_data: Option<Vec<u8>>,
-        ) -> Self {
-            CertProof {
-                cert_id,
-                human_id,
-                time,
-                expired: expired.unwrap_or_default(),
-                revoked: false,
-                additional_data,
-            }
-        }
-    }
+    // impl<T: Config> CertProof<T> {
+    //     fn new(
+    //         cert_id: CertId,
+    //         human_id: Vec<u8>,
+    //         time: Moment<T>,
+    //         expired: Option<Moment<T>>,
+    //         additional_data: Option<Vec<u8>>,
+    //     ) -> Self {
+    //         CertProof {
+    //             cert_id,
+    //             human_id,
+    //             time,
+    //             expired: expired.unwrap_or_default(),
+    //             revoked: false,
+    //             additional_data,
+    //         }
+    //     }
+    // }
 
     /// double map pair of: Issued id -> Proof
     #[pallet::storage]
@@ -243,70 +247,37 @@ pub mod pallet {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::create_cert())]
         pub(super) fn create_cert(
             origin: OriginFor<T>,
-            org_id: T::AccountId,
-            name: Vec<u8>,
-            description: Vec<u8>,
-            signer_name: Option<Vec<u8>>,
+            detail: CertDetail<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
 
-            ensure!(name.len() >= 3, Error::<T>::TooShort);
-            ensure!(name.len() <= 100, Error::<T>::TooLong);
+            ensure!(detail.name.len() >= 3, Error::<T>::TooShort);
+            ensure!(detail.name.len() <= 100, Error::<T>::TooLong);
 
-            let signer_name = if let Some(signer_name) = signer_name {
+            ensure!(detail.description.len() >= 3, Error::<T>::TooShort);
+            ensure!(detail.description.len() <= 1000, Error::<T>::TooLong);
+
+            if let Some(ref signer_name) = detail.signer_name {
                 ensure!(signer_name.len() >= 3, Error::<T>::TooShort);
                 ensure!(signer_name.len() <= 100, Error::<T>::TooLong);
-                signer_name
-            } else {
-                b"".to_vec()
             };
 
-            // let (sender, org_ids) = T::CreatorOrigin::ensure_origin(origin)?;
-
-            // // pastikan origin adalah admin pada organisasi
-            // ensure!(
-            //     org_ids.iter().any(|id| *id == org_id),
-            //     Error::<T>::PermissionDenied
-            // );
-
-            // let org = <pallet_organization::Module<T>>::organization(&org_id)
-            //     .ok_or(Error::<T>::OrganizationNotExists)?;
-
-            // ensure admin
-            // ensure!(&org.admin == &sender, Error::<T>::PermissionDenied);
-
             // ensure access
-            let org = <pallet_organization::Module<T>>::organization(&org_id)
+            let org = <pallet_organization::Module<T>>::organization(&detail.org_id)
                 .ok_or(Error::<T>::OrganizationNotExists)?;
             Self::ensure_org_access2(&sender, &org)?;
 
             let index = Self::increment_index();
-            let cert_id: CertId = Self::generate_hash(
-                index
-                    .to_le_bytes()
-                    .iter()
-                    .chain(name.iter())
-                    .chain(description.iter())
-                    .cloned()
-                    .collect::<Vec<u8>>(),
-            );
+            let cert_id: CertId = Self::generate_hash(detail.encode());
 
             ensure!(
                 !Certificates::<T>::contains_key(cert_id),
                 Error::<T>::IdAlreadyExists
             );
 
-            Certificates::<T>::insert(
-                cert_id,
-                CertDetail {
-                    name: name.clone(),
-                    org_id: org_id.clone(),
-                    description: description.clone(),
-                    signer_name,
-                },
-            );
+            Self::deposit_event(Event::CertAdded(index, cert_id, detail.org_id.clone()));
 
-            Self::deposit_event(Event::CertAdded(index, cert_id, org_id));
+            Certificates::<T>::insert(cert_id, detail);
 
             Ok(().into())
         }
@@ -326,6 +297,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             org_id: T::AccountId,
             cert_id: CertId,
+            human_id: Vec<u8>, // human readable provider based id, eg: ORG/KOM/11321
             recipient: Vec<u8>, // person name
             additional_data: Option<Vec<u8>>,
             acc_handler: Option<T::AccountId>,
@@ -338,6 +310,8 @@ pub mod pallet {
             if let Some(ref additional_data) = additional_data {
                 ensure!(additional_data.len() < 100, Error::<T>::TooLong);
             }
+            ensure!(human_id.len() < 100, Error::<T>::TooLong);
+            ensure!(recipient.len() < 100, Error::<T>::TooLong);
 
             // ensure access
             let org = <pallet_organization::Module<T>>::organization(&org_id)
@@ -349,11 +323,13 @@ pub mod pallet {
             // generate issue id
             // this id is unique per user per cert.
             let issue_id: IssuedId = Self::generate_issued_id(
+                &org,
                 org_id
                     .as_ref()
                     // .to_le_bytes()
                     .iter()
                     .chain(cert_id.encode().iter())
+                    .chain(human_id.iter())
                     .chain(recipient.iter())
                     .chain(additional_data.iter())
                     .cloned()
@@ -366,25 +342,34 @@ pub mod pallet {
                 Error::<T>::AlreadyExists
             );
 
-            let proof = CertProof::new(
+            // let proof = CertProof::new(
+            //     cert_id,
+            //     human_id,
+            //     recipient,
+            //     <T as pallet::Config>::Time::now(),
+            //     expired,
+            //     Some(additional_data),
+            // );
+            let proof = CertProof {
                 cert_id,
+                human_id,
                 recipient,
-                <T as pallet::Config>::Time::now(),
-                expired,
-                Some(additional_data),
-            );
+                time: <T as pallet::Config>::Time::now(),
+                expired: expired.unwrap_or_default(),
+                revoked: false,
+                additional_data: Some(additional_data),
+            };
 
             if let Some(ref acc_handler) = acc_handler {
                 // apabila sudah pernah diisi update isinya
                 // dengan ditambahkan sertifikat pada koleksi penerima.
-                IssuedCertOwner::<T>::try_mutate(&org_id, acc_handler, |vs| {
+                IssuedCertOwner::<T>::mutate(&org_id, acc_handler, |vs| {
                     if let Some(vs) = vs.as_mut() {
                         vs.push(proof.clone());
-                        Ok(())
                     } else {
-                        Err(Error::<T>::Unknown)
+                        *vs = Some(vec![proof.clone()]);
                     }
-                })?;
+                });
             }
 
             IssuedCert::<T>::insert(&issue_id, proof);
@@ -431,7 +416,7 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub(super) fn validate_certificate(
             origin: OriginFor<T>,
-            issue_id: IssuedId,
+            issued_id: IssuedId,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             Ok(().into())
@@ -492,14 +477,21 @@ impl<T: Config> Pallet<T> {
     /// Generate Issued ID.
     ///
     /// Issue ID ini merupakan hash dari data yang
-    /// kemudian di-truncate agar pendek (10 chars)
+    /// kemudian di-truncate agar pendek (10 chars) + karakter awal nama organisasi.
+    ///
     /// dengan cara hanya mengambil 5 chars dari awal dan akhir
     /// dari hash dalam bentuk base58, contoh output: 4p9w6uE2Zs
-    pub fn generate_issued_id(data: Vec<u8>) -> IssuedId {
+    pub fn generate_issued_id(org: &Organization<T::AccountId>, data: Vec<u8>) -> IssuedId {
         let hash = T::Hashing::hash(&data).encode().to_base58();
-        let first = hash.as_bytes().iter().take(5);
+        let first = hash.as_bytes().iter().skip(2).take(5);
         let last = hash.as_bytes().iter().skip(hash.len() - 5);
-        first.into_iter().chain(last).cloned().collect::<Vec<u8>>()
+        org.name
+            .iter()
+            .take(1)
+            .chain(first)
+            .chain(last)
+            .cloned()
+            .collect::<Vec<u8>>()
     }
 
     /// Check whether issued certificate is valid.
@@ -514,355 +506,4 @@ impl<T: Config> Pallet<T> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate as pallet_certificate;
-
-    use frame_support::{
-        assert_err_ignore_postinfo, assert_noop, assert_ok, ord_parameter_types, parameter_types,
-        traits::Time,
-    };
-    use frame_system::EnsureSignedBy;
-    use sp_core::{sr25519, H256};
-    use sp_runtime::{
-        testing::Header,
-        traits::{BadOrigin, BlakeTwo256, IdentityLookup},
-    };
-
-    type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-    type Block = frame_system::mocking::MockBlock<Test>;
-
-    frame_support::construct_runtime!(
-        pub enum Test where
-            Block = Block,
-            NodeBlock = Block,
-            UncheckedExtrinsic = UncheckedExtrinsic,
-        {
-            System: frame_system::{Module, Call, Config, Storage, Event<T>},
-            Timestamp: pallet_timestamp::{Module, Call, Storage},
-            Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-            Did: pallet_did::{Module, Call, Storage, Event<T>},
-            Organization: pallet_organization::{Module, Call, Storage, Event<T>},
-            Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
-        }
-    );
-
-    parameter_types! {
-        pub const BlockHashCount: u64 = 250;
-        pub BlockWeights: frame_system::limits::BlockWeights =
-            frame_system::limits::BlockWeights::simple_max(1024);
-    }
-    impl frame_system::Config for Test {
-        type BaseCallFilter = ();
-        type BlockWeights = ();
-        type BlockLength = ();
-        type DbWeight = ();
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Call = Call;
-        type Hashing = BlakeTwo256;
-        type AccountId = sr25519::Public;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = Event;
-        type BlockHashCount = BlockHashCount;
-        type Version = ();
-        type PalletInfo = PalletInfo;
-        type AccountData = pallet_balances::AccountData<u64>;
-        type OnNewAccount = ();
-        type OnKilledAccount = ();
-        type SystemWeightInfo = ();
-        type SS58Prefix = ();
-    }
-    parameter_types! {
-        pub const ExistentialDeposit: u64 = 1;
-    }
-    impl pallet_balances::Config for Test {
-        type MaxLocks = ();
-        type Balance = u64;
-        type Event = Event;
-        type DustRemoval = ();
-        type ExistentialDeposit = ExistentialDeposit;
-        type AccountStore = System;
-        type WeightInfo = ();
-    }
-    parameter_types! {
-        pub const MinOrgNameLength: usize = 3;
-        pub const MaxOrgNameLength: usize = 100;
-        pub const MaxMemberCount: usize = 100;
-        pub const CreationFee: u64 = 20;
-    }
-    // ord_parameter_types! {
-    //     pub const One: u64 = 1;
-    // }
-    parameter_types! {
-        pub const MinimumPeriod: u64 = 5;
-        pub const DaysUnit: u32 = 1;
-    }
-    impl pallet_timestamp::Config for Test {
-        type Moment = u64;
-        type OnTimestampSet = ();
-        type MinimumPeriod = MinimumPeriod;
-        type WeightInfo = ();
-    }
-
-    impl pallet_did::Config for Test {
-        type Event = Event;
-        type Public = sr25519::Public;
-        type Signature = sr25519::Signature;
-        type Time = Timestamp;
-        type WeightInfo = pallet_did::weights::SubstrateWeight<Self>;
-    }
-
-    ord_parameter_types! {
-        pub const Root: sr25519::Public = sp_keyring::Sr25519Keyring::Alice.public();
-    }
-
-    impl pallet_organization::Config for Test {
-        type Event = Event;
-        type CreationFee = CreationFee;
-        type Currency = Balances;
-        type Payment = ();
-        type ForceOrigin = EnsureSignedBy<Root, sr25519::Public>;
-        type MinOrgNameLength = MinOrgNameLength;
-        type MaxOrgNameLength = MaxOrgNameLength;
-        type MaxMemberCount = MaxMemberCount;
-        type WeightInfo = pallet_organization::weights::SubstrateWeight<Self>;
-    }
-
-    impl Config for Test {
-        type Event = Event;
-        type ForceOrigin = EnsureSignedBy<Root, sr25519::Public>;
-        type Time = Self;
-        // type CreatorOrigin = pallet_organization::EnsureOrgAdmin<Self>;
-        type WeightInfo = ();
-    }
-
-    impl Time for Test {
-        type Moment = u64;
-        fn now() -> Self::Moment {
-            let start = std::time::SystemTime::now();
-            let since_epoch = start
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("Time went backwards");
-            since_epoch.as_millis() as u64
-        }
-    }
-
-    type CertEvent = pallet_certificate::Event<Test>;
-
-    fn last_event() -> CertEvent {
-        System::events()
-            .into_iter()
-            .map(|r| r.event)
-            .filter_map(|e| {
-                if let Event::pallet_certificate(inner) = e {
-                    Some(inner)
-                } else {
-                    None
-                }
-            })
-            .last()
-            .expect("Event expected")
-    }
-
-    // fn expect_event<E: Into<Event>>(e: E) {
-    //     assert_eq!(last_event(), e.into());
-    // }
-
-    use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie};
-
-    fn new_test_ext() -> sp_io::TestExternalities {
-        let mut t = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
-        pallet_balances::GenesisConfig::<Test> {
-            balances: vec![(Alice.into(), 50), (Bob.into(), 10), (Charlie.into(), 20)],
-        }
-        .assimilate_storage(&mut t)
-        .unwrap();
-        t.into()
-    }
-
-    macro_rules! create_org {
-        ($name:literal, $to:expr) => {
-            assert_ok!(Organization::create(
-                Origin::signed(Alice.public()),
-                $name.to_vec(),
-                b"".to_vec(),
-                $to,
-                b"".to_vec(),
-                b"".to_vec()
-            ));
-        };
-    }
-
-    fn get_last_created_cert_id() -> Option<CertId> {
-        match last_event() {
-            CertEvent::CertAdded(_, cert_id, _) => Some(cert_id),
-            _ => None,
-        }
-    }
-
-    fn get_last_issued_cert_id() -> Option<IssuedId> {
-        match last_event() {
-            CertEvent::CertIssued(cert_id, _) => Some(cert_id),
-            _ => None,
-        }
-    }
-
-    fn last_org_id() -> <Test as frame_system::Config>::AccountId {
-        System::events()
-            .into_iter()
-            .map(|r| r.event)
-            .filter_map(|ev| {
-                if let Event::pallet_organization(
-                    pallet_organization::Event::<Test>::OrganizationAdded(org_id, _),
-                ) = ev
-                {
-                    Some(org_id)
-                } else {
-                    None
-                }
-            })
-            .last()
-            .expect("Org id expected")
-    }
-
-    fn with_org_cert_issued<F>(func: F)
-    where
-        F: FnOnce(<Test as frame_system::Config>::AccountId, CertId, IssuedId),
-    {
-        new_test_ext().execute_with(|| {
-            System::set_block_number(1);
-
-            create_org!(b"ORG1", Bob.into());
-
-            let org_id = last_org_id();
-
-            assert_ok!(Certificate::create_cert(
-                Origin::signed(Bob.into()),
-                org_id,
-                b"CERT1".to_vec(),
-                b"CERT1 desc".to_vec(),
-                Some(b"Grohl".to_vec())
-            ));
-
-            let cert_id = get_last_created_cert_id().expect("cert_id of new created cert");
-            println!("cert_id: {:#?}", cert_id.to_base58());
-            assert_eq!(Certificate::get(&cert_id).map(|a| a.org_id), Some(org_id));
-            assert_eq!(
-                Certificate::get(&cert_id).map(|a| a.description),
-                Some(b"CERT1 desc".to_vec())
-            );
-            assert_eq!(
-                Certificate::get(&cert_id).map(|a| a.signer_name),
-                Some(b"Grohl".to_vec())
-            );
-
-            System::set_block_number(2);
-
-            assert_ok!(Certificate::issue_cert(
-                Origin::signed(Bob.into()),
-                org_id,
-                cert_id,
-                b"Dave".to_vec(),
-                Some(b"ADDITIONAL DATA".to_vec()),
-                None,
-                None
-            ));
-            let issued_id = get_last_issued_cert_id().expect("get last issued id");
-            println!("issued_id: {:?}", std::str::from_utf8(&issued_id));
-
-            func(org_id, cert_id, issued_id);
-        })
-    }
-
-    #[test]
-    fn issue_cert_should_work() {
-        with_org_cert_issued(|_, _, _| {});
-    }
-
-    #[test]
-    fn cannot_create_cert_without_org() {
-        new_test_ext().execute_with(|| {
-            System::set_block_number(1);
-            create_org!(b"ORG1", Bob.into());
-            assert_err_ignore_postinfo!(
-                Certificate::create_cert(
-                    Origin::signed(Bob.into()),
-                    sp_keyring::Sr25519Keyring::One.into(), // non existent org address
-                    b"CERT1".to_vec(),
-                    b"CERT1 desc".to_vec(),
-                    None
-                ),
-                Error::<Test>::OrganizationNotExists
-            );
-        });
-    }
-
-    #[test]
-    fn only_org_admin_can_create_cert() {
-        new_test_ext().execute_with(|| {
-            System::set_block_number(1);
-            create_org!(b"ORG2", Charlie.into());
-            assert_err_ignore_postinfo!(
-                Certificate::create_cert(
-                    Origin::signed(Bob.into()),
-                    last_org_id(),
-                    b"CERT1".to_vec(),
-                    b"CERT1 desc".to_vec(),
-                    None
-                ),
-                Error::<Test>::PermissionDenied
-            );
-        });
-    }
-
-    #[test]
-    fn revoke_issued_cert_should_work() {
-        with_org_cert_issued(|org_id, cert_id, issued_id| {
-            assert_eq!(Certificate::valid_certificate(&issued_id), true);
-
-            assert_ok!(Certificate::revoke_certificate(
-                Origin::signed(Bob.into()),
-                org_id,
-                issued_id.clone(),
-                true
-            ));
-
-            assert_eq!(Certificate::valid_certificate(&issued_id), false);
-
-            // balikin lagi
-            assert_ok!(Certificate::revoke_certificate(
-                Origin::signed(Bob.into()),
-                org_id,
-                issued_id.clone(),
-                false
-            ));
-
-            assert_eq!(Certificate::valid_certificate(&issued_id), true);
-        });
-    }
-
-    #[test]
-    fn only_org_admin_can_revoke() {
-        with_org_cert_issued(|org_id, cert_id, issued_id| {
-            assert_eq!(Certificate::valid_certificate(&issued_id), true);
-
-            assert_err_ignore_postinfo!(
-                Certificate::revoke_certificate(
-                    Origin::signed(Charlie.into()),
-                    org_id,
-                    issued_id.clone(),
-                    true
-                ),
-                Error::<Test>::PermissionDenied
-            );
-
-            assert_eq!(Certificate::valid_certificate(&issued_id), true);
-        });
-    }
-}
+mod tests;

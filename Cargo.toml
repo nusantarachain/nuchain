@@ -193,6 +193,7 @@ members = [
 	"utils/frame/rpc/system",
 	"utils/prometheus",
 	"utils/wasm-builder",
+	"build/windows/rotatekey"
 ]
 
 # The list of dependencies below (which can be both direct and indirect dependencies) are crates
@@ -261,3 +262,4 @@ zeroize = { opt-level = 3 }
 [profile.release]
 # Substrate runtime requires unwinding.
 panic = "unwind"
+
