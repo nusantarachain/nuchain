@@ -84,6 +84,7 @@ pallet-transaction-payment = { version = "3.0.0", default-features = false, path
 pallet-transaction-payment-rpc-runtime-api = { version = "3.0.0", default-features = false, path = "../../../frame/transaction-payment/rpc/runtime-api/" }
 pallet-vesting = { version = "3.0.0", default-features = false, path = "../../../frame/vesting" }
 pallet-nicks = { version = "3.0.0", default-features = false, path = "../../../frame/nicks" }
+pallet-did = { version = "0.0.1", default-features = false, path = "../../../frame/did" }
 pallet-certificate = { version = "0.0.1", default-features = false, path = "../../../frame/certificate" }
 pallet-organization = { version = "0.0.1", default-features = false, path = "../../../frame/organization" }
 

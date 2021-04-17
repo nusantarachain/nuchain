@@ -109,7 +109,7 @@ pub fn config_endowed(
 		pallet_democracy: Some(Default::default()),
 		pallet_collective_Instance1: Some(Default::default()),
 		pallet_collective_Instance2: Some(Default::default()),
-		pallet_membership_Instance1: Some(Default::default()),
+		// pallet_membership_Instance1: Some(Default::default()),
 		pallet_elections_phragmen: Some(Default::default()),
 		pallet_sudo: Some(Default::default()),
 		pallet_treasury: Some(Default::default()),

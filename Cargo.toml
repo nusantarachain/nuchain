@@ -122,6 +122,7 @@ members = [
 	"frame/vesting",
 	"frame/certificate",
 	"frame/organization",
+	"frame/did",
 	"primitives/allocator",
 	"primitives/api",
 	"primitives/api/proc-macro",

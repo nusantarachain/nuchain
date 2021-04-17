@@ -1,3 +1,22 @@
+// This file is part of Nuchain.
+//
+// Copyright (C) 2021 Rantai Nusantara Foundation.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+
 //! # Organization
 //!
 //! - [`Organization::Config`](./trait.Config.html)
@@ -26,7 +45,8 @@ use frame_support::{
     },
 };
 use frame_system::ensure_signed;
-use sp_runtime::traits::StaticLookup;
+use sp_core::crypto::UncheckedFrom;
+use sp_runtime::traits::{Hash, StaticLookup};
 use sp_std::{fmt::Debug, prelude::*};
 
 use enumflags2::{bitflags, BitFlags};
@@ -39,8 +59,7 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, EncodeLike};
-
-type OrgId = u32;
+use pallet_did::{self as did, Did};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -64,7 +83,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + did::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -95,6 +114,9 @@ pub mod pallet {
 
     #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
     pub struct Organization<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
+        /// Organization ID
+        pub id: AccountId,
+
         /// object name
         pub name: Vec<u8>,
 
@@ -138,7 +160,7 @@ pub mod pallet {
         PermissionDenied,
 
         /// ID already exists
-        IdAlreadyExists,
+        BadIndex,
 
         /// Cannot generate ID
         CannotGenId,
@@ -155,40 +177,51 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance", OrgId = "OrgId")]
+    #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance")]
     pub enum Event<T: Config> {
         /// Some object added inside the system.
-        OrganizationAdded(OrgId, T::AccountId),
+        ///
+        /// 1: organization id (hash)
+        /// 2: creator account id
+        OrganizationAdded(T::AccountId, T::AccountId),
 
         /// When object deleted
-        OrganizationDeleted(OrgId),
+        OrganizationDeleted(T::AccountId),
 
         /// Organization has been suspended.
-        OrganizationSuspended(OrgId),
+        OrganizationSuspended(T::AccountId),
 
         /// Member added to an organization
-        MemberAdded(OrgId, T::AccountId),
+        MemberAdded(T::AccountId, T::AccountId),
 
         /// Member removed from an organization
-        MemberRemoved(OrgId, T::AccountId),
+        MemberRemoved(T::AccountId, T::AccountId),
 
-        /// Organization admin changed [from] -> [to].
-        AdminChanged(OrgId, T::AccountId, T::AccountId),
+        /// Organization admin changed.
+        AdminChanged(T::AccountId, T::AccountId),
     }
 
+    /// Pair organization hash -> Organization data
     #[pallet::storage]
+    #[pallet::getter(fn organization)]
     pub type Organizations<T: Config> =
-        StorageMap<_, Blake2_128Concat, OrgId, Organization<T::AccountId>>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, Organization<T::AccountId>>;
+
+    /// Link organization index -> organization hash.
+    /// Useful for lookup organization from hash.
+    #[pallet::storage]
+    #[pallet::getter(fn organization_index)]
+    pub type OrganizationIndexOf<T: Config> = StorageMap<_, Blake2_128Concat, u64, T::AccountId>;
 
     /// Pair user -> list of handled organizations
     #[pallet::storage]
     pub type OrganizationLink<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<OrgId>>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>>;
 
     /// Membership store, stored as an ordered Vec.
     #[pallet::storage]
     #[pallet::getter(fn members)]
-    pub type Members<T: Config> = StorageMap<_, Twox64Concat, OrgId, Vec<T::AccountId>>;
+    pub type Members<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, Vec<T::AccountId>>;
 
     #[bitflags(default = Active)]
     #[repr(u64)]
@@ -240,38 +273,42 @@ pub mod pallet {
     /// Flag of the organization
     #[pallet::storage]
     #[pallet::getter(fn flags)]
-    pub type OrganizationFlagData<T: Config> = StorageMap<_, Twox64Concat, OrgId, FlagDataBits>;
+    pub type OrganizationFlagData<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, FlagDataBits>;
 
-    pub struct EnsureOrgAdmin<T>(sp_std::marker::PhantomData<T>);
+    // pub struct EnsureOrgAdmin<T>(sp_std::marker::PhantomData<T>);
 
-    impl<T: Config> EnsureOrigin<T::Origin> for EnsureOrgAdmin<T> {
-        type Success = (T::AccountId, Vec<OrgId>);
+    // impl<T: Config> EnsureOrigin<T::Origin> for EnsureOrgAdmin<T> {
+    //     type Success = (T::AccountId, Vec<T::AccountId>);
 
-        fn try_origin(o: T::Origin) -> Result<Self::Success, T::Origin> {
-            o.into().and_then(|o| match o {
-                frame_system::RawOrigin::Signed(ref who) => {
-                    let vs = OrganizationLink::<T>::get(who.clone())
-                        .ok_or(T::Origin::from(o.clone()))?;
-                    Ok((who.clone(), vs.clone()))
-                }
-                r => Err(T::Origin::from(r)),
-            })
-        }
+    //     fn try_origin(o: T::Origin) -> Result<Self::Success, T::Origin> {
+    //         o.into().and_then(|o| match o {
+    //             frame_system::RawOrigin::Signed(ref who) => {
+    //                 let vs = OrganizationLink::<T>::get(who.clone())
+    //                     .ok_or(T::Origin::from(o.clone()))?;
+    //                 Ok((who.clone(), vs.clone()))
+    //             }
+    //             r => Err(T::Origin::from(r)),
+    //         })
+    //     }
 
-        #[cfg(feature = "runtime-benchmarks")]
-        fn successful_origin() -> T::Origin {
-            O::from(RawOrigin::Signed(Default::default()))
-        }
-    }
+    //     #[cfg(feature = "runtime-benchmarks")]
+    //     fn successful_origin() -> T::Origin {
+    //         O::from(RawOrigin::Signed(Default::default()))
+    //     }
+    // }
 
     #[pallet::storage]
     #[pallet::getter(fn object_index)]
-    pub type OrgIdIndex<T> = StorageValue<_, u32>;
+    pub type OrgIdIndex<T> = StorageValue<_, u64>;
 
     /// Organization module declaration.
     // pub struct Module<T: Config> for enum Call where origin: T::Origin {
     #[pallet::call]
-    impl<T: Config> Pallet<T> {
+    impl<T: Config> Pallet<T>
+    where
+        T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    {
         /// Add new object.
         ///
         /// The dispatch origin for this call must be _Signed_.
@@ -279,7 +316,7 @@ pub mod pallet {
         /// # <weight>
         /// # </weight>
         #[pallet::weight(100_000_000)]
-        pub fn create_org(
+        pub fn create(
             origin: OriginFor<T>,
             name: Vec<u8>,
             description: Vec<u8>,
@@ -287,7 +324,7 @@ pub mod pallet {
             website: Vec<u8>,
             email: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
-            let origin = ensure_signed(origin)?;
+            let who = ensure_signed(origin.clone())?;
 
             ensure!(
                 name.len() >= T::MinOrgNameLength::get(),
@@ -298,11 +335,11 @@ pub mod pallet {
                 Error::<T>::NameTooLong
             );
 
-            let id = Self::next_id()?;
+            let index = Self::next_index()?;
 
             ensure!(
-                !Organizations::<T>::contains_key(id),
-                Error::<T>::IdAlreadyExists
+                !OrganizationIndexOf::<T>::contains_key(index),
+                Error::<T>::BadIndex
             );
 
             let admin = T::Lookup::lookup(admin)?;
@@ -312,15 +349,29 @@ pub mod pallet {
 
             // Process payment
             T::Payment::on_unbalanced(T::Currency::withdraw(
-                &origin,
+                &who,
                 cost,
                 WithdrawReasons::FEE,
                 KeepAlive,
             )?);
 
+            // generate organization id (hash)
+            let org_id: T::AccountId = UncheckedFrom::unchecked_from(T::Hashing::hash(
+                &index
+                    .to_le_bytes()
+                    .iter()
+                    .chain(name.iter())
+                    .chain(description.iter())
+                    .chain(website.iter())
+                    .chain(email.iter())
+                    .cloned()
+                    .collect::<Vec<u8>>(),
+            ));
+
             Organizations::<T>::insert(
-                id as OrgId,
+                org_id.clone(),
                 Organization {
+                    id: org_id.clone(),
                     name: name.clone(),
                     description: description.clone(),
                     admin: admin.clone(),
@@ -330,17 +381,27 @@ pub mod pallet {
                 },
             );
 
+            <OrganizationIndexOf<T>>::insert(index, org_id.clone());
+
             if OrganizationLink::<T>::contains_key(&admin) {
                 OrganizationLink::<T>::mutate(&admin, |ref mut vs| {
-                    vs.as_mut().map(|vsi| vsi.push(id))
+                    vs.as_mut().map(|vsi| vsi.push(org_id.clone()))
                 });
             } else {
-                OrganizationLink::<T>::insert(&admin, sp_std::vec![id]);
+                OrganizationLink::<T>::insert(&admin, sp_std::vec![org_id.clone()]);
             }
 
-            <OrganizationFlagData<T>>::insert::<_, FlagDataBits>(id, Default::default());
+            <OrganizationFlagData<T>>::insert::<_, FlagDataBits>(
+                org_id.clone(),
+                Default::default(),
+            );
 
-            Self::deposit_event(Event::OrganizationAdded(id, admin));
+            // DID add attribute
+            <pallet_did::Module<T>>::create_attribute(&org_id, &org_id, b"Org", &name, None)?;
+            // Set owner of this organization in DID
+            <pallet_did::Module<T>>::set_owner(&who, &org_id, &admin);
+
+            Self::deposit_event(Event::OrganizationAdded(org_id, admin));
 
             Ok(().into())
         }
@@ -351,7 +412,7 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub fn suspend_org(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             T::ForceOrigin::ensure_origin(origin)?;
 
@@ -376,14 +437,15 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub fn set_flags(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
             flags: FlagDataBits,
         ) -> DispatchResultWithPostInfo {
             let origin_1 = ensure_signed(origin.clone())?;
 
-            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            if org.admin != origin_1
+            if !(org.admin == origin_1
+                || did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin_1).is_ok())
                 || flags.contains(FlagDataBit::System)
                 || flags.contains(FlagDataBit::Verified)
             {
@@ -405,17 +467,16 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub fn add_member(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let org = Self::ensure_access(&origin, &org_id)?;
 
-            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
             ensure!(!org.suspended, Error::<T>::Suspended);
 
-            let mut members = <Members<T>>::get(org_id).unwrap_or_else(|| vec![]);
+            let mut members = <Members<T>>::get(&org_id).unwrap_or_else(|| vec![]);
 
             ensure!(
                 members.len() < T::MaxMemberCount::get(),
@@ -423,13 +484,13 @@ pub mod pallet {
             );
             ensure!(
                 !members.iter().any(|a| *a == account_id),
-                Error::<T>::IdAlreadyExists
+                Error::<T>::BadIndex
             );
 
             members.push(account_id.clone());
             members.sort();
 
-            <Members<T>>::insert(org_id, members);
+            <Members<T>>::insert(&org_id, members);
 
             Self::deposit_event(Event::MemberAdded(org_id, account_id));
 
@@ -440,17 +501,20 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub fn remove_member(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+            // ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+            // did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)?;
+            Self::ensure_access(&origin, &org_id)?;
+
             ensure!(!org.suspended, Error::<T>::Suspended);
 
-            let mut members = <Members<T>>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let mut members = <Members<T>>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
             ensure!(
                 members.iter().any(|a| *a == account_id),
@@ -458,7 +522,7 @@ pub mod pallet {
             );
 
             members = members.into_iter().filter(|a| *a != account_id).collect();
-            Members::<T>::insert(org_id, members);
+            Members::<T>::insert(org_id.clone(), members);
 
             Self::deposit_event(Event::MemberRemoved(org_id, account_id));
 
@@ -470,12 +534,12 @@ pub mod pallet {
         #[pallet::weight(100_000)]
         pub(crate) fn set_admin(
             origin: OriginFor<T>,
-            #[pallet::compact] org_id: OrgId,
+            org_id: T::AccountId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let origin_1 = ensure_signed(origin.clone())?;
 
-            let org = Organizations::<T>::get(org_id).ok_or(Error::<T>::NotExists)?;
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
             if org.admin != origin_1 {
                 T::ForceOrigin::ensure_origin(origin)?;
@@ -485,13 +549,43 @@ pub mod pallet {
 
             ensure!(org.admin != account_id, Error::<T>::AlreadySet);
 
+            // did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)?;
+
+            // did::Module::<T>::revoke_delegate_internal(&org_id, b"OrgAdmin", &account_id);
+            // did::Module::<T>::create_delegate(&org_id, &org_id, &account_id, b"OrgAdmin", None)?;
+
             <Organizations<T>>::mutate(&org_id, |org| {
                 if let Some(org) = org {
                     org.admin = account_id.clone();
                 }
             });
 
-            Self::deposit_event(Event::AdminChanged(org_id, org.admin, account_id));
+            Self::deposit_event(Event::AdminChanged(org_id, account_id));
+
+            Ok(().into())
+        }
+
+        /// Delegate admin access to other.
+        ///
+        /// Use _did_ for share access with expiration.
+        ///
+        /// Only admin of organization can do this operation.
+        ///
+        #[pallet::weight(100_000)]
+        pub(crate) fn delegate_access(
+            origin: OriginFor<T>,
+            org_id: T::AccountId,
+            to: T::AccountId,
+            valid_for: Option<T::BlockNumber>,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
+
+            ensure!(!org.suspended, Error::<T>::Suspended);
+            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+
+            did::Module::<T>::create_delegate(&origin, &org_id, &to, b"OrgAdmin", valid_for)?;
 
             Ok(().into())
         }
@@ -504,9 +598,7 @@ pub mod pallet {
     // The genesis config type.
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        pub dummy: u32,
-        pub bar: Vec<(T::AccountId, u32)>,
-        pub foo: u32,
+        _phantom: PhantomData<T>,
     }
 
     // The default value for the genesis config type.
@@ -514,9 +606,7 @@ pub mod pallet {
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
-                dummy: Default::default(),
-                bar: Default::default(),
-                foo: Default::default(),
+                _phantom: Default::default(),
             }
         }
     }
@@ -524,13 +614,7 @@ pub mod pallet {
     // The build of genesis for the pallet.
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-        fn build(&self) {
-            // <Dummy<T>>::put(&self.dummy);
-            // for (a, b) in &self.bar {
-            // 	<Bar<T>>::insert(a, b);
-            // }
-            // <Foo<T>>::put(&self.foo);
-        }
+        fn build(&self) {}
     }
 }
 
@@ -538,7 +622,7 @@ macro_rules! method_is_flag {
     ($funcname:ident, $flag:ident, $name:expr) => {
         #[doc = "Check whether organization is "]
         #[doc=$name]
-        pub fn $funcname(id: OrgId) -> bool {
+        pub fn $funcname(id: T::AccountId) -> bool {
             <OrganizationFlagData<T>>::get(id)
                 .map(|a| (*a).contains(FlagDataBit::$flag))
                 .unwrap_or(false)
@@ -551,13 +635,26 @@ macro_rules! method_is_flag {
 
 /// The main implementation of this Organization pallet.
 impl<T: Config> Pallet<T> {
-    /// Get the Organization detail
-    pub fn get(id: OrgId) -> Option<Organization<T::AccountId>> {
-        Organizations::<T>::get(id)
+    /// Memastikan origin dapat akses resource.
+    ///
+    /// Prosedur ini akan memeriksa apakah origin admin
+    /// atau delegator.
+    pub fn ensure_access(
+        origin: &T::AccountId,
+        org_id: &T::AccountId,
+    ) -> Result<Organization<T::AccountId>, Error<T>> {
+        let org = Self::organization(&org_id).ok_or(Error::<T>::NotExists)?;
+
+        if &org.admin != origin {
+            did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)
+                .map_err(|_| Error::<T>::PermissionDenied)?;
+        }
+
+        Ok(org)
     }
 
     /// Get next Organization ID
-    pub fn next_id() -> Result<u32, Error<T>> {
+    pub fn next_index() -> Result<u64, Error<T>> {
         <OrgIdIndex<T>>::mutate(|o| {
             *o = Some(o.map_or(1, |vo| vo.saturating_add(1)));
             *o
@@ -566,7 +663,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Check whether account is member of the organization
-    pub fn is_member(id: OrgId, account_id: T::AccountId) -> bool {
+    pub fn is_member(id: T::AccountId, account_id: T::AccountId) -> bool {
         <Members<T>>::get(id)
             .map(|a| a.iter().any(|id| *id == account_id))
             .unwrap_or(false)
@@ -579,441 +676,15 @@ impl<T: Config> Pallet<T> {
     method_is_flag!(is_system, System);
 
     /// Check whether organization suspended
-    pub fn is_suspended(id: OrgId) -> bool {
-        Self::get(id).map(|a| a.suspended).unwrap_or(true)
+    pub fn is_suspended(id: T::AccountId) -> bool {
+        Self::organization(id).map(|a| a.suspended).unwrap_or(true)
     }
 
     /// Get admin of the organization
-    pub fn get_admin(id: OrgId) -> Option<T::AccountId> {
-        Self::get(id).map(|a| a.admin)
-    }
-}
-
-pub trait OrgProvider<T: Config> {
-    fn get(id: OrgId) -> Option<Organization<T::AccountId>>;
-}
-
-impl<T: Config> OrgProvider<T> for Pallet<T> {
-    fn get(id: OrgId) -> Option<Organization<T::AccountId>> {
-        Organizations::<T>::get(id)
+    pub fn get_admin(id: T::AccountId) -> Option<T::AccountId> {
+        Self::organization(id).map(|a| a.admin)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate as pallet_organization;
-
-    use frame_support::{
-        assert_err_ignore_postinfo, assert_noop, assert_ok, ord_parameter_types, parameter_types,
-    };
-    use frame_system::EnsureSignedBy;
-    use sp_core::H256;
-    use sp_runtime::{
-        testing::Header,
-        traits::{BlakeTwo256, IdentityLookup},
-        DispatchError,
-    };
-
-    type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-    type Block = frame_system::mocking::MockBlock<Test>;
-
-    frame_support::construct_runtime!(
-        pub enum Test where
-            Block = Block,
-            NodeBlock = Block,
-            UncheckedExtrinsic = UncheckedExtrinsic,
-        {
-            System: frame_system::{Module, Call, Config, Storage, Event<T>},
-            Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-            Organization: pallet_organization::{Module, Call, Storage, Event<T>},
-        }
-    );
-
-    parameter_types! {
-        pub const BlockHashCount: u64 = 250;
-        pub BlockWeights: frame_system::limits::BlockWeights =
-            frame_system::limits::BlockWeights::simple_max(1024);
-    }
-    impl frame_system::Config for Test {
-        type BaseCallFilter = ();
-        type BlockWeights = ();
-        type BlockLength = ();
-        type DbWeight = ();
-        type Origin = Origin;
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Call = Call;
-        type Hashing = BlakeTwo256;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = Event;
-        type BlockHashCount = BlockHashCount;
-        type Version = ();
-        type PalletInfo = PalletInfo;
-        type AccountData = pallet_balances::AccountData<u64>;
-        type OnNewAccount = ();
-        type OnKilledAccount = ();
-        type SystemWeightInfo = ();
-        type SS58Prefix = ();
-    }
-    parameter_types! {
-        pub const ExistentialDeposit: u64 = 1;
-    }
-    impl pallet_balances::Config for Test {
-        type MaxLocks = ();
-        type Balance = u64;
-        type Event = Event;
-        type DustRemoval = ();
-        type ExistentialDeposit = ExistentialDeposit;
-        type AccountStore = System;
-        type WeightInfo = ();
-    }
-    parameter_types! {
-        pub const MinOrgNameLength: usize = 3;
-        pub const MaxOrgNameLength: usize = 16;
-        pub const MaxMemberCount: usize = 300;
-        pub const CreationFee: u64 = 20;
-    }
-    ord_parameter_types! {
-        pub const One: u64 = 1;
-    }
-    impl Config for Test {
-        type Event = Event;
-        type CreationFee = CreationFee;
-        type Currency = Balances;
-        type Payment = ();
-        type ForceOrigin = EnsureSignedBy<One, u64>;
-        type MinOrgNameLength = MinOrgNameLength;
-        type MaxOrgNameLength = MaxOrgNameLength;
-        type MaxMemberCount = MaxMemberCount;
-        type WeightInfo = weights::SubstrateWeight<Test>;
-    }
-
-    fn new_test_ext() -> sp_io::TestExternalities {
-        let mut t = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
-        pallet_balances::GenesisConfig::<Test> {
-            balances: vec![(1, 50), (2, 10)],
-        }
-        .assimilate_storage(&mut t)
-        .unwrap();
-        t.into()
-    }
-
-    #[test]
-    fn can_create_organization() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Organization::create_org(
-                Origin::signed(1),
-                b"ORG1".to_vec(),
-                b"ORG1 DESCRIPTION".to_vec(),
-                2,
-                b"".to_vec(),
-                b"".to_vec()
-            ));
-        });
-    }
-
-    #[test]
-    fn create_org_balance_deducted() {
-        new_test_ext().execute_with(|| {
-            assert_eq!(Balances::total_balance(&1), 50);
-            assert_ok!(Organization::create_org(
-                Origin::signed(1),
-                b"ORG1".to_vec(),
-                b"ORG1 DESCRIPTION".to_vec(),
-                2,
-                b"".to_vec(),
-                b"".to_vec()
-            ));
-            assert_eq!(Balances::total_balance(&1), 30);
-        });
-    }
-
-    #[test]
-    fn insufficient_balance_cannot_create_org() {
-        new_test_ext().execute_with(|| {
-            assert_eq!(Balances::total_balance(&2), 10);
-            assert_err_ignore_postinfo!(
-                Organization::create_org(
-                    Origin::signed(2),
-                    b"ORG2".to_vec(),
-                    b"ORG2 DESCRIPTION".to_vec(),
-                    2,
-                    b"".to_vec(),
-                    b"".to_vec()
-                ),
-                pallet_balances::Error::<Test, _>::InsufficientBalance
-            );
-            assert_eq!(Balances::total_balance(&2), 10);
-        });
-    }
-
-    #[test]
-    fn org_id_incremented_correctly() {
-        new_test_ext().execute_with(|| {
-            assert_eq!(Pallet::<Test>::next_id().unwrap(), 1);
-            assert_ok!(Organization::create_org(
-                Origin::signed(1),
-                b"ORG2".to_vec(),
-                b"ORG2 DESCRIPTION".to_vec(),
-                2,
-                b"".to_vec(),
-                b"".to_vec()
-            ));
-            assert_eq!(Pallet::<Test>::next_id().unwrap(), 3);
-            assert_ok!(Organization::create_org(
-                Origin::signed(1),
-                b"ORG4".to_vec(),
-                b"ORG4 DESCRIPTION".to_vec(),
-                2,
-                b"".to_vec(),
-                b"".to_vec()
-            ));
-            assert_eq!(Pallet::<Test>::next_id().unwrap(), 5);
-            assert_eq!(Pallet::<Test>::get(5), None);
-            assert!(Pallet::<Test>::get(2)
-                .map(|a| &a.name == b"ORG2")
-                .unwrap_or(false));
-            assert!(Pallet::<Test>::get(4)
-                .map(|a| &a.name == b"ORG4")
-                .unwrap_or(false));
-        });
-    }
-
-    fn with_org<F>(func: F)
-    where
-        F: FnOnce(OrgId) -> (),
-    {
-        assert_ok!(Organization::create_org(
-            Origin::signed(1),
-            b"ORG1".to_vec(),
-            b"ORG1 DESCRIPTION".to_vec(),
-            2,
-            b"".to_vec(),
-            b"".to_vec(),
-        ));
-        func(<OrgIdIndex<Test>>::get().unwrap());
-    }
-
-    #[test]
-    fn new_created_org_active() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_eq!(Organization::is_active(org_id), true);
-                assert_eq!(Organization::is_verified(org_id), false);
-                assert_eq!(Organization::is_gov(org_id), false);
-                assert_eq!(Organization::is_system(org_id), false);
-            });
-        });
-    }
-
-    #[test]
-    fn set_flags_works() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_eq!(Organization::is_verified(org_id), false);
-                assert_ok!(Organization::set_flags(
-                    Origin::signed(2),
-                    org_id,
-                    FlagDataBits(FlagDataBit::Foundation.into())
-                ));
-                assert_eq!(Organization::is_foundation(org_id), true);
-                assert_eq!(Organization::is_gov(org_id), false);
-                assert_ok!(Organization::set_flags(
-                    Origin::signed(2),
-                    org_id,
-                    FlagDataBits(FlagDataBit::Government.into())
-                ));
-                assert_eq!(Organization::is_gov(org_id), true);
-            });
-        });
-    }
-
-    #[test]
-    fn set_flags_system_only_for_force_origin() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                // System
-                assert_noop!(
-                    Organization::set_flags(
-                        Origin::signed(2),
-                        org_id,
-                        FlagDataBits(FlagDataBit::System.into())
-                    ),
-                    DispatchError::BadOrigin
-                );
-                assert_eq!(Organization::is_system(org_id), false);
-                assert_ok!(Organization::set_flags(
-                    Origin::signed(1),
-                    org_id,
-                    FlagDataBits(FlagDataBit::System.into())
-                ));
-                assert_eq!(Organization::is_system(org_id), true);
-
-                // Verified
-                assert_noop!(
-                    Organization::set_flags(
-                        Origin::signed(2),
-                        org_id,
-                        FlagDataBits(FlagDataBit::Verified.into())
-                    ),
-                    DispatchError::BadOrigin
-                );
-                assert_eq!(Organization::is_verified(org_id), false);
-                assert_ok!(Organization::set_flags(
-                    Origin::signed(1),
-                    org_id,
-                    FlagDataBits(FlagDataBit::Verified.into())
-                ));
-                assert_eq!(Organization::is_verified(org_id), true);
-            });
-        });
-    }
-
-    #[test]
-    fn add_member_works() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_ok!(Organization::add_member(Origin::signed(2), org_id, 2));
-                assert_eq!(Organization::is_member(org_id, 2), true);
-            });
-        });
-    }
-
-    #[test]
-    fn add_member_not_allowed_by_non_org_admin() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_err_ignore_postinfo!(
-                    Organization::add_member(Origin::signed(3), org_id, 2),
-                    Error::<Test>::PermissionDenied
-                );
-                assert_eq!(Organization::is_member(org_id, 3), false);
-            });
-        });
-    }
-
-    #[test]
-    fn remove_member_works() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_ok!(Organization::add_member(Origin::signed(2), org_id, 3));
-                assert_eq!(Organization::is_member(org_id, 3), true);
-                assert_ok!(Organization::remove_member(Origin::signed(2), org_id, 3));
-                assert_eq!(Organization::is_member(org_id, 3), false);
-            });
-        });
-    }
-
-    #[test]
-    fn remove_member_non_admin_not_allowed() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_ok!(Organization::add_member(Origin::signed(2), org_id, 3));
-                assert_eq!(Organization::is_member(org_id, 3), true);
-                assert_err_ignore_postinfo!(
-                    Organization::remove_member(Origin::signed(5), org_id, 3),
-                    Error::<Test>::PermissionDenied
-                );
-                assert_eq!(Organization::is_member(org_id, 3), true);
-            });
-        });
-    }
-
-    #[test]
-    fn suspend_org_works() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_eq!(Organization::is_suspended(org_id), false);
-                assert_ok!(Organization::suspend_org(Origin::signed(1), org_id));
-                assert_eq!(Organization::is_suspended(org_id), true);
-            });
-        });
-    }
-
-    #[test]
-    fn only_force_origin_can_suspend() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_noop!(
-                    Organization::suspend_org(Origin::signed(2), org_id),
-                    DispatchError::BadOrigin
-                );
-                assert_eq!(Organization::is_suspended(org_id), false);
-            });
-        });
-    }
-
-    #[test]
-    fn set_admin_works() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_eq!(Organization::get_admin(org_id), Some(2));
-                assert_ok!(Organization::set_admin(Origin::signed(2), org_id, 3));
-                assert_eq!(Organization::get_admin(org_id), Some(3));
-            });
-        });
-    }
-
-    #[test]
-    fn only_admin_or_force_origin_can_set_admin() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_eq!(Organization::get_admin(org_id), Some(2));
-                assert_ok!(Organization::set_admin(Origin::signed(1), org_id, 3));
-                assert_eq!(Organization::get_admin(org_id), Some(3));
-                assert_ok!(Organization::set_admin(Origin::signed(3), org_id, 4));
-                assert_eq!(Organization::get_admin(org_id), Some(4));
-                assert_noop!(
-                    Organization::set_admin(Origin::signed(3), org_id, 2),
-                    DispatchError::BadOrigin
-                );
-                assert_eq!(Organization::get_admin(org_id), Some(4));
-            });
-        });
-    }
-
-    #[test]
-    fn cannot_dispatch_suspended_operation_when_suspended() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_ok!(Organization::suspend_org(Origin::signed(1), org_id));
-                assert_err_ignore_postinfo!(
-                    Organization::add_member(Origin::signed(2), org_id, 3),
-                    Error::<Test>::Suspended
-                );
-                assert_err_ignore_postinfo!(
-                    Organization::remove_member(Origin::signed(2), org_id, 3),
-                    Error::<Test>::Suspended
-                );
-                assert_err_ignore_postinfo!(
-                    Organization::set_flags(
-                        Origin::signed(2),
-                        org_id,
-                        FlagDataBits(FlagDataBit::Company.into())
-                    ),
-                    Error::<Test>::Suspended
-                );
-            });
-        });
-    }
-
-    #[test]
-    fn force_origin_can_set_flags_even_when_suspended() {
-        new_test_ext().execute_with(|| {
-            with_org(|org_id| {
-                assert_ok!(Organization::suspend_org(Origin::signed(1), org_id));
-                assert_ok!(Organization::set_flags(
-                    Origin::signed(1),
-                    org_id,
-                    FlagDataBits(FlagDataBit::Government.into())
-                ));
-            });
-        });
-    }
-}
+mod tests;
