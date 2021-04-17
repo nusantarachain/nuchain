@@ -83,11 +83,11 @@ pub mod pallet {
         /// Time used for marking issued certificate.
         type Time: Time;
 
-        /// Who is allowed to create certificate
-        type CreatorOrigin: EnsureOrigin<
-            Self::Origin,
-            Success = (Self::AccountId, Vec<Self::AccountId>),
-        >;
+        // /// Who is allowed to create certificate
+        // type CreatorOrigin: EnsureOrigin<
+        //     Self::Origin,
+        //     Success = (Self::AccountId, Vec<Self::AccountId>),
+        // >;
 
         /// Weight information
         type WeightInfo: WeightInfo;
@@ -127,6 +127,9 @@ pub mod pallet {
 
         /// ID already exists
         IdAlreadyExists,
+
+        /// Organization not exists
+        OrganizationNotExists,
 
         /// Unknown error occurred
         Unknown,
@@ -172,6 +175,9 @@ pub mod pallet {
 
         /// Flag whether this certificate is revoked
         pub revoked: bool,
+
+        /// Additional data
+        pub additional_data: Option<Vec<u8>>,
     }
 
     impl<T: Config> CertProof<T> {
@@ -180,6 +186,7 @@ pub mod pallet {
             human_id: Vec<u8>,
             time: Moment<T>,
             expired: Option<Moment<T>>,
+            additional_data: Option<Vec<u8>>,
         ) -> Self {
             CertProof {
                 cert_id,
@@ -187,6 +194,7 @@ pub mod pallet {
                 time,
                 expired: expired.unwrap_or_default(),
                 revoked: false,
+                additional_data,
             }
         }
     }
@@ -212,9 +220,9 @@ pub mod pallet {
         Vec<CertProof<T>>, // proof
     >;
 
-    #[pallet::storage]
-    #[pallet::getter(fn account_id_index)]
-    pub type AccountIdIndex<T> = StorageValue<_, u32>;
+    // #[pallet::storage]
+    // #[pallet::getter(fn account_id_index)]
+    // pub type AccountIdIndex<T> = StorageValue<_, u32>;
 
     #[pallet::storage]
     pub type CertIdIndex<T> = StorageValue<_, u64>;
@@ -240,7 +248,7 @@ pub mod pallet {
             description: Vec<u8>,
             signer_name: Option<Vec<u8>>,
         ) -> DispatchResultWithPostInfo {
-            // let sender = ensure_signed(origin)?;
+            let sender = ensure_signed(origin)?;
 
             ensure!(name.len() >= 3, Error::<T>::TooShort);
             ensure!(name.len() <= 100, Error::<T>::TooLong);
@@ -253,19 +261,24 @@ pub mod pallet {
                 b"".to_vec()
             };
 
-            let (sender, org_ids) = T::CreatorOrigin::ensure_origin(origin)?;
+            // let (sender, org_ids) = T::CreatorOrigin::ensure_origin(origin)?;
 
-            // pastikan origin adalah admin pada organisasi
-            ensure!(
-                org_ids.iter().any(|id| *id == org_id),
-                Error::<T>::PermissionDenied
-            );
+            // // pastikan origin adalah admin pada organisasi
+            // ensure!(
+            //     org_ids.iter().any(|id| *id == org_id),
+            //     Error::<T>::PermissionDenied
+            // );
 
-            let org = <pallet_organization::Module<T>>::organization(&org_id)
-                .ok_or(Error::<T>::NotExists)?;
+            // let org = <pallet_organization::Module<T>>::organization(&org_id)
+            //     .ok_or(Error::<T>::OrganizationNotExists)?;
 
             // ensure admin
-            ensure!(&org.admin == &sender, Error::<T>::PermissionDenied);
+            // ensure!(&org.admin == &sender, Error::<T>::PermissionDenied);
+
+            // ensure access
+            let org = <pallet_organization::Module<T>>::organization(&org_id)
+                .ok_or(Error::<T>::OrganizationNotExists)?;
+            Self::ensure_org_access2(&sender, &org)?;
 
             let index = Self::increment_index();
             let cert_id: CertId = Self::generate_hash(
@@ -288,7 +301,7 @@ pub mod pallet {
                 CertDetail {
                     name: name.clone(),
                     org_id: org_id.clone(),
-                    description: vec![],
+                    description: description.clone(),
                     signer_name,
                 },
             );
@@ -328,8 +341,10 @@ pub mod pallet {
 
             // ensure access
             let org = <pallet_organization::Module<T>>::organization(&org_id)
-                .ok_or(Error::<T>::Unknown)?;
+                .ok_or(Error::<T>::OrganizationNotExists)?;
             Self::ensure_org_access2(&sender, &org)?;
+
+            let additional_data = additional_data.unwrap_or_else(|| vec![]);
 
             // generate issue id
             // this id is unique per user per cert.
@@ -340,7 +355,7 @@ pub mod pallet {
                     .iter()
                     .chain(cert_id.encode().iter())
                     .chain(recipient.iter())
-                    .chain(additional_data.unwrap_or_else(|| vec![]).iter())
+                    .chain(additional_data.iter())
                     .cloned()
                     .collect::<Vec<u8>>(),
             );
@@ -356,6 +371,7 @@ pub mod pallet {
                 recipient,
                 <T as pallet::Config>::Time::now(),
                 expired,
+                Some(additional_data),
             );
 
             if let Some(ref acc_handler) = acc_handler {
@@ -620,7 +636,7 @@ mod tests {
         type Event = Event;
         type ForceOrigin = EnsureSignedBy<Root, sr25519::Public>;
         type Time = Self;
-        type CreatorOrigin = pallet_organization::EnsureOrgAdmin<Self>;
+        // type CreatorOrigin = pallet_organization::EnsureOrgAdmin<Self>;
         type WeightInfo = ();
     }
 
@@ -738,6 +754,10 @@ mod tests {
             println!("cert_id: {:#?}", cert_id.to_base58());
             assert_eq!(Certificate::get(&cert_id).map(|a| a.org_id), Some(org_id));
             assert_eq!(
+                Certificate::get(&cert_id).map(|a| a.description),
+                Some(b"CERT1 desc".to_vec())
+            );
+            assert_eq!(
                 Certificate::get(&cert_id).map(|a| a.signer_name),
                 Some(b"Grohl".to_vec())
             );
@@ -766,11 +786,29 @@ mod tests {
     }
 
     #[test]
+    fn cannot_create_cert_without_org() {
+        new_test_ext().execute_with(|| {
+            System::set_block_number(1);
+            create_org!(b"ORG1", Bob.into());
+            assert_err_ignore_postinfo!(
+                Certificate::create_cert(
+                    Origin::signed(Bob.into()),
+                    sp_keyring::Sr25519Keyring::One.into(), // non existent org address
+                    b"CERT1".to_vec(),
+                    b"CERT1 desc".to_vec(),
+                    None
+                ),
+                Error::<Test>::OrganizationNotExists
+            );
+        });
+    }
+
+    #[test]
     fn only_org_admin_can_create_cert() {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
             create_org!(b"ORG2", Charlie.into());
-            assert_noop!(
+            assert_err_ignore_postinfo!(
                 Certificate::create_cert(
                     Origin::signed(Bob.into()),
                     last_org_id(),
@@ -778,7 +816,7 @@ mod tests {
                     b"CERT1 desc".to_vec(),
                     None
                 ),
-                BadOrigin
+                Error::<Test>::PermissionDenied
             );
         });
     }

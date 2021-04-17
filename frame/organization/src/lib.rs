@@ -276,27 +276,27 @@ pub mod pallet {
     pub type OrganizationFlagData<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, FlagDataBits>;
 
-    pub struct EnsureOrgAdmin<T>(sp_std::marker::PhantomData<T>);
+    // pub struct EnsureOrgAdmin<T>(sp_std::marker::PhantomData<T>);
 
-    impl<T: Config> EnsureOrigin<T::Origin> for EnsureOrgAdmin<T> {
-        type Success = (T::AccountId, Vec<T::AccountId>);
+    // impl<T: Config> EnsureOrigin<T::Origin> for EnsureOrgAdmin<T> {
+    //     type Success = (T::AccountId, Vec<T::AccountId>);
 
-        fn try_origin(o: T::Origin) -> Result<Self::Success, T::Origin> {
-            o.into().and_then(|o| match o {
-                frame_system::RawOrigin::Signed(ref who) => {
-                    let vs = OrganizationLink::<T>::get(who.clone())
-                        .ok_or(T::Origin::from(o.clone()))?;
-                    Ok((who.clone(), vs.clone()))
-                }
-                r => Err(T::Origin::from(r)),
-            })
-        }
+    //     fn try_origin(o: T::Origin) -> Result<Self::Success, T::Origin> {
+    //         o.into().and_then(|o| match o {
+    //             frame_system::RawOrigin::Signed(ref who) => {
+    //                 let vs = OrganizationLink::<T>::get(who.clone())
+    //                     .ok_or(T::Origin::from(o.clone()))?;
+    //                 Ok((who.clone(), vs.clone()))
+    //             }
+    //             r => Err(T::Origin::from(r)),
+    //         })
+    //     }
 
-        #[cfg(feature = "runtime-benchmarks")]
-        fn successful_origin() -> T::Origin {
-            O::from(RawOrigin::Signed(Default::default()))
-        }
-    }
+    //     #[cfg(feature = "runtime-benchmarks")]
+    //     fn successful_origin() -> T::Origin {
+    //         O::from(RawOrigin::Signed(Default::default()))
+    //     }
+    // }
 
     #[pallet::storage]
     #[pallet::getter(fn object_index)]
