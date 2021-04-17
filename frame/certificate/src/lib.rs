@@ -89,27 +89,9 @@ pub mod pallet {
             Success = (Self::AccountId, Vec<Self::AccountId>),
         >;
 
-        // /// Organization provider
-        // type Organization: pallet_organization::OrgProvider<Self>;
-
-        // /// Days unit
-        // type DaysUnit: Get<Self::BlockNumber>;
-
         /// Weight information
         type WeightInfo: WeightInfo;
     }
-
-    // #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
-    // pub struct OrgDetail<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
-    //     /// Organization name
-    //     name: Vec<u8>,
-
-    //     /// Admin of the organization.
-    //     admin: AccountId,
-
-    //     /// Whether this organization suspended
-    //     is_suspended: bool,
-    // }
 
     #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
     pub struct CertDetail<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
@@ -690,7 +672,7 @@ mod tests {
 
     macro_rules! create_org {
         ($name:literal, $to:expr) => {
-            assert_ok!(Organization::create_org(
+            assert_ok!(Organization::create(
                 Origin::signed(Alice.public()),
                 $name.to_vec(),
                 b"".to_vec(),
