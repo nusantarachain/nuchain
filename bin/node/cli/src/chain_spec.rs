@@ -47,7 +47,7 @@ pub use nuchain_runtime::GenesisConfig;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+const MAIN_TELEMETRY_URL: &str = "wss://telemetry.nuchain.network/submit";
 
 /// Node `ChainSpec` extensions.
 ///
@@ -74,6 +74,11 @@ pub fn main_config() -> Result<ChainSpec, String> {
     ChainSpec::from_json_bytes(&include_bytes!("../res/nuchain.json")[..])
 }
 
+/// Testnet config
+pub fn testnet_config() -> Result<ChainSpec, String> {
+    ChainSpec::from_json_bytes(&include_bytes!("../res/testnet.json")[..])
+}
+
 fn session_keys(
     grandpa: GrandpaId,
     babe: BabeId,
@@ -88,7 +93,7 @@ fn session_keys(
     }
 }
 
-fn staging_testnet_config_genesis() -> GenesisConfig {
+fn staging_config_genesis() -> GenesisConfig {
     // stash, controller, session-key
     // generated with secret:
     // for i in 1 2 3 4 ; do for j in stash controller; do subkey inspect "$secret"/fir/$j/$i; done; done
@@ -103,113 +108,95 @@ fn staging_testnet_config_genesis() -> GenesisConfig {
         ImOnlineId,
         AuthorityDiscoveryId,
     )> = vec![
+        // Stash AccountId (sr25519)
+        // Controller AccountId (sr25519)
+        // GradpadId (ed25519)
+        // BabeId (sr25519) / babe
+        // ImOnlineId (sr25519) / imon
+        // AuthorityDiscovery (sr25519) / audi
+        //----------------------------------------------------------------
         (
-            // 5Fbsd6WXDGiLTxunqeK5BATNiocfCqu9bS1yArVjCgeBLkVy
-            hex!["9c7a2ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"].into(),
-            // 5EnCiV7wSHeNhjW3FSUwiJNkcc2SBkPLn5Nj93FmbLtBjQUq
-            hex!["781ead1e2fa9ccb74b44c19d29cb2a7a4b5be3972927ae98cd3877523976a276"].into(),
-            // 5Fb9ayurnxnaXj56CjmyQLBiadfRCqUbL2VWNbbe1nZU6wiC
-            hex!["9becad03e6dcac03cee07edebca5475314861492cdfc96a2144a67bbe9699332"]
+            // 5FxKovft7pM663rr4Smtbj4CZzt82TaykWFZP2H4rjCNTiJu
+            hex!["ac133e5ced8c63f4028be2f9f10da8b5d1f9d270ba03820723361da981a5dc18"].into(),
+            // 5HMsJCtxzvVHa458CxsVsuboP1Nee6sE7KjhfxbDXCP5j3aM
+            hex!["ea441e35c86bac239d3e40bb6ff0ed9008447d02d90e20c3044e06e301297965"].into(),
+            // GranpaId: 5F4wPxMnFGNGi5docWuMx7G7BfdKEx5wTiiDP3MFByACmNfR
+            hex!["84e24732c91231c3210fa6f2f3b9b777a92f61d5d1fede6f43c78620abfe855d"]
                 .unchecked_into(),
-            // 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
-            hex!["6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106"]
+            //---- SESSIONS ----
+            // 5Ca9DuynzqbXFUQZuEkuhVVZS7abaZQL2dADJ8U5oz4cXjxR
+            hex!["167381df0eec9c3fd442d130188150100ad11d00a9ca66e3d425409b1e083f3c"]
                 .unchecked_into(),
-            // 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
-            hex!["6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106"]
+            hex!["167381df0eec9c3fd442d130188150100ad11d00a9ca66e3d425409b1e083f3c"]
                 .unchecked_into(),
-            // 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
-            hex!["6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106"]
+            hex!["167381df0eec9c3fd442d130188150100ad11d00a9ca66e3d425409b1e083f3c"]
                 .unchecked_into(),
         ),
         (
-            // 5ERawXCzCWkjVq3xz1W5KGNtVx2VdefvZ62Bw1FEuZW4Vny2
-            hex!["68655684472b743e456907b398d3a44c113f189e56d1bbfd55e889e295dfde78"].into(),
-            // 5Gc4vr42hH1uDZc93Nayk5G7i687bAQdHHc9unLuyeawHipF
-            hex!["c8dc79e36b29395413399edaec3e20fcca7205fb19776ed8ddb25d6f427ec40e"].into(),
-            // 5EockCXN6YkiNCDjpqqnbcqd4ad35nU4RmA1ikM4YeRN4WcE
-            hex!["7932cff431e748892fa48e10c63c17d30f80ca42e4de3921e641249cd7fa3c2f"]
+            // 5HGZ4bYs6dNBkv5FDm8vDnX6Dmu9BKMu5hnp4VQEvqpxKCmk
+            hex!["e63681f88b055258860b53f3e87c959c3da95d6b77becacb2fc5afcef021742e"].into(),
+            // 5GVmNGawT1CPERzsRGPXRqRAE94HBmY3mhJLsoMMMzdMc2CF
+            hex!["c40de2c66879a462f477c706db7aeb83b67f4076be7f6bdfd74f002afcf6e22e"].into(),
+            // GrandpaId: 5Cf1ayVSoxQ39XV44BWBVTjF4SSQE2CoTsxLR26gnkDpokFG
+            hex!["1a2a06ba1f03b6fa2591da9005f100053b24225f5231abce6d1547704ff740e9"]
                 .unchecked_into(),
-            // 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
-            hex!["482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e"]
+            //---- SESSIONS ----
+            // 5H6AKvZeTDkvZKVWxyqzGjgj4NezwomVYEi6KcjtsZN7dM8F
+            hex!["de4984b4344a796f989b34ab234adc64b6af022f069e33657937ca68665c547c"]
                 .unchecked_into(),
-            // 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
-            hex!["482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e"]
+            hex!["de4984b4344a796f989b34ab234adc64b6af022f069e33657937ca68665c547c"]
                 .unchecked_into(),
-            // 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
-            hex!["482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e"]
-                .unchecked_into(),
-        ),
-        (
-            // 5DyVtKWPidondEu8iHZgi6Ffv9yrJJ1NDNLom3X9cTDi98qp
-            hex!["547ff0ab649283a7ae01dbc2eb73932eba2fb09075e9485ff369082a2ff38d65"].into(),
-            // 5FeD54vGVNpFX3PndHPXJ2MDakc462vBCD5mgtWRnWYCpZU9
-            hex!["9e42241d7cd91d001773b0b616d523dd80e13c6c2cab860b1234ef1b9ffc1526"].into(),
-            // 5E1jLYfLdUQKrFrtqoKgFrRvxM3oQPMbf6DfcsrugZZ5Bn8d
-            hex!["5633b70b80a6c8bb16270f82cca6d56b27ed7b76c8fd5af2986a25a4788ce440"]
-                .unchecked_into(),
-            // 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
-            hex!["482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a"]
-                .unchecked_into(),
-            // 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
-            hex!["482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a"]
-                .unchecked_into(),
-            // 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
-            hex!["482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a"]
-                .unchecked_into(),
-        ),
-        (
-            // 5HYZnKWe5FVZQ33ZRJK1rG3WaLMztxWrrNDb1JRwaHHVWyP9
-            hex!["f26cdb14b5aec7b2789fd5ca80f979cef3761897ae1f37ffb3e154cbcc1c2663"].into(),
-            // 5EPQdAQ39WQNLCRjWsCk5jErsCitHiY5ZmjfWzzbXDoAoYbn
-            hex!["66bc1e5d275da50b72b15de072a2468a5ad414919ca9054d2695767cf650012f"].into(),
-            // 5DMa31Hd5u1dwoRKgC4uvqyrdK45RHv3CpwvpUC1EzuwDit4
-            hex!["3919132b851ef0fd2dae42a7e734fe547af5a6b809006100f48944d7fae8e8ef"]
-                .unchecked_into(),
-            // 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
-            hex!["00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378"]
-                .unchecked_into(),
-            // 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
-            hex!["00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378"]
-                .unchecked_into(),
-            // 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
-            hex!["00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378"]
+            hex!["de4984b4344a796f989b34ab234adc64b6af022f069e33657937ca68665c547c"]
                 .unchecked_into(),
         ),
     ];
 
-    // generated with secret: subkey inspect "$secret"/fir
     let root_key: AccountId = hex![
-        // 5Ff3iXP75ruzroPWRP2FYBHWnmGGBSb63857BgnzCoXNxfPo
-        "9ee5e5bdc0ec239eb164f865ecc345ce4c88e76ee002e0f7e318097347471809"
+        "18bff030bef78621b59562a9633d6c8ec358a96c070358de3fcd7fd8d2879e35"
     ]
     .into();
 
-    let endowed_accounts: Vec<AccountId> = vec![root_key.clone()];
-
     build_genesis(
         initial_authorities,
-        root_key,
-        Some(endowed_accounts),
+        root_key.clone(),
+        Some(vec![
+            root_key,
+            // reserved authorities
+            hex!["3af749c23d1c17bc0c822363b3e2620d6f473cb5e9631d10449bdb0dea683130"].into(),
+            hex!["ee735365ca9e1bdebe0b7fbb7e781ff88a63d8e7c60569a399d256497d618813"].into(),
+            hex!["4a8f386d7b8849e2be3a67a2182fefee87138b4b908e00e7386516a4f82bb576"].into(),
+            hex!["ee7c3224fe1d012e0c5cdf1eb1b1c6164752dff43bb8f0ca95e8521a6ed3a37a"].into(),
+            // for authority validators
+            hex!["c83104c7eba84373392336d71ef4915b7a45c4966d1dbc82eee146109b390e5f"].into(),
+            hex!["6671d91c741357a54eb81176d74bbf42445d4883b90148179a8b49aaa459b51e"].into(),
+        ]),
         false,
         None,
     )
 }
 
-/// Staging testnet config.
-pub fn staging_testnet_config() -> ChainSpec {
+/// Configuration for testnet
+pub fn staging_config() -> ChainSpec {
     let boot_nodes = vec![];
+    let properties = serde_json::from_str(
+        r#"{
+            "tokenDecimals": 10,
+            "tokenSymbol": "ARA"
+        }"#,
+    )
+    .unwrap();
     ChainSpec::from_genesis(
-        "Staging Testnet",
-        "staging_testnet",
+        "Nuchain Testnet",
+        "nuchain_testnet",
         ChainType::Live,
-        staging_testnet_config_genesis,
+        staging_config_genesis,
         boot_nodes,
         Some(
-            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+            TelemetryEndpoints::new(vec![(MAIN_TELEMETRY_URL.to_string(), 0)])
                 .expect("Staging telemetry url is valid; qed"),
         ),
-        None,
-        None,
+        Some("nuct"),
+        Some(properties),
         Default::default(),
     )
 }
@@ -421,7 +408,7 @@ fn local_build_genesis() -> GenesisConfig {
 }
 
 /// Local testnet config (multivalidator Alice + Bob)
-pub fn local_testnet_config() -> ChainSpec {
+pub fn local_staging_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "Local Testnet",
         "local_testnet",
@@ -527,7 +514,7 @@ pub fn prod_config() -> ChainSpec {
         prod_genesis,
         boot_nodes,
         Some(
-            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+            TelemetryEndpoints::new(vec![(MAIN_TELEMETRY_URL.to_string(), 0)])
                 .expect("Staging telemetry url is valid; qed"),
         ),
         Some("nuc"),
@@ -622,12 +609,12 @@ pub(crate) mod tests {
 
     #[test]
     fn test_create_local_testnet_chain_spec() {
-        local_testnet_config().build_storage().unwrap();
+        local_staging_config().build_storage().unwrap();
     }
 
     #[test]
     fn test_staging_test_net_chain_spec() {
-        staging_testnet_config().build_storage().unwrap();
+        staging_staging_config().build_storage().unwrap();
     }
 
     #[test]

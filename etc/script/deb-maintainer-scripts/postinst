@@ -1,0 +1,23 @@
+#!/bin/sh
+
+set -e
+
+action="$1"
+config_file="/etc/default/nuchain-env.txt"
+
+if [ "$action" = "configure" ]; then
+  # Make user and group
+  getent group nuchain >/dev/null 2>&1 || addgroup --system nuchain
+  getent passwd nuchain >/dev/null 2>&1 ||
+    adduser --system --home /home/nuchain --disabled-password \
+    --ingroup nuchain nuchain
+  if [ ! -e "$config_file" ]; then
+    if [ -f "/etc/default/nuchain" ]; then
+        # untuk backwards compatibility apabila sudah ada config lama
+        # gunakan saja yang ada dan rename ke standar nama file config baru.
+        mv "/etc/default/nuchain" $config_file;
+    else
+        echo 'NUCHAIN_CLI_ARGS=--validator --rpc-cors="*" --no-mdns' > $config_file
+    fi
+  fi
+fi

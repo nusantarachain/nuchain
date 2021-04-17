@@ -197,3 +197,4 @@ try-runtime = [
 	"frame-executive/try-runtime",
 	"frame-try-runtime",
 ]
+testnet = ["pallet-balances/testnet-faucet"]
