@@ -130,14 +130,6 @@ pub mod pallet {
         type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
     }
 
-    // decl_storage! {
-    //     trait Store for Module<T: Config> as ProductRegistry {
-    //         pub Products get(fn product_by_id): map hasher(blake2_128_concat) ProductId => Option<Product<T::AccountId, T::Moment>>;
-    //         pub ProductsOfOrganization get(fn products_of_org): map hasher(blake2_128_concat) T::AccountId => Vec<ProductId>;
-    //         pub OwnerOf get(fn owner_of): map hasher(blake2_128_concat) ProductId => Option<T::AccountId>;
-    //     }
-    // }
-
     #[pallet::storage]
     #[pallet::getter(fn product_by_id)]
     pub type Products<T: Config> =
@@ -152,32 +144,12 @@ pub mod pallet {
     #[pallet::getter(fn owner_of)]
     pub type OwnerOf<T: Config> = StorageMap<_, Twox64Concat, ProductId, T::AccountId>;
 
-    // decl_event!(
-    //     pub enum Event<T>
-    //     where
-    //         AccountId = <T as system::Config>::AccountId,
-    //     {
-    //         ProductRegistered(AccountId, ProductId, AccountId),
-    //     }
-    // );
-
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Some product are registered in blockchain.
         ProductRegistered(T::AccountId, ProductId, T::AccountId),
     }
-
-    // decl_error! {
-    //     pub enum Error for Module<T: Config> {
-    //         ProductIdMissing,
-    //         ProductIdTooLong,
-    //         ProductIdExists,
-    //         ProductTooManyProps,
-    //         ProductInvalidPropName,
-    //         ProductInvalidPropValue
-    //     }
-    // }
 
     #[pallet::error]
     pub enum Error<T> {
@@ -202,7 +174,6 @@ pub mod pallet {
 
     /// Supply Chain product registry module.
     #[pallet::call]
-    // pub struct Module<T: Config> for enum Call where origin: T::Origin {
     impl<T: Config> Pallet<T> {
         /// Register a product into blockchain.
         #[pallet::weight(10_000)]
@@ -210,7 +181,7 @@ pub mod pallet {
         pub fn register_product(
             origin: OriginFor<T>,
             id: ProductId,
-            owner: T::AccountId,
+            owner: T::AccountId, // ID of organization
             props: Option<Vec<ProductProperty>>,
         ) -> DispatchResultWithPostInfo {
             T::CreateRoleOrigin::ensure_origin(origin.clone())?;
