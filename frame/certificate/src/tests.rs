@@ -77,9 +77,6 @@ parameter_types! {
     pub const MaxMemberCount: usize = 100;
     pub const CreationFee: u64 = 20;
 }
-// ord_parameter_types! {
-//     pub const One: u64 = 1;
-// }
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
     pub const DaysUnit: u32 = 1;
@@ -119,7 +116,6 @@ impl Config for Test {
     type Event = Event;
     type ForceOrigin = EnsureSignedBy<Root, sr25519::Public>;
     type Time = Self;
-    // type CreatorOrigin = pallet_organization::EnsureOrgAdmin<Self>;
     type WeightInfo = ();
 }
 

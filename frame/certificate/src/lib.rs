@@ -52,10 +52,8 @@ pub use weights::WeightInfo;
 
 use codec::{Decode, Encode};
 
-// type T::AccountId = u32;
-// type CertId<T> = T::Hash;
 type CertId = [u8; 32];
-type IssuedId = Vec<u8>;
+type IssuedId = [u8; 11];
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -63,7 +61,6 @@ pub mod pallet {
     use super::*;
     use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*, traits::Time};
     use frame_system::pallet_prelude::*;
-    // use pallet_organization::OrgProvider;
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
@@ -82,12 +79,6 @@ pub mod pallet {
 
         /// Time used for marking issued certificate.
         type Time: Time;
-
-        // /// Who is allowed to create certificate
-        // type CreatorOrigin: EnsureOrigin<
-        //     Self::Origin,
-        //     Success = (Self::AccountId, Vec<Self::AccountId>),
-        // >;
 
         /// Weight information
         type WeightInfo: WeightInfo;
@@ -387,6 +378,7 @@ pub mod pallet {
 }
 
 use frame_support::traits::Time;
+use core::convert::TryInto;
 
 type Organization<T> = pallet_organization::Organization<T>;
 
@@ -454,6 +446,8 @@ impl<T: Config> Pallet<T> {
             .chain(last)
             .cloned()
             .collect::<Vec<u8>>()
+            .try_into()
+            .expect("fixed 11 length array; qed")
     }
 
     /// Check whether issued certificate is valid.
