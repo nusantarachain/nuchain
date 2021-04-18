@@ -140,19 +140,7 @@ pub mod pallet {
         ),
     >;
 
-    // #[pallet::storage]
-    // pub type DelegateLink<T: Config> = StorageMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     DelegateId,
-    //     u32, // change me
-    // >;
-
-    // #[pallet::storage]
-    // pub type DelegateIdIndex<T> = StorageValue<_, u32>;
-
     /// Did module declaration.
-    // pub struct Module<T: Config> for enum Call where origin: T::Origin {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Creates a new delegate with an expiration period and for a specific purpose.

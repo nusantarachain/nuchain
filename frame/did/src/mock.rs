@@ -19,8 +19,6 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        // Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-        // Organization: pallet_organization::{Module, Call, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
         Did: pallet_did::{Module, Call, Storage, Event<T>},
     }
@@ -35,34 +33,6 @@ parameter_types! {
   pub const MaximumBlockLength: u32 = 2 * 1024;
   pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
-
-// impl system::Config for Test {
-//     type BaseCallFilter = ();
-//     type Origin = Origin;
-//     type Call = ();
-//     type Index = u64;
-//     type BlockNumber = u64;
-//     type Hash = H256;
-//     type Hashing = BlakeTwo256;
-//     type AccountId = sr25519::Public;
-//     type Lookup = IdentityLookup<Self::AccountId>;
-//     type Header = Header;
-//     type Event = ();
-//     type BlockHashCount = BlockHashCount;
-//     // type MaximumBlockWeight = MaximumBlockWeight;
-//     type DbWeight = ();
-//     // type BlockExecutionWeight = ();
-//     // type ExtrinsicBaseWeight = ();
-//     // type MaximumExtrinsicWeight = MaximumBlockWeight;
-//     // type MaximumBlockLength = MaximumBlockLength;
-//     // type AvailableBlockRatio = AvailableBlockRatio;
-//     type Version = ();
-//     // type PalletInfo = frame_support::traits::PalletInfo;
-//     type AccountData = ();
-//     type OnNewAccount = ();
-//     type OnKilledAccount = ();
-//     type SystemWeightInfo = ();
-// }
 
 impl frame_system::Config for Test {
     type BaseCallFilter = ();

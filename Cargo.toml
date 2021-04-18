@@ -120,6 +120,7 @@ members = [
 	"frame/certificate",
 	"frame/organization",
 	"frame/did",
+	"frame/product-registry",	# -- supply chain
 	"primitives/allocator",
 	"primitives/api",
 	"primitives/api/proc-macro",

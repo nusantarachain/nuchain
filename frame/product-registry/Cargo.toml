@@ -1,0 +1,34 @@
+[package]
+name = 'pallet-product-registry'
+version = '2.0.0'
+description = 'Substrate Enterprise Sample - Product Registry pallet'
+edition = '2018'
+authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
+homepage = 'https://substrate.dev'
+repository = 'https://github.com/paritytech/substrate/'
+license = 'Unlicense'
+
+
+[dependencies]
+serde = { version = "1.0.101", optional = true }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+frame-support = { version = "3.0.0", default-features = false, path = "../support" }
+frame-system = { version = "3.0.0", default-features = false, path = "../system" }
+pallet-timestamp = { version = "3.0.0", default-features = false, path = "../timestamp" }
+
+[dev-dependencies]
+sp-core = { version = "3.0.0", default-features = false, path = "../../primitives/core" }
+sp-io = { version = "3.0.0", default-features = false, path = "../../primitives/io" }
+sp-runtime = { version = "3.0.0", default-features = false, path = "../../primitives/runtime" }
+
+[features]
+default = ["std"]
+std = [
+    "serde",
+    "codec/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-timestamp/std",
+]
