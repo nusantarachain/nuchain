@@ -67,7 +67,10 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + pallet_timestamp::Config + SendTransactionTypes<Call<Self>>
+        frame_system::Config
+        + pallet_timestamp::Config
+        + pallet_organization::Config
+        + SendTransactionTypes<Call<Self>>
     {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
@@ -139,7 +142,7 @@ pub mod pallet {
         pub fn register(
             origin: OriginFor<T>,
             id: TrackingId,
-            owner: T::AccountId,
+            org_id: T::AccountId,
             year: Year,
             products: Vec<ProductId>,
         ) -> DispatchResultWithPostInfo {
@@ -155,10 +158,13 @@ pub mod pallet {
             // Check tracking doesn't exist yet (1 DB read)
             Self::validate_new_tracking(&id)?;
 
+            // Pastikan origin memiliki akses organisasi
+            <pallet_organization::Module<T>>::ensure_access_active_id(&who, &org_id)?;
+
             // Create a tracking instance
             let tracking = Self::new_tracking()
                 .identified_by(id.clone())
-                .owned_by(owner.clone())
+                .owned_by(org_id.clone())
                 .registered_at(<pallet_timestamp::Module<T>>::now())
                 .with_products(products)
                 .build();
@@ -176,14 +182,14 @@ pub mod pallet {
             // --------------
             // Add track (2 DB write)
             <Tracking<T>>::insert(&id, tracking);
-            <TrackingOfOrganization<T>>::append(&owner, year, &id);
+            <TrackingOfOrganization<T>>::append(&org_id, year, &id);
             // Store shipping event (1 DB read, 3 DB writes)
             let event_idx = Self::store_event(event)?;
             // Update offchain notifications (1 DB write)
             <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
 
             // Raise events
-            Self::deposit_event(Event::TrackingRegistered(who.clone(), id.clone(), owner));
+            Self::deposit_event(Event::TrackingRegistered(who.clone(), id.clone(), org_id));
 
             Ok(().into())
         }
@@ -226,7 +232,6 @@ pub mod pallet {
             let event_idx = Self::store_event(event)?;
             // Update offchain notifications (1 DB write)
             <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
-
 
             // Update tracking (1 DB write)
             track.status = status.clone();

@@ -154,32 +154,12 @@ pub mod pallet {
     #[pallet::getter(fn owner_of)]
     pub type OwnerOf<T: Config> = StorageMap<_, Twox64Concat, ProductId, T::AccountId>;
 
-    // decl_event!(
-    //     pub enum Event<T>
-    //     where
-    //         AccountId = <T as system::Config>::AccountId,
-    //     {
-    //         ProductRegistered(AccountId, ProductId, AccountId),
-    //     }
-    // );
-
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Some product are registered in blockchain.
         ProductRegistered(T::AccountId, ProductId, T::AccountId),
     }
-
-    // decl_error! {
-    //     pub enum Error for Module<T: Config> {
-    //         ProductIdMissing,
-    //         ProductIdTooLong,
-    //         ProductIdExists,
-    //         ProductTooManyProps,
-    //         ProductInvalidPropName,
-    //         ProductInvalidPropValue
-    //     }
-    // }
 
     #[pallet::error]
     pub enum Error<T> {

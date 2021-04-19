@@ -25,7 +25,7 @@ use crate::{
     Error,
 };
 use fixed::types::I16F16;
-use frame_support::{assert_noop, assert_ok, dispatch, dispatch::DispatchResult};
+use frame_support::{assert_noop, assert_ok, dispatch, dispatch::DispatchResult, error::BadOrigin};
 
 pub fn store_test_tracking<T: Config>(
     id: TrackingId,
@@ -47,10 +47,7 @@ pub fn store_test_tracking<T: Config>(
     );
 }
 
-pub fn store_test_event<T: Config>(
-    tracking_id: TrackingId,
-    event_type: TrackingEventType,
-){
+pub fn store_test_event<T: Config>(tracking_id: TrackingId, event_type: TrackingEventType) {
     let event = TrackingEvent {
         event_type,
         tracking_id: tracking_id.clone(),
@@ -83,11 +80,16 @@ const STATUS_IN_TRANSIT: &[u8] = b"In Transit";
 const YEAR1: u32 = 2020;
 const YEAR2: u32 = 2021;
 
-
-fn with_account<F>(func: F) where F: FnOnce(<Test as frame_system::Config>::AccountId, <Test as frame_system::Config>::AccountId, <Test as pallet_timestamp::Config>::Moment){
+fn with_account<F>(func: F)
+where
+    F: FnOnce(
+        <Test as frame_system::Config>::AccountId,
+        <Test as frame_system::Config>::AccountId,
+        <Test as pallet_timestamp::Config>::Moment,
+    ),
+{
     new_test_ext().execute_with(|| {
         let sender = account_key(TEST_SENDER);
-        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
         let org = account_key(TEST_ORGANIZATION);
         let now = 42;
         Timestamp::set_timestamp(now);
@@ -96,32 +98,65 @@ fn with_account<F>(func: F) where F: FnOnce(<Test as frame_system::Config>::Acco
     });
 }
 
+fn with_account_and_org<F>(func: F)
+where
+    F: FnOnce(
+        <Test as frame_system::Config>::AccountId,
+        <Test as frame_system::Config>::AccountId,
+        <Test as pallet_timestamp::Config>::Moment,
+    ),
+{
+    new_test_ext().execute_with(|| {
+        let sender = account_key(TEST_SENDER);
+        let org = account_key(TEST_ORGANIZATION);
+
+        // mock organization
+        pallet_organization::Organizations::<Test>::insert(
+            org.clone(),
+            pallet_organization::Organization {
+                id: org.clone(),
+                name: TEST_ORGANIZATION.as_bytes().to_vec(),
+                description: vec![],
+                admin: sender.clone(),
+                website: vec![],
+                email: vec![],
+                suspended: false,
+            },
+        );
+
+        let now = 42;
+        Timestamp::set_timestamp(now);
+
+        func(sender, org, now);
+    });
+}
+
 #[test]
-fn non_org_owner_cannot_register(){
+fn non_org_owner_cannot_register() {
     with_account(|sender, org, now| {
-        assert_noop!(ProductTracking::register(
-            Origin::signed(sender),
-            id.clone(),
-            owner.clone(),
-            YEAR1,
-            vec![],
-        ), BadOrigin);
+        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        assert_noop!(
+            ProductTracking::register(
+                Origin::signed(sender),
+                id.clone(),
+                org.clone(),
+                YEAR1,
+                vec![],
+            ),
+            pallet_organization::Error::<Test>::NotExists
+        );
     });
 }
 
 #[test]
 fn register_without_products() {
-    new_test_ext().execute_with(|| {
-        let sender = account_key(TEST_SENDER);
+    with_account_and_org(|sender, org, now| {
         let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
-        let owner = account_key(TEST_ORGANIZATION);
-        let now = 42;
-        Timestamp::set_timestamp(now);
 
         let result = ProductTracking::register(
             Origin::signed(sender),
             id.clone(),
-            owner.clone(),
+            org.clone(),
             YEAR1,
             vec![],
         );
@@ -132,7 +167,7 @@ fn register_without_products() {
             ProductTracking::tracking(&id),
             Some(Track {
                 id: id.clone(),
-                owner: owner,
+                owner: org,
                 status: STATUS_EMPTY.to_vec(),
                 products: vec![],
                 registered: now,
@@ -141,7 +176,7 @@ fn register_without_products() {
         );
 
         assert_eq!(
-            <TrackingOfOrganization<Test>>::get(owner, YEAR1),
+            <TrackingOfOrganization<Test>>::get(org, YEAR1),
             Some(vec![id.clone()])
         );
 
@@ -149,25 +184,20 @@ fn register_without_products() {
             == TestEvent::pallet_product_tracking(Event::TrackingRegistered(
                 sender,
                 id.clone(),
-                owner
+                org
             ))));
-
     });
 }
 
 #[test]
 fn register_with_valid_products() {
-    new_test_ext().execute_with(|| {
-        let sender = account_key(TEST_SENDER);
+    with_account_and_org(|sender, org, now| {
         let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
-        let owner = account_key(TEST_ORGANIZATION);
-        let now = Timestamp::now();
-        // Timestamp::set_timestamp(now);
 
         let result = ProductTracking::register(
             Origin::signed(sender),
             id.clone(),
-            owner.clone(),
+            org.clone(),
             YEAR2,
             vec![
                 b"00012345600001".to_vec(),
@@ -182,7 +212,7 @@ fn register_with_valid_products() {
             ProductTracking::tracking(&id),
             Some(Track {
                 id: id.clone(),
-                owner: owner,
+                owner: org,
                 status: STATUS_EMPTY.to_vec(),
                 products: vec![
                     b"00012345600001".to_vec(),
@@ -195,7 +225,7 @@ fn register_with_valid_products() {
         );
 
         assert_eq!(
-            <TrackingOfOrganization<Test>>::get(owner, YEAR2),
+            <TrackingOfOrganization<Test>>::get(org, YEAR2),
             Some(vec![id.clone()])
         );
 
@@ -203,7 +233,7 @@ fn register_with_valid_products() {
             == TestEvent::pallet_product_tracking(Event::TrackingRegistered(
                 sender,
                 id.clone(),
-                owner
+                org
             ))));
     });
 }

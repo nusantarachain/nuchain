@@ -17,8 +17,9 @@
 
 use crate::{self as pallet_product_tracking, Config, Module};
 use core::marker::PhantomData;
-use frame_support::{pallet_prelude::*, parameter_types, weights::Weight};
+use frame_support::{ord_parameter_types, pallet_prelude::*, parameter_types, weights::Weight};
 use frame_system as system;
+use frame_system::EnsureSignedBy;
 use sp_core::{sr25519, Pair, H256};
 use sp_runtime::{
     testing::{Header, TestXt},
@@ -38,6 +39,9 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+        Did: pallet_did::{Module, Call, Storage, Event<T>},
+        Organization: pallet_organization::{Module, Call, Storage, Event<T>},
         ProductTracking: pallet_product_tracking::{Module, Call, Event<T>, Storage}
     }
 );
@@ -71,17 +75,62 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = ();
 }
 
+parameter_types! {
+    pub const ExistentialDeposit: u64 = 1;
+}
+impl pallet_balances::Config for Test {
+    type MaxLocks = ();
+    type Balance = u64;
+    type Event = Event;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
+    type WeightInfo = ();
+}
+
 impl pallet_timestamp::Config for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = ();
+    type WeightInfo = ();
+}
+
+impl pallet_did::Config for Test {
+    type Event = Event;
+    type Public = sr25519::Public;
+    type Signature = sr25519::Signature;
+    type Time = Timestamp;
+    type WeightInfo = pallet_did::weights::SubstrateWeight<Self>;
+}
+
+use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie};
+
+parameter_types! {
+    pub const MinOrgNameLength: usize = 3;
+    pub const MaxOrgNameLength: usize = 100;
+    pub const MaxMemberCount: usize = 100;
+    pub const CreationFee: u64 = 20;
+}
+ord_parameter_types! {
+    pub const One: sr25519::Public = Alice.public();
+    pub const Two: sr25519::Public = Bob.public();
+}
+impl pallet_organization::Config for Test {
+    type Event = Event;
+    type CreationFee = CreationFee;
+    type Currency = Balances;
+    type Payment = ();
+    type ForceOrigin = EnsureSignedBy<One, sr25519::Public>;
+    type MinOrgNameLength = MinOrgNameLength;
+    type MaxOrgNameLength = MaxOrgNameLength;
+    type MaxMemberCount = MaxMemberCount;
     type WeightInfo = ();
 }
 
