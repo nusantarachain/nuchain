@@ -231,12 +231,8 @@ pub mod pallet {
             //       additional validation could be applied to the product ID
             //       to ensure its validity (same company prefix as org).
 
-            /// Ensure owner is organization
-            // let org = <pallet_organization::Module<T>>::organization(&org_id).ok_or(
-            //     Error::<T>::ProductOwnerNotOrganization)?;
-
             // Pastikan origin memiliki akses ke organisasi
-            <pallet_organization::Module<T>>::ensure_access(&who, &org_id)?;
+            <pallet_organization::Module<T>>::ensure_access_active_id(&who, &org_id)?;
 
             // Create a product instance
             let product = Self::new_product()

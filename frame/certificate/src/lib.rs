@@ -408,7 +408,7 @@ impl<T: Config> Pallet<T> {
         who: &T::AccountId,
         org: &Organization<T::AccountId>,
     ) -> Result<(), Error<T>> {
-        pallet_organization::Module::<T>::ensure_org_access_active(who, &org)
+        pallet_organization::Module::<T>::ensure_access_active(who, &org)
     }
 
     /// Incerment certificate index

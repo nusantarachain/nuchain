@@ -658,13 +658,22 @@ impl<T: Config> Pallet<T> {
 
     /// Memastikan bahwa akun memiliki akses pada organisasi.
     /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
-    pub fn ensure_org_access_active(
+    pub fn ensure_access_active_id(
+        who: &T::AccountId,
+        org_id: &T::AccountId,
+    ) -> Result<(), Error<T>> {
+        let org = Self::organization(&org_id).ok_or(Error::<T>::NotExists)?;
+        Self::ensure_access_active(who, &org)
+    }
+
+    /// Memastikan bahwa akun memiliki akses pada organisasi.
+    /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
+    pub fn ensure_access_active(
         who: &T::AccountId,
         org: &Organization<T::AccountId>,
     ) -> Result<(), Error<T>> {
         ensure!(&org.admin == who, Error::<T>::PermissionDenied);
         ensure!(!org.suspended, Error::<T>::PermissionDenied);
-        // Ok(org)
         Ok(())
     }
 
