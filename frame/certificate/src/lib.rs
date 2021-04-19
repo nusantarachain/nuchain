@@ -404,14 +404,11 @@ impl<T: Config> Pallet<T> {
 
     /// Memastikan bahwa akun memiliki akses pada organisasi.
     /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
-    fn ensure_org_access2(
+    pub fn ensure_org_access2(
         who: &T::AccountId,
         org: &Organization<T::AccountId>,
     ) -> Result<(), Error<T>> {
-        ensure!(&org.admin == who, Error::<T>::PermissionDenied);
-        ensure!(!org.suspended, Error::<T>::PermissionDenied);
-        // Ok(org)
-        Ok(())
+        pallet_organization::Module::<T>::ensure_org_access_active(who, &org)
     }
 
     /// Incerment certificate index

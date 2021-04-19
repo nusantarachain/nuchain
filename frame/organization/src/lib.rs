@@ -470,9 +470,9 @@ pub mod pallet {
             org_id: T::AccountId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            let origin = ensure_signed(origin)?;
+            let sender = ensure_signed(origin)?;
 
-            let org = Self::ensure_access(&origin, &org_id)?;
+            let org = Self::ensure_access(&sender, &org_id)?;
 
             ensure!(!org.suspended, Error::<T>::Suspended);
 
@@ -491,6 +491,8 @@ pub mod pallet {
             members.sort();
 
             <Members<T>>::insert(&org_id, members);
+
+            // <pallet_did::Module<T>>::create_delegate(&sender, &org.id, &account_id, b"OrgMember");
 
             Self::deposit_event(Event::MemberAdded(org_id, account_id));
 
@@ -653,6 +655,19 @@ impl<T: Config> Pallet<T> {
         Ok(org)
     }
 
+
+    /// Memastikan bahwa akun memiliki akses pada organisasi.
+    /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
+    pub fn ensure_org_access_active(
+        who: &T::AccountId,
+        org: &Organization<T::AccountId>,
+    ) -> Result<(), Error<T>> {
+        ensure!(&org.admin == who, Error::<T>::PermissionDenied);
+        ensure!(!org.suspended, Error::<T>::PermissionDenied);
+        // Ok(org)
+        Ok(())
+    }
+
     /// Get next Organization ID
     pub fn next_index() -> Result<u64, Error<T>> {
         <OrgIdIndex<T>>::mutate(|o| {
@@ -667,6 +682,11 @@ impl<T: Config> Pallet<T> {
         <Members<T>>::get(id)
             .map(|a| a.iter().any(|id| *id == account_id))
             .unwrap_or(false)
+    }
+
+    /// Check whether the ID is organization account.
+    pub fn is_organization(id: &T::AccountId) -> bool {
+        Self::organization(id).is_some()
     }
 
     method_is_flag!(is_active, Active);

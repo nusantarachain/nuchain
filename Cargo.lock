@@ -5211,11 +5211,15 @@ version = "3.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-balances",
+ "pallet-did",
+ "pallet-organization",
  "pallet-timestamp",
  "parity-scale-codec",
  "serde",
  "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
 ]
 

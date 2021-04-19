@@ -16,10 +16,10 @@
 // limitations under the License.
 
 //! # Nuchain Product Registry
-//! 
-//! This pallet is intended to be use with supply chain functionality like to register 
-//! and managing product state between various stakeholders. This data is typically 
-//! registered once by the product's manufacturer / supplier to be shared with other 
+//!
+//! This pallet is intended to be use with supply chain functionality like to register
+//! and managing product state between various stakeholders. This data is typically
+//! registered once by the product's manufacturer / supplier to be shared with other
 //! network participants.
 //!
 //! It is inspired by existing projects & standards:
@@ -34,8 +34,8 @@
 //! - `id` as the Product ID, typically this would be a GS1 GTIN (Global Trade Item Number), or ASIN (Amazon Standard Identification Number), or similar, a numeric or alpha-numeric code with a well-defined data structure.
 //! - `owner` as the Substrate Account representing the organization owning this product, as in the manufacturer or supplier providing this product within the value chain.
 //! - `props` which is a series of properties (name & value) describing the product. Typically, there would at least be a textual description, and SKU. It could also contain instance / lot master data e.g. expiration, weight, harvest date.
-//! 
-//! 
+//!
+//!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -123,7 +123,9 @@ pub mod pallet {
     }
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_timestamp::Config {
+    pub trait Config:
+        frame_system::Config + pallet_timestamp::Config + pallet_organization::Config
+    {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -198,19 +200,19 @@ pub mod pallet {
 
         /// Invalid property value.
         ProductInvalidPropValue,
+        // /// Product owner ID not an organization.
+        // ProductOwnerNotOrganization
     }
 
     /// Supply Chain product registry module.
     #[pallet::call]
-    // pub struct Module<T: Config> for enum Call where origin: T::Origin {
     impl<T: Config> Pallet<T> {
         /// Register a product into blockchain.
-        #[pallet::weight(10_000)]
-        // pub fn register_product(origin, id: ProductId, owner: T::AccountId, props: Option<Vec<ProductProperty>>) -> dispatch::DispatchResult {
+        #[pallet::weight(100_000)]
         pub fn register_product(
             origin: OriginFor<T>,
             id: ProductId,
-            owner: T::AccountId,
+            org_id: T::AccountId,
             props: Option<Vec<ProductProperty>>,
         ) -> DispatchResultWithPostInfo {
             T::CreateRoleOrigin::ensure_origin(origin.clone())?;
@@ -229,20 +231,27 @@ pub mod pallet {
             //       additional validation could be applied to the product ID
             //       to ensure its validity (same company prefix as org).
 
+            /// Ensure owner is organization
+            // let org = <pallet_organization::Module<T>>::organization(&org_id).ok_or(
+            //     Error::<T>::ProductOwnerNotOrganization)?;
+
+            // Pastikan origin memiliki akses ke organisasi
+            <pallet_organization::Module<T>>::ensure_access(&who, &org_id)?;
+
             // Create a product instance
             let product = Self::new_product()
                 .identified_by(id.clone())
-                .owned_by(owner.clone())
+                .owned_by(org_id.clone())
                 .registered_on(<pallet_timestamp::Module<T>>::now())
                 .with_props(props)
                 .build();
 
             // Add product & ownerOf (3 DB writes)
             <Products<T>>::insert(&id, product);
-            <ProductsOfOrganization<T>>::append(&owner, &id);
-            <OwnerOf<T>>::insert(&id, &owner);
+            <ProductsOfOrganization<T>>::append(&org_id, &id);
+            <OwnerOf<T>>::insert(&id, &org_id);
 
-            Self::deposit_event(Event::ProductRegistered(who, id, owner));
+            Self::deposit_event(Event::ProductRegistered(who, id, org_id));
 
             Ok(().into())
         }

@@ -15,12 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 use crate::{
     self as pallet_product_registry, mock::*, Config, Error, Product, ProductId, ProductProperty,
     Products, ProductsOfOrganization,
 };
-use frame_support::{assert_noop, assert_ok, dispatch};
+use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, dispatch};
 
 type PalletEvent = pallet_product_registry::Event<Test>;
 
@@ -41,19 +40,48 @@ const TEST_ORGANIZATION: &str = "Northwind";
 const TEST_SENDER: &str = "Alice";
 const LONG_VALUE : &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec aliquam ut tortor nec congue. Pellente";
 
-#[test]
-fn create_product_without_props() {
+fn with_account_and_org<F>(func: F)
+where
+    F: FnOnce(
+        <Test as frame_system::Config>::AccountId,
+        <Test as frame_system::Config>::AccountId,
+        <Test as pallet_timestamp::Config>::Moment,
+    ),
+{
     new_test_ext().execute_with(|| {
         let sender = account_key(TEST_SENDER);
-        let id = TEST_PRODUCT_ID.as_bytes().to_owned();
-        let owner = account_key(TEST_ORGANIZATION);
+        let org = account_key(TEST_ORGANIZATION);
+
+        // mock organization
+        pallet_organization::Organizations::<Test>::insert(
+            org.clone(),
+            pallet_organization::Organization {
+                id: org.clone(),
+                name: TEST_ORGANIZATION.as_bytes().to_vec(),
+                description: vec![],
+                admin: sender.clone(),
+                website: vec![],
+                email: vec![],
+                suspended: false,
+            },
+        );
+
         let now = 42;
         Timestamp::set_timestamp(now);
+
+        func(sender, org, now);
+    });
+}
+
+#[test]
+fn create_product_without_props() {
+    with_account_and_org(|sender, org, now| {
+        let id = TEST_PRODUCT_ID.as_bytes().to_owned();
 
         let result = ProductRegistry::register_product(
             Origin::signed(sender),
             id.clone(),
-            owner.clone(),
+            org.clone(),
             None,
         );
 
@@ -63,42 +91,38 @@ fn create_product_without_props() {
             ProductRegistry::product_by_id(&id),
             Some(Product {
                 id: id.clone(),
-                owner: owner,
+                owner: org,
                 registered: now,
                 props: None
             })
         );
 
         assert_eq!(
-            <ProductsOfOrganization<Test>>::get(owner),
+            <ProductsOfOrganization<Test>>::get(org),
             Some(vec![id.clone()])
         );
 
-        assert_eq!(ProductRegistry::owner_of(&id), Some(owner));
+        assert_eq!(ProductRegistry::owner_of(&id), Some(org));
 
         // Event is raised
         assert!(System::events().iter().any(|er| er.event
             == Event::pallet_product_registry(PalletEvent::ProductRegistered(
                 sender,
                 id.clone(),
-                owner
+                org
             ))));
     });
 }
 
 #[test]
 fn create_product_with_valid_props() {
-    new_test_ext().execute_with(|| {
-        let sender = account_key(TEST_SENDER);
+    with_account_and_org(|sender, org, now| {
         let id = TEST_PRODUCT_ID.as_bytes().to_owned();
-        let owner = account_key(TEST_ORGANIZATION);
-        let now = 42;
-        Timestamp::set_timestamp(now);
 
         let result = ProductRegistry::register_product(
             Origin::signed(sender),
             id.clone(),
-            owner.clone(),
+            org.clone(),
             Some(vec![
                 ProductProperty::new(b"prop1", b"val1"),
                 ProductProperty::new(b"prop2", b"val2"),
@@ -112,7 +136,7 @@ fn create_product_with_valid_props() {
             ProductRegistry::product_by_id(&id),
             Some(Product {
                 id: id.clone(),
-                owner: owner,
+                owner: org,
                 registered: now,
                 props: Some(vec![
                     ProductProperty::new(b"prop1", b"val1"),
@@ -123,19 +147,36 @@ fn create_product_with_valid_props() {
         );
 
         assert_eq!(
-            <ProductsOfOrganization<Test>>::get(owner),
+            <ProductsOfOrganization<Test>>::get(&org),
             Some(vec![id.clone()])
         );
 
-        assert_eq!(ProductRegistry::owner_of(&id), Some(owner));
+        assert_eq!(ProductRegistry::owner_of(&id), Some(org));
 
         // Event is raised
         assert!(System::events().iter().any(|er| er.event
             == Event::pallet_product_registry(PalletEvent::ProductRegistered(
                 sender,
                 id.clone(),
-                owner
+                org
             ))));
+    });
+}
+
+#[test]
+fn non_organization_account_cannot_register_product() {
+    new_test_ext().execute_with(|| {
+        let id = TEST_PRODUCT_ID.as_bytes().to_owned();
+        let sender = account_key(TEST_SENDER);
+        assert_err_ignore_postinfo!(
+            ProductRegistry::register_product(
+                Origin::signed(sender),
+                id,
+                account_key(TEST_ORGANIZATION),
+                None
+            ),
+            pallet_organization::Error::<Test>::NotExists
+        );
     });
 }
 

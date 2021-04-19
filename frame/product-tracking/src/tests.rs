@@ -83,6 +83,32 @@ const STATUS_IN_TRANSIT: &[u8] = b"In Transit";
 const YEAR1: u32 = 2020;
 const YEAR2: u32 = 2021;
 
+
+fn with_account<F>(func: F) where F: FnOnce(<Test as frame_system::Config>::AccountId, <Test as frame_system::Config>::AccountId, <Test as pallet_timestamp::Config>::Moment){
+    new_test_ext().execute_with(|| {
+        let sender = account_key(TEST_SENDER);
+        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let org = account_key(TEST_ORGANIZATION);
+        let now = 42;
+        Timestamp::set_timestamp(now);
+
+        func(sender, org, now);
+    });
+}
+
+#[test]
+fn non_org_owner_cannot_register(){
+    with_account(|sender, org, now| {
+        assert_noop!(ProductTracking::register(
+            Origin::signed(sender),
+            id.clone(),
+            owner.clone(),
+            YEAR1,
+            vec![],
+        ), BadOrigin);
+    });
+}
+
 #[test]
 fn register_without_products() {
     new_test_ext().execute_with(|| {
