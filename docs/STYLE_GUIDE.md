@@ -1,5 +1,5 @@
 ---
-title: Style Guide for Rust in Substrate
+title: Style Guide for Rust in Nuchain
 ---
 
 # Formatting
