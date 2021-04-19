@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-
 //! # Organization
 //!
 //! - [`Organization::Config`](./trait.Config.html)
@@ -38,6 +37,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
+    dispatch::DispatchResult,
     ensure,
     traits::{
         Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, OnUnbalanced,
@@ -582,13 +582,30 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
+            // let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            ensure!(!org.suspended, Error::<T>::Suspended);
-            ensure!(org.admin == origin, Error::<T>::PermissionDenied);
+            // ensure!(!org.suspended, Error::<T>::Suspended);
+            // ensure!(org.admin == origin, Error::<T>::PermissionDenied);
 
-            did::Module::<T>::create_delegate(&origin, &org_id, &to, b"OrgAdmin", valid_for)?;
+            // did::Module::<T>::create_delegate(&origin, &org_id, &to, b"OrgAdmin", valid_for)?;
 
+            // Ok(().into())
+            Self::h_delegate_access_as(&origin, &org_id, &to, b"OrgAdmin", valid_for)?;
+            Ok(().into())
+        }
+
+        /// Delegate access to other account
+        /// with custom type.
+        #[pallet::weight(100_000)]
+        pub fn delegate_access_as(
+            origin: OriginFor<T>,
+            org_id: T::AccountId,
+            to: T::AccountId,
+            delegate_type: Vec<u8>,
+            valid_for: Option<T::BlockNumber>,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+            Self::h_delegate_access_as(&origin, &org_id, &to, &delegate_type, valid_for)?;
             Ok(().into())
         }
     }
@@ -655,7 +672,6 @@ impl<T: Config> Pallet<T> {
         Ok(org)
     }
 
-
     /// Memastikan bahwa akun memiliki akses pada organisasi.
     /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
     pub fn ensure_access_active_id(
@@ -696,6 +712,24 @@ impl<T: Config> Pallet<T> {
     /// Check whether the ID is organization account.
     pub fn is_organization(id: &T::AccountId) -> bool {
         Self::organization(id).is_some()
+    }
+
+    /// Delegate access to someone with custom type.
+    pub fn h_delegate_access_as(
+        origin: &T::AccountId,
+        org_id: &T::AccountId,
+        to: &T::AccountId,
+        delegate_type: &[u8],
+        valid_for: Option<T::BlockNumber>,
+    ) -> DispatchResult {
+        let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
+
+        ensure!(!org.suspended, Error::<T>::Suspended);
+        ensure!(&org.admin == origin, Error::<T>::PermissionDenied);
+
+        did::Module::<T>::create_delegate(&origin, &org_id, &to, delegate_type, valid_for)?;
+
+        Ok(())
     }
 
     method_is_flag!(is_active, Active);

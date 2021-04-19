@@ -52,7 +52,7 @@ where
         let sender = account_key(TEST_SENDER);
         let org = account_key(TEST_ORGANIZATION);
 
-        // mock organization
+        // Mock organization
         pallet_organization::Organizations::<Test>::insert(
             org.clone(),
             pallet_organization::Organization {

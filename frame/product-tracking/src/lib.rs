@@ -30,6 +30,7 @@ use frame_support::{
     traits::EnsureOrigin,
 };
 use frame_system::{self, ensure_signed, offchain::SendTransactionTypes};
+use pallet_did::Did;
 use pallet_product_registry::{self as product_registry};
 use product_registry::ProductId;
 
@@ -130,6 +131,7 @@ pub mod pallet {
         TrackingEventAlreadyExists,
         TrackingEventMaxExceeded,
         OffchainWorkerAlreadyBusy,
+        PermissionDenied,
         Overflow,
     }
 
@@ -216,6 +218,20 @@ pub mod pallet {
             let mut track = <Tracking<T>>::get(&id).ok_or(Error::<T>::TrackingIsUnknown)?;
 
             ensure!(status != track.status, Error::<T>::TrackingStatusNotChanged);
+
+            // Pastikan origin memiliki akses di organisasi (product owner)
+            // atau origin memiliki akses sebagai ProductTracker
+            ensure!(
+                <pallet_organization::Module<T>>::ensure_access_active_id(&who, &track.owner)
+                    .is_ok()
+                    || <pallet_did::Module<T>>::valid_delegate(
+                        &track.owner,
+                        b"ProductTracker",
+                        &who
+                    )
+                    .is_ok(),
+                Error::<T>::PermissionDenied
+            );
 
             // Create shipping event
             let event = Self::new_tracking_event()

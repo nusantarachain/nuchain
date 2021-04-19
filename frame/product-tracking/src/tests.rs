@@ -25,7 +25,10 @@ use crate::{
     Error,
 };
 use fixed::types::I16F16;
-use frame_support::{assert_noop, assert_ok, dispatch, dispatch::DispatchResult, error::BadOrigin};
+use frame_support::{
+    assert_err_ignore_postinfo, assert_noop, assert_ok, dispatch, dispatch::DispatchResult,
+    error::BadOrigin,
+};
 
 pub fn store_test_tracking<T: Config>(
     id: TrackingId,
@@ -123,6 +126,8 @@ where
                 suspended: false,
             },
         );
+        // Make sender as org owner
+        <pallet_did::Module<Test>>::set_owner(&sender, &org, &sender);
 
         let now = 42;
         Timestamp::set_timestamp(now);
@@ -636,4 +641,105 @@ fn monitor_tracking_with_negative_latlon() {
             })
         );
     })
+}
+
+#[test]
+fn non_org_owner_cannot_update_status() {
+    with_account(|sender, org, now| {
+        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+
+        // Store tracking w/ Pending status
+        store_test_tracking::<Test>(
+            id.clone(),
+            org,
+            STATUS_PENDING.to_vec(),
+            vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
+            now,
+        );
+
+        // Store shipping registration event
+        store_test_event::<Test>(id.clone(), TrackingEventType::TrackingRegistration);
+
+        assert_err_ignore_postinfo!(
+            ProductTracking::update_status(
+                Origin::signed(sender),
+                id.clone(),
+                STATUS_QA_CHECK.to_vec(),
+                now,
+                None,
+                None
+            ),
+            Error::<Test>::PermissionDenied
+        );
+    });
+}
+
+#[test]
+fn hacker_cannot_update_status() {
+    with_account_and_org(|sender, org, now| {
+        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+
+        // Store tracking w/ Pending status
+        store_test_tracking::<Test>(
+            id.clone(),
+            org,
+            STATUS_PENDING.to_vec(),
+            vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
+            now,
+        );
+
+        // Store shipping registration event
+        store_test_event::<Test>(id.clone(), TrackingEventType::TrackingRegistration);
+
+        assert_noop!(
+            ProductTracking::update_status(
+                Origin::signed(account_key("Hacker")),
+                id.clone(),
+                STATUS_DELIVER.to_vec(),
+                now,
+                None,
+                None
+            ),
+            Error::<Test>::PermissionDenied
+        );
+    });
+}
+
+#[test]
+fn delegated_account_can_update_status() {
+    with_account_and_org(|sender, org, now| {
+        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+
+        // Store tracking w/ Pending status
+        store_test_tracking::<Test>(
+            id.clone(),
+            org,
+            STATUS_PENDING.to_vec(),
+            vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
+            now,
+        );
+
+        // Store shipping registration event
+        store_test_event::<Test>(id.clone(), TrackingEventType::TrackingRegistration);
+
+        let delegated = account_key("Wahid");
+
+        // berikan akses ProductTracker kepada Wahid
+        assert_ok!(pallet_organization::Module::<Test>::h_delegate_access_as(
+            &sender,
+            &org,
+            &delegated,
+            b"ProductTracker",
+            None
+        ));
+
+        assert_ok!(ProductTracking::update_status(
+            Origin::signed(delegated),
+            id.clone(),
+            STATUS_DELIVER.to_vec(),
+            now,
+            None,
+            None
+        ));
+    });
 }
