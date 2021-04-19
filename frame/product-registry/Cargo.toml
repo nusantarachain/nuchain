@@ -1,13 +1,12 @@
 [package]
 name = 'pallet-product-registry'
-version = '2.0.0'
-description = 'Substrate Enterprise Sample - Product Registry pallet'
+version = '3.0.0'
+description = 'Nuchain Product Registry'
 edition = '2018'
-authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
-homepage = 'https://substrate.dev'
-repository = 'https://github.com/paritytech/substrate/'
-license = 'Unlicense'
-
+authors = ["Nusantara Chain <nusantarachain@gmail.com>"]
+homepage = 'https://nuchain.network'
+repository = 'https://github.com/nusantarachain/nuchain/'
+license = 'Apache-2.0'
 
 [dependencies]
 serde = { version = "1.0.101", optional = true }
@@ -26,8 +25,8 @@ default = ["std"]
 std = [
     "serde",
     "codec/std",
-    "sp-io/std",
-    "sp-runtime/std",
+    # "sp-io/std",
+    # "sp-runtime/std",
     "frame-support/std",
     "frame-system/std",
     "pallet-timestamp/std",

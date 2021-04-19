@@ -15,18 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as pallet_product_registry, Config, Module};
+use crate::{self as pallet_product_tracking, Config, Module};
+use core::marker::PhantomData;
 use frame_support::{pallet_prelude::*, parameter_types, weights::Weight};
 use frame_system as system;
-use system::RawOrigin;
-// use pallet_timestamp as timestamp;
-use core::marker::PhantomData;
 use sp_core::{sr25519, Pair, H256};
 use sp_runtime::{
-    testing::Header,
+    testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+use system::RawOrigin;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -39,7 +38,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-        ProductRegistry: pallet_product_registry::{Module, Call, Event<T>, Storage}
+        ProductTracking: pallet_product_tracking::{Module, Call, Event<T>, Storage}
     }
 );
 
@@ -86,7 +85,7 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-impl pallet_product_registry::Config for Test {
+impl Config for Test {
     type Event = Event;
     type CreateRoleOrigin = MockOrigin<Test>;
 }
@@ -109,7 +108,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     let storage = frame_system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap();
-
     let mut ext = sp_io::TestExternalities::from(storage);
     // Events are not emitted on block 0 -> advance to block 1.
     // Any dispatchable calls made during genesis block will have no events emitted.
@@ -121,4 +119,16 @@ pub fn account_key(s: &str) -> sr25519::Public {
     sr25519::Pair::from_string(&format!("//{}", s), None)
         .expect("static values are valid; qed")
         .public()
+}
+
+// Offchain worker
+
+type TestExtrinsic = TestXt<Call, ()>;
+
+impl<C> system::offchain::SendTransactionTypes<C> for Test
+where
+    Call: From<C>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = TestExtrinsic;
 }

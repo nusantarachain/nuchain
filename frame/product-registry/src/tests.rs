@@ -15,9 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Tests to be written here
 
-// use super::*;
 use crate::{
     self as pallet_product_registry, mock::*, Config, Error, Product, ProductId, ProductProperty,
     Products, ProductsOfOrganization,

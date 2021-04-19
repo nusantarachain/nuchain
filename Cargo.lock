@@ -5207,7 +5207,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-product-registry"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5217,6 +5217,23 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-product-tracking"
+version = "3.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "hex",
+ "pallet-product-registry",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "substrate-fixed",
 ]
 
 [[package]]
@@ -9370,6 +9387,15 @@ name = "substrate-build-script-utils"
 version = "3.0.0"
 dependencies = [
  "platforms",
+]
+
+[[package]]
+name = "substrate-fixed"
+version = "0.5.6"
+source = "git+https://github.com/encointer/substrate-fixed#b33d186888c60f38adafcfc0ec3a21aab263aef1"
+dependencies = [
+ "parity-scale-codec",
+ "typenum",
 ]
 
 [[package]]

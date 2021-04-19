@@ -1,0 +1,68 @@
+[package]
+name = 'pallet-product-tracking'
+version = '3.0.0'
+description = 'Nuchain Product Tracking'
+edition = '2018'
+authors = ["Nusantara Chain <nusantarachain@gmail.com>"]
+homepage = 'https://nuchain.network'
+repository = 'https://github.com/nusantarachain/nuchain/'
+license = 'Apache-2.0'
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+serde = { version = "1.0.101", optional = true }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+sp-io = { version = "3.0.0", default-features = false, path = "../../primitives/io" }
+sp-runtime = { version = "3.0.0", default-features = false, path = "../../primitives/runtime" }
+pallet-product-registry = { path = "../product-registry", default-features = false }
+pallet-timestamp = { version = "3.0.0", default-features = false, path = "../timestamp" }
+frame-support = { version = "3.0.0", default-features = false, path = "../support" }
+frame-system = { version = "3.0.0", default-features = false, path = "../system" }
+
+# [dependencies.codec]
+# default-features = false
+# features = ['derive']
+# package = 'parity-scale-codec'
+# version = '1.3.4'
+
+[dependencies.fixed]
+default-features = false
+git = "https://github.com/encointer/substrate-fixed"
+package = "substrate-fixed"
+version = "0.5.6"
+
+# [dependencies.product-registry]
+# default-features = false
+# package = 'pallet-product-registry'
+# path = '../product-registry'
+# version = '2.0.0'
+
+# [dependencies.timestamp]
+# default_features = false
+# package = 'pallet-timestamp'
+# version = '2.0.0'
+
+# [dependencies]
+# frame-support = { default-features = false, version = '2.0.0' }
+# frame-system = { default-features = false, version = '2.0.0' }
+# sp-core = { default-features = false, version = '2.0.0' }
+# sp-io = { default-features = false, version = '2.0.0' }
+# sp-runtime = { default-features = false, version = '2.0.0' }
+
+[dev-dependencies]
+hex =  { default-features = false, version = '0.4.2' }
+sp-core = { version = "3.0.0", default-features = false, path = "../../primitives/core" }
+
+[features]
+default = ['std']
+std = [
+    "serde",
+    'codec/std',
+    "sp-io/std",
+    'frame-support/std',
+    'frame-system/std',
+    'pallet-timestamp/std',
+    'pallet-product-registry/std'
+]
