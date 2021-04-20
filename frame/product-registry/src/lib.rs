@@ -32,7 +32,8 @@
 //!
 //! To register a product, one must send a transaction with a [`Pallet::register`] extrinsic with the following arguments:
 //! - `id` as the Product ID, typically this would be a GS1 GTIN (Global Trade Item Number), or ASIN (Amazon Standard Identification Number), or similar, a numeric or alpha-numeric code with a well-defined data structure.
-//! - `owner` as the Substrate Account representing the organization owning this product, as in the manufacturer or supplier providing this product within the value chain.
+//! - `org_id` as the Nuchain Account representing the organization owning this product, as in the manufacturer or supplier providing this product within the value chain.
+//! - `year` the year where the product was produced.
 //! - `props` which is a series of properties (name & value) describing the product. Typically, there would at least be a textual description, and SKU. It could also contain instance / lot master data e.g. expiration, weight, harvest date.
 //!
 //!
