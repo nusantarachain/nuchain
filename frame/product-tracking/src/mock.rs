@@ -15,20 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as pallet_product_registry, Config, Module};
-use frame_support::{pallet_prelude::*, parameter_types, weights::Weight};
-use frame_system as system;
-use system::RawOrigin;
-// use pallet_timestamp as timestamp;
+use crate::{self as pallet_product_tracking, Config, Module};
 use core::marker::PhantomData;
-use frame_support::ord_parameter_types;
+use frame_support::{ord_parameter_types, pallet_prelude::*, parameter_types, weights::Weight};
+use frame_system as system;
 use frame_system::EnsureSignedBy;
 use sp_core::{sr25519, Pair, H256};
 use sp_runtime::{
-    testing::Header,
+    testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+use system::RawOrigin;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -44,7 +42,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
         Did: pallet_did::{Module, Call, Storage, Event<T>},
         Organization: pallet_organization::{Module, Call, Storage, Event<T>},
-        ProductRegistry: pallet_product_registry::{Module, Call, Event<T>, Storage},
+        ProductTracking: pallet_product_tracking::{Module, Call, Event<T>, Storage}
     }
 );
 
@@ -136,7 +134,7 @@ impl pallet_organization::Config for Test {
     type WeightInfo = ();
 }
 
-impl pallet_product_registry::Config for Test {
+impl Config for Test {
     type Event = Event;
     type CreateRoleOrigin = MockOrigin<Test>;
 }
@@ -156,16 +154,9 @@ impl<T: Config> EnsureOrigin<T::Origin> for MockOrigin<T> {
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    let mut storage = frame_system::GenesisConfig::default()
+    let storage = frame_system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap();
-
-    pallet_balances::GenesisConfig::<Test> {
-        balances: vec![(account_key("Alice"), 1000), (account_key("Bob"), 10)],
-    }
-    .assimilate_storage(&mut storage)
-    .unwrap();
-
     let mut ext = sp_io::TestExternalities::from(storage);
     // Events are not emitted on block 0 -> advance to block 1.
     // Any dispatchable calls made during genesis block will have no events emitted.
@@ -177,4 +168,16 @@ pub fn account_key(s: &str) -> sr25519::Public {
     sr25519::Pair::from_string(&format!("//{}", s), None)
         .expect("static values are valid; qed")
         .public()
+}
+
+// Offchain worker
+
+type TestExtrinsic = TestXt<Call, ()>;
+
+impl<C> system::offchain::SendTransactionTypes<C> for Test
+where
+    Call: From<C>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = TestExtrinsic;
 }

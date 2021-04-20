@@ -121,6 +121,7 @@ members = [
 	"frame/organization",
 	"frame/did",
 	"frame/product-registry",	# -- supply chain
+	"frame/product-tracking",	# -- supply chain
 	"primitives/allocator",
 	"primitives/api",
 	"primitives/api/proc-macro",
