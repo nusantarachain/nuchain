@@ -409,6 +409,7 @@ impl<T: Config> Pallet<T> {
         org: &Organization<T::AccountId>,
     ) -> Result<(), Error<T>> {
         pallet_organization::Module::<T>::ensure_access_active(who, &org)
+            .map_err(|_| Error::<T>::PermissionDenied)
     }
 
     /// Incerment certificate index
