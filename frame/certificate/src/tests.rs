@@ -2,14 +2,13 @@ use super::*;
 use crate as pallet_certificate;
 
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, ord_parameter_types, parameter_types,
-    traits::Time,
+    assert_err_ignore_postinfo, assert_ok, ord_parameter_types, parameter_types, traits::Time,
 };
 use frame_system::EnsureSignedBy;
 use sp_core::{sr25519, H256};
 use sp_runtime::{
     testing::Header,
-    traits::{BadOrigin, BlakeTwo256, IdentityLookup},
+    traits::{BlakeTwo256, IdentityLookup},
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -380,7 +379,7 @@ fn only_org_admin_can_create_cert() {
 
 #[test]
 fn revoke_issued_cert_should_work() {
-    with_org_cert_issued(|org_id, cert_id, issued_id| {
+    with_org_cert_issued(|org_id, _cert_id, issued_id| {
         assert_eq!(Certificate::valid_certificate(&issued_id), true);
 
         assert_ok!(Certificate::revoke_certificate(
@@ -406,7 +405,7 @@ fn revoke_issued_cert_should_work() {
 
 #[test]
 fn only_org_admin_can_revoke() {
-    with_org_cert_issued(|org_id, cert_id, issued_id| {
+    with_org_cert_issued(|org_id, _cert_id, issued_id| {
         assert_eq!(Certificate::valid_certificate(&issued_id), true);
 
         assert_err_ignore_postinfo!(

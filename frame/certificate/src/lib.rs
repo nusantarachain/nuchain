@@ -369,16 +369,16 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub(super) fn validate_certificate(
             origin: OriginFor<T>,
-            issued_id: IssuedId,
+            _issued_id: IssuedId,
         ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
+            let _who = ensure_signed(origin)?;
             Ok(().into())
         }
     }
 }
 
-use frame_support::traits::Time;
 use core::convert::TryInto;
+use frame_support::traits::Time;
 
 type Organization<T> = pallet_organization::Organization<T>;
 
@@ -390,6 +390,7 @@ impl<T: Config> Pallet<T> {
         Certificates::<T>::get(id)
     }
 
+    #[allow(dead_code)]
     /// Memastikan bahwa akun memiliki akses pada organisasi.
     /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
     fn ensure_org_access(
