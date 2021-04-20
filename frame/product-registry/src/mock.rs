@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as pallet_product_registry, Config, Module};
+use crate::{self as pallet_product_registry, Config};
 use frame_support::{pallet_prelude::*, parameter_types, weights::Weight};
 use frame_system as system;
 use system::RawOrigin;
@@ -112,7 +112,7 @@ impl pallet_did::Config for Test {
     type WeightInfo = pallet_did::weights::SubstrateWeight<Self>;
 }
 
-use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie};
+use sp_keyring::Sr25519Keyring::{Alice, Bob};
 
 parameter_types! {
     pub const MinOrgNameLength: usize = 3;

@@ -42,9 +42,9 @@
 use codec::{Decode, Encode};
 use core::result::Result;
 use frame_support::{
-    dispatch, ensure, sp_runtime::RuntimeDebug, sp_std::prelude::*, traits::EnsureOrigin,
+    ensure, sp_runtime::RuntimeDebug, sp_std::prelude::*, traits::EnsureOrigin,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self, ensure_signed};
 
 #[cfg(test)]
 mod mock;
@@ -213,6 +213,7 @@ pub mod pallet {
             // TODO: if organization has an attribute w/ GS1 Company prefix,
             //       additional validation could be applied to the product ID
             //       to ensure its validity (same company prefix as org).
+
             // Pastikan origin memiliki akses ke organisasi
             <pallet_organization::Module<T>>::ensure_access_active_id(&who, &org_id)?;
 

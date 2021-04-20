@@ -20,7 +20,7 @@
 use codec::alloc::string::ToString;
 use core::convert::TryInto;
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
+    debug, ensure,
     sp_runtime::offchain::{
         self as rt_offchain,
         storage::StorageValueRef,

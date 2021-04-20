@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as pallet_product_tracking, Config, Module};
+use crate::{self as pallet_product_tracking, Config};
 use core::marker::PhantomData;
 use frame_support::{ord_parameter_types, pallet_prelude::*, parameter_types, weights::Weight};
 use frame_system as system;
@@ -110,7 +110,7 @@ impl pallet_did::Config for Test {
     type WeightInfo = pallet_did::weights::SubstrateWeight<Self>;
 }
 
-use sp_keyring::Sr25519Keyring::{Alice, Bob, Charlie};
+use sp_keyring::Sr25519Keyring::{Alice, Bob};
 
 parameter_types! {
     pub const MinOrgNameLength: usize = 3;

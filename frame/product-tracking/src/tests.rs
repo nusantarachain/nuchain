@@ -26,8 +26,7 @@ use crate::{
 };
 use fixed::types::I16F16;
 use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, dispatch, dispatch::DispatchResult,
-    error::BadOrigin,
+    assert_err_ignore_postinfo, assert_noop, assert_ok, dispatch,
 };
 
 pub fn store_test_tracking<T: Config>(
@@ -76,7 +75,7 @@ const LONG_VALUE : &str = "Lorem ipsum dolor sit amet, consectetur adipiscing el
 const STATUS_EMPTY: &[u8] = b"";
 const STATUS_PENDING: &[u8] = b"Pending";
 const STATUS_QA_CHECK: &[u8] = b"QA check";
-const STATUS_PROCESSING: &[u8] = b"Processing";
+// const STATUS_PROCESSING: &[u8] = b"Processing";
 const STATUS_DELIVER: &[u8] = b"Deliver";
 const STATUS_IN_TRANSIT: &[u8] = b"In Transit";
 
@@ -138,7 +137,7 @@ where
 
 #[test]
 fn non_org_owner_cannot_register() {
-    with_account(|sender, org, now| {
+    with_account(|sender, org, _now| {
         let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
         assert_noop!(
             ProductTracking::register(
@@ -676,7 +675,7 @@ fn non_org_owner_cannot_update_status() {
 
 #[test]
 fn hacker_cannot_update_status() {
-    with_account_and_org(|sender, org, now| {
+    with_account_and_org(|_sender, org, now| {
         let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
 
         // Store tracking w/ Pending status
