@@ -137,9 +137,14 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Register product tracking.
+        /// Register product for tracking.
         ///
         /// The caller of this function must be _signed_.
+        /// 
+        /// * `id` - Tracking ID.
+        /// * `org_id` - ID of organization associated with the product.
+        /// * `year` - Year of the product registered.
+        /// * `products` - List of product IDs.
         #[pallet::weight(100_000)]
         pub fn register(
             origin: OriginFor<T>,
