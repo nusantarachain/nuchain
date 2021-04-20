@@ -17,7 +17,7 @@
 
 //! # Nuchain Product Registry
 //!
-//! This pallet is intended to be use with supply chain functionality like to register
+//! This pallet intended to be use with supply chain functionality to register
 //! and managing product state between various stakeholders. This data is typically
 //! registered once by the product's manufacturer / supplier to be shared with other
 //! network participants.
@@ -30,7 +30,7 @@
 //!
 //! ## Usage
 //!
-//! To register a product, one must send a transaction with a `productRegistry.registerProduct` extrinsic with the following arguments:
+//! To register a product, one must send a transaction with a [`Pallet::register`] extrinsic with the following arguments:
 //! - `id` as the Product ID, typically this would be a GS1 GTIN (Global Trade Item Number), or ASIN (Amazon Standard Identification Number), or similar, a numeric or alpha-numeric code with a well-defined data structure.
 //! - `owner` as the Substrate Account representing the organization owning this product, as in the manufacturer or supplier providing this product within the value chain.
 //! - `props` which is a series of properties (name & value) describing the product. Typically, there would at least be a textual description, and SKU. It could also contain instance / lot master data e.g. expiration, weight, harvest date.
@@ -41,9 +41,7 @@
 
 use codec::{Decode, Encode};
 use core::result::Result;
-use frame_support::{
-    ensure, sp_runtime::RuntimeDebug, sp_std::prelude::*, traits::EnsureOrigin,
-};
+use frame_support::{ensure, sp_runtime::RuntimeDebug, sp_std::prelude::*, traits::EnsureOrigin};
 use frame_system::{self, ensure_signed};
 
 #[cfg(test)]
@@ -63,6 +61,7 @@ pub const PRODUCT_MAX_PROPS: usize = 3;
 pub type ProductId = Vec<u8>;
 pub type PropName = Vec<u8>;
 pub type PropValue = Vec<u8>;
+pub type Year = u32;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -132,30 +131,22 @@ pub mod pallet {
         type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
     }
 
-
-
+    /// Get product by ID.
     #[pallet::storage]
     #[pallet::getter(fn product_by_id)]
     pub type Products<T: Config> =
         StorageMap<_, Blake2_128Concat, ProductId, Product<T::AccountId, T::Moment>>;
 
+    /// Get list of products of the organization.
     #[pallet::storage]
     #[pallet::getter(fn products_of_org)]
     pub type ProductsOfOrganization<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<ProductId>>;
+        StorageDoubleMap<_, Twox64Concat, T::AccountId, Blake2_128Concat, Year, Vec<ProductId>>;
 
+    /// Get owner (organization) of the product where belongs to.
     #[pallet::storage]
     #[pallet::getter(fn owner_of)]
     pub type OwnerOf<T: Config> = StorageMap<_, Twox64Concat, ProductId, T::AccountId>;
-
-    // decl_event!(
-    //     pub enum Event<T>
-    //     where
-    //         AccountId = <T as system::Config>::AccountId,
-    //     {
-    //         ProductRegistered(AccountId, ProductId, AccountId),
-    //     }
-    // );
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -183,19 +174,26 @@ pub mod pallet {
 
         /// Invalid property value.
         ProductInvalidPropValue,
-
     }
 
     /// Supply Chain product registry module.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Register a product into blockchain.
+        ///
+        /// The caller of this function must be _signed_.
+        ///
+        /// * `id` - ID of product.
+        /// * `org_id` - Organization ID where product belongs to, please see [pallet_organization::Organization].
+        /// * `year` - Year of the product produced.
+        /// * `props` - Properties for the product.
+        ///
         #[pallet::weight(10_000)]
-        // pub fn register_product(origin, id: ProductId, owner: T::AccountId, props: Option<Vec<ProductProperty>>) -> dispatch::DispatchResult {
-        pub fn register_product(
+        pub fn register(
             origin: OriginFor<T>,
             id: ProductId,
             org_id: T::AccountId,
+            year: Year,
             props: Option<Vec<ProductProperty>>,
         ) -> DispatchResultWithPostInfo {
             T::CreateRoleOrigin::ensure_origin(origin.clone())?;
@@ -210,10 +208,6 @@ pub mod pallet {
             // Check product doesn't exist yet (1 DB read)
             Self::validate_new_product(&id)?;
 
-            // TODO: if organization has an attribute w/ GS1 Company prefix,
-            //       additional validation could be applied to the product ID
-            //       to ensure its validity (same company prefix as org).
-
             // Pastikan origin memiliki akses ke organisasi
             <pallet_organization::Module<T>>::ensure_access_active_id(&who, &org_id)?;
 
@@ -227,7 +221,7 @@ pub mod pallet {
 
             // Add product & ownerOf (3 DB writes)
             <Products<T>>::insert(&id, product);
-            <ProductsOfOrganization<T>>::append(&org_id, &id);
+            <ProductsOfOrganization<T>>::append(&org_id, year, &id);
             <OwnerOf<T>>::insert(&id, &org_id);
 
             Self::deposit_event(Event::ProductRegistered(who, id, org_id));

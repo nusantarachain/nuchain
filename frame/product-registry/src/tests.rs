@@ -39,6 +39,8 @@ const TEST_PRODUCT_ID: &str = "00012345600012";
 const TEST_ORGANIZATION: &str = "Northwind";
 const TEST_SENDER: &str = "Alice";
 const LONG_VALUE : &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec aliquam ut tortor nec congue. Pellente";
+const YEAR1: u32 = 2020;
+const YEAR2: u32 = 2021;
 
 fn with_account_and_org<F>(func: F)
 where
@@ -78,12 +80,8 @@ fn create_product_without_props() {
     with_account_and_org(|sender, org, now| {
         let id = TEST_PRODUCT_ID.as_bytes().to_owned();
 
-        let result = ProductRegistry::register_product(
-            Origin::signed(sender),
-            id.clone(),
-            org.clone(),
-            None,
-        );
+        let result =
+            ProductRegistry::register(Origin::signed(sender), id.clone(), org.clone(), YEAR1, None);
 
         assert_ok!(result);
 
@@ -98,7 +96,7 @@ fn create_product_without_props() {
         );
 
         assert_eq!(
-            <ProductsOfOrganization<Test>>::get(org),
+            <ProductsOfOrganization<Test>>::get(org, YEAR1),
             Some(vec![id.clone()])
         );
 
@@ -119,10 +117,11 @@ fn create_product_with_valid_props() {
     with_account_and_org(|sender, org, now| {
         let id = TEST_PRODUCT_ID.as_bytes().to_owned();
 
-        let result = ProductRegistry::register_product(
+        let result = ProductRegistry::register(
             Origin::signed(sender),
             id.clone(),
             org.clone(),
+            YEAR2,
             Some(vec![
                 ProductProperty::new(b"prop1", b"val1"),
                 ProductProperty::new(b"prop2", b"val2"),
@@ -147,7 +146,7 @@ fn create_product_with_valid_props() {
         );
 
         assert_eq!(
-            <ProductsOfOrganization<Test>>::get(&org),
+            <ProductsOfOrganization<Test>>::get(&org, YEAR2),
             Some(vec![id.clone()])
         );
 
@@ -169,10 +168,11 @@ fn non_organization_account_cannot_register_product() {
         let id = TEST_PRODUCT_ID.as_bytes().to_owned();
         let sender = account_key(TEST_SENDER);
         assert_err_ignore_postinfo!(
-            ProductRegistry::register_product(
+            ProductRegistry::register(
                 Origin::signed(sender),
                 id,
                 account_key(TEST_ORGANIZATION),
+                YEAR1,
                 None
             ),
             pallet_organization::Error::<Test>::NotExists
@@ -184,10 +184,11 @@ fn non_organization_account_cannot_register_product() {
 fn create_product_with_invalid_sender() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            ProductRegistry::register_product(
+            ProductRegistry::register(
                 Origin::none(),
                 vec!(),
                 account_key(TEST_ORGANIZATION),
+                YEAR1,
                 None
             ),
             dispatch::DispatchError::BadOrigin
@@ -199,10 +200,11 @@ fn create_product_with_invalid_sender() {
 fn create_product_with_missing_id() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            ProductRegistry::register_product(
+            ProductRegistry::register(
                 Origin::signed(account_key(TEST_SENDER)),
                 vec!(),
                 account_key(TEST_ORGANIZATION),
+                YEAR1,
                 None
             ),
             Error::<Test>::ProductIdMissing
@@ -214,10 +216,11 @@ fn create_product_with_missing_id() {
 fn create_product_with_long_id() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            ProductRegistry::register_product(
+            ProductRegistry::register(
                 Origin::signed(account_key(TEST_SENDER)),
                 LONG_VALUE.as_bytes().to_owned(),
                 account_key(TEST_ORGANIZATION),
+                YEAR1,
                 None
             ),
             Error::<Test>::ProductIdTooLong
@@ -238,10 +241,11 @@ fn create_product_with_existing_id() {
         );
 
         assert_noop!(
-            ProductRegistry::register_product(
+            ProductRegistry::register(
                 Origin::signed(account_key(TEST_SENDER)),
                 existing_product,
                 account_key(TEST_ORGANIZATION),
+                YEAR1,
                 None
             ),
             Error::<Test>::ProductIdExists
@@ -253,10 +257,11 @@ fn create_product_with_existing_id() {
 fn create_product_with_too_many_props() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            ProductRegistry::register_product(
+            ProductRegistry::register(
                 Origin::signed(account_key(TEST_SENDER)),
                 TEST_PRODUCT_ID.as_bytes().to_owned(),
                 account_key(TEST_ORGANIZATION),
+                YEAR1,
                 Some(vec![
                     ProductProperty::new(b"prop1", b"val1"),
                     ProductProperty::new(b"prop2", b"val2"),
@@ -273,10 +278,11 @@ fn create_product_with_too_many_props() {
 fn create_product_with_invalid_prop_name() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            ProductRegistry::register_product(
+            ProductRegistry::register(
                 Origin::signed(account_key(TEST_SENDER)),
                 TEST_PRODUCT_ID.as_bytes().to_owned(),
                 account_key(TEST_ORGANIZATION),
+                YEAR1,
                 Some(vec![
                     ProductProperty::new(b"prop1", b"val1"),
                     ProductProperty::new(b"prop2", b"val2"),
@@ -292,10 +298,11 @@ fn create_product_with_invalid_prop_name() {
 fn create_product_with_invalid_prop_value() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            ProductRegistry::register_product(
+            ProductRegistry::register(
                 Origin::signed(account_key(TEST_SENDER)),
                 TEST_PRODUCT_ID.as_bytes().to_owned(),
                 account_key(TEST_ORGANIZATION),
+                YEAR2,
                 Some(vec![
                     ProductProperty::new(b"prop1", b"val1"),
                     ProductProperty::new(b"prop2", b"val2"),
