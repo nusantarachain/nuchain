@@ -2,43 +2,36 @@
     "ProductId": "Identifier",
     "Identifier": "Vec<u8>",
     "Decimal": "i32",
-    "ShipmentId": "Identifier",
+    "TrackingId": "Identifier",
     "ShippingEventIndex": "u128",
     "DeviceId": "Identifier",
 
-    "ShipmentStatus": {
+    "TrackingStatus": {
         "_enum": [
             "Pending",
             "InTransit",
             "Delivered"
         ]
     },
-    "Shipment": {
-        "id": "ShipmentId",
+    "Track": {
+        "id": "TrackingId",
         "owner": "AccountId",
-        "status": "ShipmentStatus",
+        "status": "TrackingStatus",
         "products": "Vec<ProductId>",
         "registered": "Moment",
         "delivered": "Option<Moment>"
     },
-    "ShippingOperation": {
+    "TrackingEventType": {
         "_enum": [
-            "Pickup",
-            "Scan",
-            "Deliver"
+            "TrackingRegistration",
+            "TrackingPickup",
+            "TrackingScan",
+            "TrackingDeliver"
         ]
     },
-    "ShippingEventType": {
-        "_enum": [
-            "ShipmentRegistration",
-            "ShipmentPickup",
-            "ShipmentScan",
-            "ShipmentDeliver"
-        ]
-    },
-    "ShippingEvent": {
-        "event_type": "ShippingEventType",
-        "shipment_id": "ShipmentId",
+    "TrackingEvent": {
+        "event_type": "TrackingEventType",
+        "tracking_id": "TrackingId",
         "location": "Option<ReadPoint>",
         "readings": "Vec<Reading<Moment>>",
         "timestamp": "Moment"

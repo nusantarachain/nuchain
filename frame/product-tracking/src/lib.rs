@@ -74,7 +74,7 @@ pub mod pallet {
         + SendTransactionTypes<Call<Self>>
     {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
+        // type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
     }
 
     #[pallet::storage]
@@ -153,7 +153,7 @@ pub mod pallet {
             year: Year,
             products: Vec<ProductId>,
         ) -> DispatchResultWithPostInfo {
-            T::CreateRoleOrigin::ensure_origin(origin.clone())?;
+            // T::CreateRoleOrigin::ensure_origin(origin.clone())?;
             let who = ensure_signed(origin)?;
 
             // Validate format of tracking ID
@@ -214,7 +214,7 @@ pub mod pallet {
             location: Option<ReadPoint>,
             readings: Option<Vec<Reading<T::Moment>>>,
         ) -> DispatchResultWithPostInfo {
-            T::CreateRoleOrigin::ensure_origin(origin.clone())?;
+            // T::CreateRoleOrigin::ensure_origin(origin.clone())?;
             let who = ensure_signed(origin)?;
 
             // Validate format of tracking ID
@@ -293,8 +293,11 @@ pub mod pallet {
 
 pub use pallet::*;
 
+#[cfg(not(feature = "std"))]
+use codec::alloc::vec;
+
 impl<T: Config> Pallet<T> {
-    // Helper methods
+
     fn new_tracking() -> TrackingBuilder<T::AccountId, T::Moment> {
         TrackingBuilder::<T::AccountId, T::Moment>::default()
     }

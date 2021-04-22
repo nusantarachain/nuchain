@@ -4371,6 +4371,8 @@ dependencies = [
  "pallet-offences",
  "pallet-offences-benchmarking",
  "pallet-organization",
+ "pallet-product-registry",
+ "pallet-product-tracking",
  "pallet-proxy",
  "pallet-randomness-collective-flip",
  "pallet-recovery",

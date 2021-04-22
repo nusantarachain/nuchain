@@ -138,7 +138,7 @@ impl pallet_organization::Config for Test {
 
 impl pallet_product_registry::Config for Test {
     type Event = Event;
-    type CreateRoleOrigin = MockOrigin<Test>;
+    // type CreateRoleOrigin = MockOrigin<Test>;
 }
 
 pub struct MockOrigin<T>(PhantomData<T>);
