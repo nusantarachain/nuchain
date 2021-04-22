@@ -80,7 +80,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn tracking)]
     pub type Tracking<T: Config> =
-        StorageMap<_, Twox64Concat, TrackingId, Track<T::AccountId, T::Moment>>;
+        StorageMap<_, Blake2_128Concat, TrackingId, Track<T::AccountId, T::Moment>>;
 
     #[pallet::storage]
     #[pallet::getter(fn trackings_of_org)]
@@ -140,7 +140,7 @@ pub mod pallet {
         /// Register product for tracking.
         ///
         /// The caller of this function must be _signed_.
-        /// 
+        ///
         /// * `id` - Tracking ID.
         /// * `org_id` - ID of organization associated with the product.
         /// * `year` - Year of the product registered.
@@ -245,6 +245,7 @@ pub mod pallet {
                 .at_location(location)
                 .with_readings(readings.unwrap_or_default())
                 .at_time(timestamp)
+                .with_status(status.clone())
                 .build();
 
             // Storage writes
@@ -297,7 +298,6 @@ pub use pallet::*;
 use codec::alloc::vec;
 
 impl<T: Config> Pallet<T> {
-
     fn new_tracking() -> TrackingBuilder<T::AccountId, T::Moment> {
         TrackingBuilder::<T::AccountId, T::Moment>::default()
     }
@@ -331,6 +331,11 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn validate_new_tracking(id: &[u8]) -> Result<(), Error<T>> {
+        // tracking id length
+        ensure!(
+            id.len() <= IDENTIFIER_MAX_LENGTH,
+            Error::<T>::InvalidOrMissingIdentifier
+        );
         // Tracking existence check
         ensure!(
             !<Tracking<T>>::contains_key(id),

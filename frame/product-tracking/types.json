@@ -3,28 +3,22 @@
     "Identifier": "Vec<u8>",
     "Decimal": "i32",
     "TrackingId": "Identifier",
-    "ShippingEventIndex": "u128",
+    "TrackingEventIndex": "u128",
     "DeviceId": "Identifier",
 
-    "TrackingStatus": {
-        "_enum": [
-            "Pending",
-            "InTransit",
-            "Delivered"
-        ]
-    },
+    "TrackingStatus": "Vec<u8>",
     "Track": {
         "id": "TrackingId",
         "owner": "AccountId",
         "status": "TrackingStatus",
         "products": "Vec<ProductId>",
         "registered": "Moment",
-        "delivered": "Option<Moment>"
+        "updated": "Option<Moment>"
     },
     "TrackingEventType": {
         "_enum": [
             "TrackingRegistration",
-            "TrackingPickup",
+            "TrackingUpdateStatus",
             "TrackingScan",
             "TrackingDeliver"
         ]
@@ -34,6 +28,7 @@
         "tracking_id": "TrackingId",
         "location": "Option<ReadPoint>",
         "readings": "Vec<Reading<Moment>>",
+        "status": "TrackingStatus",
         "timestamp": "Moment"
     },
     "ReadPoint": {
