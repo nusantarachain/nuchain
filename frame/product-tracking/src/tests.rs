@@ -192,7 +192,7 @@ fn test_register_with_props() {
 
 #[test]
 fn test_register_with_invalid_props() {
-    with_account_and_org(|sender, org, now| {
+    with_account_and_org(|sender, org, _now| {
         let id = TEST_TRACKING_ID.as_bytes().to_owned();
 
         assert_noop!(
@@ -310,7 +310,7 @@ fn register_without_products() {
 
 #[test]
 fn cannot_register_non_existing_product() {
-    with_account_and_org(|sender, org, now| {
+    with_account_and_org(|sender, org, _now| {
         let id = TEST_TRACKING_ID.as_bytes().to_owned();
 
         let result = ProductTracking::register(
@@ -451,7 +451,7 @@ fn register_with_long_id() {
 
 #[test]
 fn register_with_existing_id() {
-    with_account_and_org(|sender, org, now| {
+    with_account_and_org(|_sender, _org, _now| {
         let existing_tracking = TEST_TRACKING_ID.as_bytes().to_owned();
 
         assert_ok!(ProductTracking::register(

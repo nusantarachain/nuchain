@@ -27,7 +27,6 @@ use frame_support::{
         storage_lock::{StorageLock, Time},
     },
     sp_std::prelude::*,
-    traits::EnsureOrigin,
     types::Property,
 };
 use frame_system::{self, ensure_signed, offchain::SendTransactionTypes};
@@ -193,7 +192,7 @@ pub mod pallet {
 
             let tracking = tracking_builder.build();
 
-            // Create shipping event
+            // Create tracking event
             let event = Self::new_tracking_event()
                 .of_type(TrackingEventType::TrackingRegistration)
                 .for_tracking(id.clone())
@@ -207,7 +206,7 @@ pub mod pallet {
             // Add track (2 DB write)
             <Tracking<T>>::insert(&id, tracking);
             <TrackingOfOrganization<T>>::append(&org_id, year, &id);
-            // Store shipping event (1 DB read, 3 DB writes)
+            // Store tracking event (1 DB read, 3 DB writes)
             let event_idx = Self::store_event(event)?;
             // Update offchain notifications (1 DB write)
             <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
@@ -255,7 +254,7 @@ pub mod pallet {
                 Error::<T>::PermissionDenied
             );
 
-            // Create shipping event
+            // Create tracking event
             let event = Self::new_tracking_event()
                 .of_type(TrackingEventType::TrackingUpdateStatus)
                 .for_tracking(id.clone())
@@ -267,7 +266,7 @@ pub mod pallet {
 
             // Storage writes
             // --------------
-            // Store shipping event (1 DB read, 3 DB writes)
+            // Store tracking event (1 DB read, 3 DB writes)
             let event_idx = Self::store_event(event)?;
             // Update offchain notifications (1 DB write)
             <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
