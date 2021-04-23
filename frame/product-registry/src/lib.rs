@@ -271,7 +271,7 @@ pub use pallet::*;
 
 impl<T: Config> Pallet<T> {
     // Helper methods
-    fn new_product() -> ProductBuilder<T::AccountId, T::Moment> {
+    pub fn new_product() -> ProductBuilder<T::AccountId, T::Moment> {
         ProductBuilder::<T::AccountId, T::Moment>::default()
     }
 

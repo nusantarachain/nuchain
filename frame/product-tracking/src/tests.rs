@@ -18,8 +18,8 @@
 use super::*;
 use crate::{
     mock::{
-        account_key, new_test_ext, Event as TestEvent, Origin, ProductTracking, System, Test,
-        Timestamp,
+        account_key, new_test_ext, Event as TestEvent, Origin, ProductRegistry, ProductTracking,
+        System, Test, Timestamp,
     },
     types::*,
     Error,
@@ -197,7 +197,7 @@ fn register_without_products() {
 }
 
 #[test]
-fn register_with_valid_products() {
+fn cannot_register_non_existing_product() {
     with_account_and_org(|sender, org, now| {
         let id = TEST_TRACKING_ID.as_bytes().to_owned();
 
@@ -211,6 +211,44 @@ fn register_with_valid_products() {
                 b"00012345600002".to_vec(),
                 b"00012345600003".to_vec(),
             ],
+        );
+
+        assert_err_ignore_postinfo!(result, Error::<Test>::ProductNotExists);
+    });
+}
+
+/// This function only mocking product, bypass all validation
+fn register_products(prod_ids: &Vec<Vec<u8>>, org_id: &<Test as frame_system::Config>::AccountId) {
+    for prod_id in prod_ids {
+        let product = ProductRegistry::new_product()
+            .identified_by(prod_id.to_vec())
+            .owned_by(org_id.clone())
+            .registered_on(Timestamp::now())
+            .with_props(Some(vec![]))
+            .build();
+        pallet_product_registry::Products::<Test>::insert(prod_id.to_vec(), product);
+    }
+}
+
+#[test]
+fn register_with_valid_products() {
+    with_account_and_org(|sender, org, now| {
+        let id = TEST_TRACKING_ID.as_bytes().to_owned();
+
+        let products = vec![
+            b"00012345600001".to_vec(),
+            b"00012345600002".to_vec(),
+            b"00012345600003".to_vec(),
+        ];
+
+        register_products(&products, &org);
+
+        let result = ProductTracking::register(
+            Origin::signed(sender),
+            id.clone(),
+            org.clone(),
+            YEAR2,
+            products,
         );
 
         assert_ok!(result);

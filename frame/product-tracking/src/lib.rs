@@ -71,6 +71,7 @@ pub mod pallet {
         frame_system::Config
         + pallet_timestamp::Config
         + pallet_organization::Config
+        + pallet_product_registry::Config
         + SendTransactionTypes<Call<Self>>
     {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
@@ -133,6 +134,7 @@ pub mod pallet {
         OffchainWorkerAlreadyBusy,
         PermissionDenied,
         Overflow,
+        ProductNotExists,
     }
 
     #[pallet::call]
@@ -349,6 +351,13 @@ impl<T: Config> Pallet<T> {
             props.len() <= SHIPMENT_MAX_PRODUCTS,
             Error::<T>::TrackingHasTooManyProducts,
         );
+        // pastikan product-nya ada
+        for id in props.iter() {
+            ensure!(
+                pallet_product_registry::Products::<T>::contains_key(id),
+                Error::<T>::ProductNotExists
+            );
+        }
         Ok(())
     }
 
@@ -437,8 +446,14 @@ impl<T: Config> Pallet<T> {
 
         let response = pending
             .try_wait(timeout)
-            .map_err(|_| "http post request sent error")?
-            .map_err(|_| "http post request sent error")?;
+            .map_err(|e| {
+                debug::warn!("http post request sent error: {:?}", e);
+                "error 1"
+            })?
+            .map_err(|e| {
+                debug::warn!("http post request sent error: {:?}", e);
+                "error 2"
+            })?;
 
         if response.code != 200 {
             return Err("http response error");

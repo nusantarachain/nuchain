@@ -42,6 +42,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
         Did: pallet_did::{Module, Call, Storage, Event<T>},
         Organization: pallet_organization::{Module, Call, Storage, Event<T>},
+        ProductRegistry: pallet_product_registry::{Module, Call, Event<T>, Storage},
         ProductTracking: pallet_product_tracking::{Module, Call, Event<T>, Storage}
     }
 );
@@ -134,6 +135,10 @@ impl pallet_organization::Config for Test {
     type WeightInfo = ();
 }
 
+impl pallet_product_registry::Config for Test {
+    type Event = Event;
+    // type CreateRoleOrigin = MockOrigin<Test>;
+}
 impl Config for Test {
     type Event = Event;
     // type CreateRoleOrigin = MockOrigin<Test>;
