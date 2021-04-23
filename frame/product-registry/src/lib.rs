@@ -42,10 +42,7 @@
 
 use codec::{Decode, Encode};
 use core::result::Result;
-use frame_support::{
-    ensure, sp_runtime::RuntimeDebug, sp_std::prelude::*,
-    types::Property,
-};
+use frame_support::{ensure, sp_runtime::RuntimeDebug, sp_std::prelude::*, types::Property};
 use frame_system::{self, ensure_signed};
 
 #[cfg(test)]
@@ -273,21 +270,16 @@ impl<T: Config> Pallet<T> {
 
     pub fn validate_product_props(props: &Option<Vec<ProductProperty>>) -> Result<(), Error<T>> {
         if let Some(props) = props {
-            ensure!(
-                props.len() <= PRODUCT_MAX_PROPS,
-                Error::<T>::TooManyProps,
-            );
+            ensure!(props.len() <= PRODUCT_MAX_PROPS, Error::<T>::TooManyProps,);
             for prop in props {
                 let len = prop.name().len();
                 ensure!(
-                    len > 0 &&
-                    len <= PRODUCT_PROP_NAME_MAX_LENGTH,
+                    len > 0 && len <= PRODUCT_PROP_NAME_MAX_LENGTH,
                     Error::<T>::InvalidPropName
                 );
                 let len = prop.value().len();
                 ensure!(
-                    len > 0 &&
-                    len <= PRODUCT_PROP_VALUE_MAX_LENGTH,
+                    len > 0 && len <= PRODUCT_PROP_VALUE_MAX_LENGTH,
                     Error::<T>::InvalidPropValue
                 );
             }

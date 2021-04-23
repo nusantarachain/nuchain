@@ -80,13 +80,8 @@ fn create_product_without_props() {
     with_account_and_org(|sender, org, now| {
         let id = TEST_PRODUCT_ID.as_bytes().to_owned();
 
-        let result = ProductRegistry::register(
-            Origin::signed(sender),
-            id.clone(),
-            org.clone(),
-            YEAR1,
-            None,
-        );
+        let result =
+            ProductRegistry::register(Origin::signed(sender), id.clone(), org.clone(), YEAR1, None);
 
         assert_ok!(result);
 
@@ -271,10 +266,12 @@ fn create_product_with_too_many_props() {
                     ProductProperty::new(b"prop1", b"val1"),
                     ProductProperty::new(b"prop2", b"val2"),
                     ProductProperty::new(b"prop3", b"val3"),
-                    ProductProperty::new(b"prop4", b"val4")
+                    ProductProperty::new(b"prop4", b"val4"),
+                    ProductProperty::new(b"prop5", b"val5"),
+                    ProductProperty::new(b"prop6", b"val6")
                 ])
             ),
-            Error::<Test>::ProductTooManyProps
+            Error::<Test>::TooManyProps
         );
     })
 }
@@ -294,7 +291,7 @@ fn create_product_with_invalid_prop_name() {
                     ProductProperty::new(&LONG_VALUE.as_bytes().to_owned(), b"val3"),
                 ])
             ),
-            Error::<Test>::ProductInvalidPropName
+            Error::<Test>::InvalidPropName
         );
     })
 }
@@ -314,7 +311,7 @@ fn create_product_with_invalid_prop_value() {
                     ProductProperty::new(b"prop3", &LONG_VALUE.as_bytes().to_owned()),
                 ])
             ),
-            Error::<Test>::ProductInvalidPropValue
+            Error::<Test>::InvalidPropValue
         );
     })
 }
