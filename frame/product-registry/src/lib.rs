@@ -129,7 +129,7 @@ pub mod pallet {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-        type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
+        // type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
     }
 
     /// Get product by ID.
@@ -197,7 +197,7 @@ pub mod pallet {
             year: Year,
             props: Option<Vec<ProductProperty>>,
         ) -> DispatchResultWithPostInfo {
-            T::CreateRoleOrigin::ensure_origin(origin.clone())?;
+            // T::CreateRoleOrigin::ensure_origin(origin.clone())?;
             let who = ensure_signed(origin)?;
 
             // Validate product ID
@@ -272,7 +272,7 @@ pub use pallet::*;
 
 impl<T: Config> Pallet<T> {
     // Helper methods
-    fn new_product() -> ProductBuilder<T::AccountId, T::Moment> {
+    pub fn new_product() -> ProductBuilder<T::AccountId, T::Moment> {
         ProductBuilder::<T::AccountId, T::Moment>::default()
     }
 

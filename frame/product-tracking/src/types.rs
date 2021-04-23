@@ -79,6 +79,7 @@ pub struct TrackingEvent<Moment> {
     pub tracking_id: TrackingId,
     pub location: Option<ReadPoint>,
     pub readings: Vec<Reading<Moment>>,
+    pub status: TrackingStatus,
     pub timestamp: Moment,
 }
 

@@ -63,6 +63,7 @@ where
     event_type: TrackingEventType,
     location: Option<ReadPoint>,
     readings: Vec<Reading<Moment>>,
+    status: TrackingStatus,
     timestamp: Moment,
 }
 
@@ -76,6 +77,7 @@ where
             event_type: TrackingEventType::TrackingUpdateStatus,
             location: Option::<ReadPoint>::default(),
             readings: Vec::<Reading<Moment>>::default(),
+            status: b"registered".to_vec(),
             timestamp: Moment::default(),
         }
     }
@@ -110,12 +112,18 @@ where
         self
     }
 
+    pub fn with_status(mut self, status: TrackingStatus) -> Self {
+        self.status = status;
+        self
+    }
+
     pub fn build(self) -> TrackingEvent<Moment> {
         TrackingEvent::<Moment> {
             event_type: self.event_type,
             tracking_id: self.tracking_id,
             location: self.location,
             readings: self.readings,
+            status: self.status,
             timestamp: self.timestamp,
         }
     }

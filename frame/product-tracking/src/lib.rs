@@ -50,7 +50,7 @@ use crate::builders::*;
 // Note: these could also be passed as trait config parameters
 pub const IDENTIFIER_MAX_LENGTH: usize = 36;
 pub const SHIPMENT_MAX_PRODUCTS: usize = 10;
-pub const LISTENER_ENDPOINT: &str = "http://localhost:3005";
+pub const LISTENER_ENDPOINT: &str = "http://localhost:3005/nuchain_webhook";
 pub const LOCK_TIMEOUT_EXPIRATION: u64 = 3000; // in milli-seconds
 
 pub type Year = u32;
@@ -71,16 +71,17 @@ pub mod pallet {
         frame_system::Config
         + pallet_timestamp::Config
         + pallet_organization::Config
+        + pallet_product_registry::Config
         + SendTransactionTypes<Call<Self>>
     {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
+        // type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
     }
 
     #[pallet::storage]
     #[pallet::getter(fn tracking)]
     pub type Tracking<T: Config> =
-        StorageMap<_, Twox64Concat, TrackingId, Track<T::AccountId, T::Moment>>;
+        StorageMap<_, Blake2_128Concat, TrackingId, Track<T::AccountId, T::Moment>>;
 
     #[pallet::storage]
     #[pallet::getter(fn trackings_of_org)]
@@ -133,6 +134,7 @@ pub mod pallet {
         OffchainWorkerAlreadyBusy,
         PermissionDenied,
         Overflow,
+        ProductNotExists,
     }
 
     #[pallet::call]
@@ -140,7 +142,7 @@ pub mod pallet {
         /// Register product for tracking.
         ///
         /// The caller of this function must be _signed_.
-        /// 
+        ///
         /// * `id` - Tracking ID.
         /// * `org_id` - ID of organization associated with the product.
         /// * `year` - Year of the product registered.
@@ -153,7 +155,7 @@ pub mod pallet {
             year: Year,
             products: Vec<ProductId>,
         ) -> DispatchResultWithPostInfo {
-            T::CreateRoleOrigin::ensure_origin(origin.clone())?;
+            // T::CreateRoleOrigin::ensure_origin(origin.clone())?;
             let who = ensure_signed(origin)?;
 
             // Validate format of tracking ID
@@ -214,7 +216,7 @@ pub mod pallet {
             location: Option<ReadPoint>,
             readings: Option<Vec<Reading<T::Moment>>>,
         ) -> DispatchResultWithPostInfo {
-            T::CreateRoleOrigin::ensure_origin(origin.clone())?;
+            // T::CreateRoleOrigin::ensure_origin(origin.clone())?;
             let who = ensure_signed(origin)?;
 
             // Validate format of tracking ID
@@ -245,6 +247,7 @@ pub mod pallet {
                 .at_location(location)
                 .with_readings(readings.unwrap_or_default())
                 .at_time(timestamp)
+                .with_status(status.clone())
                 .build();
 
             // Storage writes
@@ -293,8 +296,10 @@ pub mod pallet {
 
 pub use pallet::*;
 
+#[cfg(not(feature = "std"))]
+use codec::alloc::vec;
+
 impl<T: Config> Pallet<T> {
-    // Helper methods
     fn new_tracking() -> TrackingBuilder<T::AccountId, T::Moment> {
         TrackingBuilder::<T::AccountId, T::Moment>::default()
     }
@@ -328,6 +333,11 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn validate_new_tracking(id: &[u8]) -> Result<(), Error<T>> {
+        // tracking id length
+        ensure!(
+            id.len() <= IDENTIFIER_MAX_LENGTH,
+            Error::<T>::InvalidOrMissingIdentifier
+        );
         // Tracking existence check
         ensure!(
             !<Tracking<T>>::contains_key(id),
@@ -341,6 +351,13 @@ impl<T: Config> Pallet<T> {
             props.len() <= SHIPMENT_MAX_PRODUCTS,
             Error::<T>::TrackingHasTooManyProducts,
         );
+        // pastikan product-nya ada
+        for id in props.iter() {
+            ensure!(
+                pallet_product_registry::Products::<T>::contains_key(id),
+                Error::<T>::ProductNotExists
+            );
+        }
         Ok(())
     }
 
@@ -429,8 +446,14 @@ impl<T: Config> Pallet<T> {
 
         let response = pending
             .try_wait(timeout)
-            .map_err(|_| "http post request sent error")?
-            .map_err(|_| "http post request sent error")?;
+            .map_err(|e| {
+                debug::warn!("http post request sent error: {:?}", e);
+                "error 1"
+            })?
+            .map_err(|e| {
+                debug::warn!("http post request sent error: {:?}", e);
+                "error 2"
+            })?;
 
         if response.code != 200 {
             return Err("http response error");

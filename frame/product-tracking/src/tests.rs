@@ -18,16 +18,14 @@
 use super::*;
 use crate::{
     mock::{
-        account_key, new_test_ext, Event as TestEvent, Origin, ProductTracking, System, Test,
-        Timestamp,
+        account_key, new_test_ext, Event as TestEvent, Origin, ProductRegistry, ProductTracking,
+        System, Test, Timestamp,
     },
     types::*,
     Error,
 };
 use fixed::types::I16F16;
-use frame_support::{
-    assert_err_ignore_postinfo, assert_noop, assert_ok, dispatch,
-};
+use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, dispatch};
 
 pub fn store_test_tracking<T: Config>(
     id: TrackingId,
@@ -49,12 +47,17 @@ pub fn store_test_tracking<T: Config>(
     );
 }
 
-pub fn store_test_event<T: Config>(tracking_id: TrackingId, event_type: TrackingEventType) {
+pub fn store_test_event<T: Config>(
+    tracking_id: TrackingId,
+    event_type: TrackingEventType,
+    status: TrackingStatus,
+) {
     let event = TrackingEvent {
         event_type,
         tracking_id: tracking_id.clone(),
         location: None,
         readings: vec![],
+        status: status.clone(),
         timestamp: pallet_timestamp::Module::<T>::now(),
     };
     let event_idx = <EventCount<T>>::get()
@@ -67,7 +70,7 @@ pub fn store_test_event<T: Config>(tracking_id: TrackingId, event_type: Tracking
 }
 
 const TEST_PRODUCT_ID: &str = "00012345678905";
-const TEST_SHIPMENT_ID: &str = "0001";
+const TEST_TRACKING_ID: &str = "0001";
 const TEST_ORGANIZATION: &str = "Northwind";
 const TEST_SENDER: &str = "Alice";
 const LONG_VALUE : &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec aliquam ut tortor nec congue. Pellente";
@@ -138,7 +141,7 @@ where
 #[test]
 fn non_org_owner_cannot_register() {
     with_account(|sender, org, _now| {
-        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let id = TEST_TRACKING_ID.as_bytes().to_owned();
         assert_noop!(
             ProductTracking::register(
                 Origin::signed(sender),
@@ -155,7 +158,7 @@ fn non_org_owner_cannot_register() {
 #[test]
 fn register_without_products() {
     with_account_and_org(|sender, org, now| {
-        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let id = TEST_TRACKING_ID.as_bytes().to_owned();
 
         let result = ProductTracking::register(
             Origin::signed(sender),
@@ -194,9 +197,9 @@ fn register_without_products() {
 }
 
 #[test]
-fn register_with_valid_products() {
+fn cannot_register_non_existing_product() {
     with_account_and_org(|sender, org, now| {
-        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let id = TEST_TRACKING_ID.as_bytes().to_owned();
 
         let result = ProductTracking::register(
             Origin::signed(sender),
@@ -208,6 +211,44 @@ fn register_with_valid_products() {
                 b"00012345600002".to_vec(),
                 b"00012345600003".to_vec(),
             ],
+        );
+
+        assert_err_ignore_postinfo!(result, Error::<Test>::ProductNotExists);
+    });
+}
+
+/// This function only mocking product, bypass all validation
+fn register_products(prod_ids: &Vec<Vec<u8>>, org_id: &<Test as frame_system::Config>::AccountId) {
+    for prod_id in prod_ids {
+        let product = ProductRegistry::new_product()
+            .identified_by(prod_id.to_vec())
+            .owned_by(org_id.clone())
+            .registered_on(Timestamp::now())
+            .with_props(Some(vec![]))
+            .build();
+        pallet_product_registry::Products::<Test>::insert(prod_id.to_vec(), product);
+    }
+}
+
+#[test]
+fn register_with_valid_products() {
+    with_account_and_org(|sender, org, now| {
+        let id = TEST_TRACKING_ID.as_bytes().to_owned();
+
+        let products = vec![
+            b"00012345600001".to_vec(),
+            b"00012345600002".to_vec(),
+            b"00012345600003".to_vec(),
+        ];
+
+        register_products(&products, &org);
+
+        let result = ProductTracking::register(
+            Origin::signed(sender),
+            id.clone(),
+            org.clone(),
+            YEAR2,
+            products,
         );
 
         assert_ok!(result);
@@ -248,7 +289,7 @@ fn register_with_invalid_sender() {
         assert_noop!(
             ProductTracking::register(
                 Origin::none(),
-                TEST_SHIPMENT_ID.as_bytes().to_owned(),
+                TEST_TRACKING_ID.as_bytes().to_owned(),
                 account_key(TEST_ORGANIZATION),
                 YEAR1,
                 vec!()
@@ -292,17 +333,16 @@ fn register_with_long_id() {
 
 #[test]
 fn register_with_existing_id() {
-    new_test_ext().execute_with(|| {
-        let existing_tracking = TEST_SHIPMENT_ID.as_bytes().to_owned();
-        let now = 42;
+    with_account_and_org(|sender, org, now| {
+        let existing_tracking = TEST_TRACKING_ID.as_bytes().to_owned();
 
-        store_test_tracking::<Test>(
+        assert_ok!(ProductTracking::register(
+            Origin::signed(account_key(TEST_SENDER)),
             existing_tracking.clone(),
             account_key(TEST_ORGANIZATION),
-            STATUS_PENDING.to_vec(),
-            vec![],
-            now,
-        );
+            YEAR1,
+            vec![]
+        ));
 
         assert_noop!(
             ProductTracking::register(
@@ -323,7 +363,7 @@ fn register_with_too_many_products() {
         assert_noop!(
             ProductTracking::register(
                 Origin::signed(account_key(TEST_SENDER)),
-                TEST_SHIPMENT_ID.as_bytes().to_owned(),
+                TEST_TRACKING_ID.as_bytes().to_owned(),
                 account_key(TEST_ORGANIZATION),
                 YEAR1,
                 vec![
@@ -353,7 +393,7 @@ fn update_status_with_invalid_sender() {
         assert_noop!(
             ProductTracking::update_status(
                 Origin::none(),
-                TEST_SHIPMENT_ID.as_bytes().to_owned(),
+                TEST_TRACKING_ID.as_bytes().to_owned(),
                 STATUS_QA_CHECK.to_vec(),
                 now,
                 None,
@@ -405,7 +445,7 @@ fn update_status_with_long_tracking_id() {
 #[test]
 fn update_status_with_unknown_tracking() {
     new_test_ext().execute_with(|| {
-        let unknown_tracking = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let unknown_tracking = TEST_TRACKING_ID.as_bytes().to_owned();
         let now = 42;
 
         assert_noop!(
@@ -426,7 +466,7 @@ fn update_status_with_unknown_tracking() {
 fn update_status_pickup() {
     new_test_ext().execute_with(|| {
         let owner = account_key(TEST_ORGANIZATION);
-        let tracking_id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let tracking_id = TEST_TRACKING_ID.as_bytes().to_owned();
         let now = 64;
         Timestamp::set_timestamp(now);
 
@@ -440,7 +480,11 @@ fn update_status_pickup() {
         );
 
         // Store shipping registration event
-        store_test_event::<Test>(tracking_id.clone(), TrackingEventType::TrackingRegistration);
+        store_test_event::<Test>(
+            tracking_id.clone(),
+            TrackingEventType::TrackingRegistration,
+            b"registered".to_vec(),
+        );
 
         // Dispatchable call succeeds
         assert_ok!(ProductTracking::update_status(
@@ -461,6 +505,7 @@ fn update_status_pickup() {
                 tracking_id: tracking_id.clone(),
                 location: None,
                 readings: vec![],
+                status: STATUS_QA_CHECK.to_vec(),
                 timestamp: now,
             })
         );
@@ -497,7 +542,7 @@ fn update_status_pickup() {
 fn update_status_delivery() {
     new_test_ext().execute_with(|| {
         let owner = account_key(TEST_ORGANIZATION);
-        let tracking_id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let tracking_id = TEST_TRACKING_ID.as_bytes().to_owned();
         let now = Timestamp::now();
 
         // Store tracking w/ InTransit status
@@ -510,7 +555,11 @@ fn update_status_delivery() {
         );
 
         // Store shipping registration & pickup events
-        store_test_event::<Test>(tracking_id.clone(), TrackingEventType::TrackingRegistration);
+        store_test_event::<Test>(
+            tracking_id.clone(),
+            TrackingEventType::TrackingRegistration,
+            b"".to_vec(),
+        );
         // store_test_event::<Test>(tracking_id.clone(), TrackingEventType::TrackingPickup);
 
         // Dispatchable call succeeds
@@ -532,6 +581,7 @@ fn update_status_delivery() {
                 tracking_id: tracking_id.clone(),
                 location: None,
                 readings: vec![],
+                status: STATUS_DELIVER.to_vec(),
                 timestamp: now,
             })
         );
@@ -569,7 +619,7 @@ fn update_status_delivery() {
 fn monitor_tracking_with_negative_latlon() {
     new_test_ext().execute_with(|| {
         let owner = account_key(TEST_ORGANIZATION);
-        let tracking_id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let tracking_id = TEST_TRACKING_ID.as_bytes().to_owned();
         let now = 55;
         Timestamp::set_timestamp(now);
 
@@ -583,7 +633,11 @@ fn monitor_tracking_with_negative_latlon() {
         );
 
         // Store shipping registration & pickup events
-        store_test_event::<Test>(tracking_id.clone(), TrackingEventType::TrackingRegistration);
+        store_test_event::<Test>(
+            tracking_id.clone(),
+            TrackingEventType::TrackingRegistration,
+            b"".to_vec(),
+        );
         // store_test_event::<Test>(tracking_id.clone(), TrackingEventType::TrackingPickup);
 
         // Define location & readings for sensor reading
@@ -619,6 +673,7 @@ fn monitor_tracking_with_negative_latlon() {
                 tracking_id: tracking_id.clone(),
                 location: Some(location),
                 readings: readings,
+                status: STATUS_QA_CHECK.to_vec(),
                 timestamp: now,
             })
         );
@@ -645,7 +700,7 @@ fn monitor_tracking_with_negative_latlon() {
 #[test]
 fn non_org_owner_cannot_update_status() {
     with_account(|sender, org, now| {
-        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let id = TEST_TRACKING_ID.as_bytes().to_owned();
 
         // Store tracking w/ Pending status
         store_test_tracking::<Test>(
@@ -657,7 +712,11 @@ fn non_org_owner_cannot_update_status() {
         );
 
         // Store shipping registration event
-        store_test_event::<Test>(id.clone(), TrackingEventType::TrackingRegistration);
+        store_test_event::<Test>(
+            id.clone(),
+            TrackingEventType::TrackingRegistration,
+            b"".to_vec(),
+        );
 
         assert_err_ignore_postinfo!(
             ProductTracking::update_status(
@@ -676,7 +735,7 @@ fn non_org_owner_cannot_update_status() {
 #[test]
 fn hacker_cannot_update_status() {
     with_account_and_org(|_sender, org, now| {
-        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let id = TEST_TRACKING_ID.as_bytes().to_owned();
 
         // Store tracking w/ Pending status
         store_test_tracking::<Test>(
@@ -688,7 +747,11 @@ fn hacker_cannot_update_status() {
         );
 
         // Store shipping registration event
-        store_test_event::<Test>(id.clone(), TrackingEventType::TrackingRegistration);
+        store_test_event::<Test>(
+            id.clone(),
+            TrackingEventType::TrackingRegistration,
+            b"".to_vec(),
+        );
 
         assert_noop!(
             ProductTracking::update_status(
@@ -707,7 +770,7 @@ fn hacker_cannot_update_status() {
 #[test]
 fn delegated_account_can_update_status() {
     with_account_and_org(|sender, org, now| {
-        let id = TEST_SHIPMENT_ID.as_bytes().to_owned();
+        let id = TEST_TRACKING_ID.as_bytes().to_owned();
 
         // Store tracking w/ Pending status
         store_test_tracking::<Test>(
@@ -719,7 +782,11 @@ fn delegated_account_can_update_status() {
         );
 
         // Store shipping registration event
-        store_test_event::<Test>(id.clone(), TrackingEventType::TrackingRegistration);
+        store_test_event::<Test>(
+            id.clone(),
+            TrackingEventType::TrackingRegistration,
+            b"".to_vec(),
+        );
 
         let delegated = account_key("Wahid");
 

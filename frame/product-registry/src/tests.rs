@@ -80,8 +80,13 @@ fn create_product_without_props() {
     with_account_and_org(|sender, org, now| {
         let id = TEST_PRODUCT_ID.as_bytes().to_owned();
 
-        let result =
-            ProductRegistry::register(Origin::signed(sender), id.clone(), org.clone(), YEAR1, None);
+        let result = ProductRegistry::register(
+            Origin::signed(sender),
+            id.clone(),
+            org.clone(),
+            YEAR1,
+            None,
+        );
 
         assert_ok!(result);
 

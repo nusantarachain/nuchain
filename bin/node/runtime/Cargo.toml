@@ -87,6 +87,8 @@ pallet-nicks = { version = "3.0.0", default-features = false, path = "../../../f
 pallet-did = { version = "0.0.1", default-features = false, path = "../../../frame/did" }
 pallet-certificate = { version = "0.0.1", default-features = false, path = "../../../frame/certificate" }
 pallet-organization = { version = "0.0.1", default-features = false, path = "../../../frame/organization" }
+pallet-product-registry = { default-features = false, path = "../../../frame/product-registry" }
+pallet-product-tracking = { default-features = false, path = "../../../frame/product-tracking" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "4.0.0", path = "../../../utils/wasm-builder" }
