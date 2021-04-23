@@ -50,7 +50,7 @@ use crate::builders::*;
 // Note: these could also be passed as trait config parameters
 pub const IDENTIFIER_MAX_LENGTH: usize = 36;
 pub const SHIPMENT_MAX_PRODUCTS: usize = 10;
-pub const LISTENER_ENDPOINT: &str = "http://localhost:3005";
+pub const LISTENER_ENDPOINT: &str = "http://localhost:3005/nuchain_webhook";
 pub const LOCK_TIMEOUT_EXPIRATION: u64 = 3000; // in milli-seconds
 
 pub type Year = u32;
