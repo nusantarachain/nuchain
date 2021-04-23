@@ -1,5 +1,5 @@
 use crate::types::*;
-use frame_support::sp_std::prelude::*;
+use frame_support::{sp_std::prelude::*, types::Property};
 use pallet_product_registry::ProductId;
 
 // --- TrackingBuilder ---
@@ -14,6 +14,7 @@ where
     owner: AccountId,
     products: Vec<ProductId>,
     registered: Moment,
+    props: Vec<Property>,
 }
 
 impl<AccountId, Moment> TrackingBuilder<AccountId, Moment>
@@ -41,6 +42,11 @@ where
         self
     }
 
+    pub fn with_props(mut self, props: Vec<Property>) -> Self {
+        self.props = props;
+        self
+    }
+
     pub fn build(self) -> Track<AccountId, Moment> {
         Track::<AccountId, Moment> {
             id: self.id,
@@ -49,6 +55,11 @@ where
             registered: self.registered,
             status: b"".to_vec(),
             updated: None,
+            props: if self.props.len() > 0 {
+                Some(self.props)
+            } else {
+                None
+            },
         }
     }
 }

@@ -28,6 +28,7 @@ use frame_support::{
     },
     sp_std::prelude::*,
     traits::EnsureOrigin,
+    types::Property,
 };
 use frame_system::{self, ensure_signed, offchain::SendTransactionTypes};
 use pallet_did::Did;
@@ -52,6 +53,9 @@ pub const IDENTIFIER_MAX_LENGTH: usize = 36;
 pub const SHIPMENT_MAX_PRODUCTS: usize = 10;
 pub const LISTENER_ENDPOINT: &str = "http://localhost:3005/nuchain_webhook";
 pub const LOCK_TIMEOUT_EXPIRATION: u64 = 3000; // in milli-seconds
+pub const MAX_PROPS: usize = 5;
+pub const PROP_NAME_MAX_LENGTH: usize = 10;
+pub const PROP_VALUE_MAX_LENGTH: usize = 20;
 
 pub type Year = u32;
 
@@ -135,6 +139,9 @@ pub mod pallet {
         PermissionDenied,
         Overflow,
         ProductNotExists,
+        TooManyProps,
+        InvalidPropName,
+        InvalidPropValue,
     }
 
     #[pallet::call]
@@ -154,6 +161,7 @@ pub mod pallet {
             org_id: T::AccountId,
             year: Year,
             products: Vec<ProductId>,
+            props: Option<Vec<Property>>,
         ) -> DispatchResultWithPostInfo {
             // T::CreateRoleOrigin::ensure_origin(origin.clone())?;
             let who = ensure_signed(origin)?;
@@ -164,6 +172,8 @@ pub mod pallet {
             // Validate tracking products
             Self::validate_tracking_products(&products)?;
 
+            Self::validate_props(&props)?;
+
             // Check tracking doesn't exist yet (1 DB read)
             Self::validate_new_tracking(&id)?;
 
@@ -171,12 +181,17 @@ pub mod pallet {
             <pallet_organization::Module<T>>::ensure_access_active_id(&who, &org_id)?;
 
             // Create a tracking instance
-            let tracking = Self::new_tracking()
+            let mut tracking_builder = Self::new_tracking()
                 .identified_by(id.clone())
                 .owned_by(org_id.clone())
                 .registered_at(<pallet_timestamp::Module<T>>::now())
-                .with_products(products)
-                .build();
+                .with_products(products);
+
+            if let Some(props) = props {
+                tracking_builder = tracking_builder.with_props(props);
+            }
+
+            let tracking = tracking_builder.build();
 
             // Create shipping event
             let event = Self::new_tracking_event()
@@ -346,17 +361,37 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn validate_tracking_products(props: &[ProductId]) -> Result<(), Error<T>> {
+    pub fn validate_tracking_products(products: &[ProductId]) -> Result<(), Error<T>> {
         ensure!(
-            props.len() <= SHIPMENT_MAX_PRODUCTS,
+            products.len() <= SHIPMENT_MAX_PRODUCTS,
             Error::<T>::TrackingHasTooManyProducts,
         );
         // pastikan product-nya ada
-        for id in props.iter() {
+        for id in products.iter() {
             ensure!(
                 pallet_product_registry::Products::<T>::contains_key(id),
                 Error::<T>::ProductNotExists
             );
+        }
+        Ok(())
+    }
+
+    /// Validasi properties
+    pub fn validate_props(props: &Option<Vec<Property>>) -> Result<(), Error<T>> {
+        if let Some(props) = props {
+            ensure!(props.len() <= MAX_PROPS, Error::<T>::TooManyProps,);
+            for prop in props {
+                let len = prop.name().len();
+                ensure!(
+                    len > 0 && len <= PROP_NAME_MAX_LENGTH,
+                    Error::<T>::InvalidPropName
+                );
+                let len = prop.value().len();
+                ensure!(
+                    len > 0 && len <= PROP_VALUE_MAX_LENGTH,
+                    Error::<T>::InvalidPropValue
+                );
+            }
         }
         Ok(())
     }

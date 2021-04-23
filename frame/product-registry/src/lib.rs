@@ -42,7 +42,10 @@
 
 use codec::{Decode, Encode};
 use core::result::Result;
-use frame_support::{ensure, sp_runtime::RuntimeDebug, sp_std::prelude::*, traits::EnsureOrigin};
+use frame_support::{
+    ensure, sp_runtime::RuntimeDebug, sp_std::prelude::*,
+    types::Property,
+};
 use frame_system::{self, ensure_signed};
 
 #[cfg(test)]
@@ -56,12 +59,11 @@ mod tests;
 pub const PRODUCT_ID_MAX_LENGTH: usize = 36;
 pub const PRODUCT_PROP_NAME_MAX_LENGTH: usize = 10;
 pub const PRODUCT_PROP_VALUE_MAX_LENGTH: usize = 20;
-pub const PRODUCT_MAX_PROPS: usize = 3;
+pub const PRODUCT_MAX_PROPS: usize = 5;
 
 // Custom types
 pub type ProductId = Vec<u8>;
-pub type PropName = Vec<u8>;
-pub type PropValue = Vec<u8>;
+pub type ProductProperty = Property;
 pub type Year = u32;
 
 #[frame_support::pallet]
@@ -94,32 +96,6 @@ pub mod pallet {
         pub props: Option<Vec<ProductProperty>>,
         // Timestamp (approximate) at which the prodct was registered on-chain.
         pub registered: Moment,
-    }
-
-    // Contains a name-value pair for a product property e.g. description: Ingredient ABC
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
-    pub struct ProductProperty {
-        // Name of the product property e.g. desc or description
-        name: PropName,
-        // Value of the product property e.g. Ingredient ABC
-        value: PropValue,
-    }
-
-    impl ProductProperty {
-        pub fn new(name: &[u8], value: &[u8]) -> Self {
-            Self {
-                name: name.to_vec(),
-                value: value.to_vec(),
-            }
-        }
-
-        pub fn name(&self) -> &[u8] {
-            self.name.as_ref()
-        }
-
-        pub fn value(&self) -> &[u8] {
-            self.value.as_ref()
-        }
     }
 
     #[pallet::config]
@@ -168,13 +144,13 @@ pub mod pallet {
         ProductIdExists,
 
         /// Too many properties.
-        ProductTooManyProps,
+        TooManyProps,
 
         /// Invalid property name.
-        ProductInvalidPropName,
+        InvalidPropName,
 
         /// Invalid property value.
-        ProductInvalidPropValue,
+        InvalidPropValue,
     }
 
     /// Supply Chain product registry module.
@@ -299,16 +275,20 @@ impl<T: Config> Pallet<T> {
         if let Some(props) = props {
             ensure!(
                 props.len() <= PRODUCT_MAX_PROPS,
-                Error::<T>::ProductTooManyProps,
+                Error::<T>::TooManyProps,
             );
             for prop in props {
+                let len = prop.name().len();
                 ensure!(
-                    prop.name().len() <= PRODUCT_PROP_NAME_MAX_LENGTH,
-                    Error::<T>::ProductInvalidPropName
+                    len > 0 &&
+                    len <= PRODUCT_PROP_NAME_MAX_LENGTH,
+                    Error::<T>::InvalidPropName
                 );
+                let len = prop.value().len();
                 ensure!(
-                    prop.value().len() <= PRODUCT_PROP_VALUE_MAX_LENGTH,
-                    Error::<T>::ProductInvalidPropValue
+                    len > 0 &&
+                    len <= PRODUCT_PROP_VALUE_MAX_LENGTH,
+                    Error::<T>::InvalidPropValue
                 );
             }
         }

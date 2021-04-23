@@ -1,7 +1,7 @@
 use codec::{Decode, Encode};
 use core::fmt;
 use fixed::types::I16F16;
-use frame_support::{sp_runtime::RuntimeDebug, sp_std::prelude::*};
+use frame_support::{sp_runtime::RuntimeDebug, sp_std::prelude::*, types::Property};
 use pallet_product_registry::ProductId;
 
 // Custom types
@@ -10,13 +10,6 @@ pub type Decimal = I16F16;
 pub type TrackingId = Identifier;
 pub type TrackingEventIndex = u128;
 pub type DeviceId = Identifier;
-
-// #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
-// pub enum TrackingStatus {
-//     Pending,
-//     InTransit,
-//     Delivered,
-// }
 
 pub type TrackingStatus = Vec<u8>;
 
@@ -28,32 +21,15 @@ pub struct Track<AccountId, Moment> {
     pub products: Vec<ProductId>,
     pub registered: Moment,
     pub updated: Option<Moment>,
+    pub props: Option<Vec<Property>>,
 }
 
 impl<AccountId, Moment> Track<AccountId, Moment> {
-    // pub fn pickup(mut self) -> Self {
-    //     self.status = TrackingStatus::InTransit;
-    //     self
-    // }
-
-    // pub fn set_updated(mut self, updated_at: Moment) -> Self {
-    //     self.status = TrackingStatus::updated;
-    //     self.updated = Some(updated_at);
-    //     self
-    // }
-
     pub fn set_status(mut self, status: TrackingStatus) -> Self {
         self.status = status;
         self
     }
 }
-
-// #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
-// pub enum ShippingOperation {
-//     Pickup,
-//     Scan,
-//     Deliver,
-// }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub enum TrackingEventType {
@@ -62,16 +38,6 @@ pub enum TrackingEventType {
     TrackingScan,
     TrackingDeliver,
 }
-
-// impl From<ShippingOperation> for TrackingEventType {
-//     fn from(op: ShippingOperation) -> Self {
-//         match op {
-//             ShippingOperation::Pickup => TrackingEventType::TrackingPickup,
-//             ShippingOperation::Scan => TrackingEventType::TrackingScan,
-//             ShippingOperation::Deliver => TrackingEventType::TrackingDeliver,
-//         }
-//     }
-// }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct TrackingEvent<Moment> {
