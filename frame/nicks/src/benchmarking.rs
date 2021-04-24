@@ -23,7 +23,7 @@ benchmarks! {
     set_name {
         let caller: T::AccountId = whitelisted_caller();
         let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
-    }: _(RawOrigin::Signed(caller.clone()), "Nicko Man".as_bytes().to_vec())
+    }: _(RawOrigin::Signed(caller.clone()), b"Nicko Man".to_vec())
     verify {
         assert_last_event::<T>(Event::<T>::NameSet(caller.clone()).into());
     }
@@ -34,7 +34,7 @@ benchmarks! {
 
         let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
-        let _ = Nicks::<T>::set_name(caller_origin, "Nicko Man".as_bytes().to_vec());
+        let _ = Nicks::<T>::set_name(caller_origin, b"Nicko Man".to_vec());
 
     }: _(RawOrigin::Signed(caller.clone()))
     verify {

@@ -37,19 +37,19 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
     assert_eq!(event, &system_event);
 }
 
-benchmarks! {
-    add_org {
+// benchmarks! {
+    // add_org {
 
-    }: _()
-    verify {
-    }
+    // }: _()
+    // verify {
+    // }
 
-    add_cert {
-    }: _()
-    verify {
-    }
+    // add_cert {
+    // }: _()
+    // verify {
+    // }
 
-    issue_cert {
-    }: _()
-    verify {}
-}
+    // issue_cert {
+    // }: _()
+    // verify {}
+// }

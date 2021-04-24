@@ -1493,6 +1493,10 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_utility, Utility);
             add_benchmark!(params, batches, pallet_vesting, Vesting);
             add_benchmark!(params, batches, pallet_nicks, Nicks);
+            add_benchmark!(params, batches, pallet_organization, Organization);
+            // add_benchmark!(params, batches, pallet_certificate, Certificate);
+            // add_benchmark!(params, batches, pallet_product_registry, ProductRegistry);
+            // add_benchmark!(params, batches, pallet_product_tracking, ProductTracking);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

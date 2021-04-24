@@ -55,12 +55,18 @@ use enumflags2::{bitflags, BitFlags};
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 pub mod weights;
 pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, EncodeLike};
 use pallet_did::{self as did, Did};
+
+type BalanceOf<T> =
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
 
 pub const MAX_PROPS: usize = 5;
 pub const PROP_NAME_MAX_LENGTH: usize = 10;
@@ -73,12 +79,6 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use sp_std::vec;
-
-    type BalanceOf<T> =
-        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-    type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-        <T as frame_system::Config>::AccountId,
-    >>::NegativeImbalance;
 
     #[pallet::pallet]
     #[pallet::generate_store(pub(super) trait Store)]
@@ -225,7 +225,7 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, T::AccountId, Organization<T::AccountId>>;
 
     /// Link organization index -> organization hash.
-    /// Useful for lookup organization from hash.
+    /// Useful for lookup organization from index.
     #[pallet::storage]
     #[pallet::getter(fn organization_index)]
     pub type OrganizationIndexOf<T: Config> = StorageMap<_, Blake2_128Concat, u64, T::AccountId>;
@@ -316,7 +316,7 @@ pub mod pallet {
     // }
 
     #[pallet::storage]
-    #[pallet::getter(fn object_index)]
+    // #[pallet::getter(fn org_index)]
     pub type OrgIdIndex<T> = StorageValue<_, u64>;
 
     /// Organization module declaration.
@@ -331,13 +331,19 @@ pub mod pallet {
         /// The dispatch origin for this call must be _Signed_.
         ///
         /// # <weight>
+        /// ## Weight
+        /// - `O(N)` where:
+        ///     - `N` length of properties * 100_000.
         /// # </weight>
-        #[pallet::weight(100_000_000)]
+        #[pallet::weight(
+            <T as crate::Config>::WeightInfo::create()
+            + (props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as Weight
+        )]
         pub fn create(
             origin: OriginFor<T>,
             name: Vec<u8>,
             description: Vec<u8>,
-            admin: <T::Lookup as StaticLookup>::Source,
+            admin: T::AccountId,
             website: Vec<u8>,
             email: Vec<u8>,
             props: Option<Vec<Property>>,
@@ -362,7 +368,7 @@ pub mod pallet {
                 Error::<T>::BadIndex
             );
 
-            let admin = T::Lookup::lookup(admin)?;
+            // let admin = T::Lookup::lookup(admin)?;
 
             // Process the payment
             let cost = T::CreationFee::get();
