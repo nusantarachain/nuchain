@@ -14,6 +14,7 @@ where
     owner: AccountId,
     products: Vec<ProductId>,
     registered: Moment,
+    prev_id: Option<TrackingId>,
     props: Vec<Property>,
 }
 
@@ -47,6 +48,11 @@ where
         self
     }
 
+    pub fn with_prev_id(mut self, id: TrackingId) -> Self {
+        self.prev_id = Some(id);
+        self
+    }
+
     pub fn build(self) -> Track<AccountId, Moment> {
         Track::<AccountId, Moment> {
             id: self.id,
@@ -55,6 +61,7 @@ where
             registered: self.registered,
             status: b"".to_vec(),
             updated: None,
+            prev_id: self.prev_id,
             props: if self.props.len() > 0 {
                 Some(self.props)
             } else {

@@ -54,7 +54,7 @@ pub const LISTENER_ENDPOINT: &str = "http://localhost:3005/nuchain_webhook";
 pub const LOCK_TIMEOUT_EXPIRATION: u64 = 3000; // in milli-seconds
 pub const MAX_PROPS: usize = 5;
 pub const PROP_NAME_MAX_LENGTH: usize = 10;
-pub const PROP_VALUE_MAX_LENGTH: usize = 20;
+pub const PROP_VALUE_MAX_LENGTH: usize = 30;
 
 pub type Year = u32;
 
@@ -160,6 +160,7 @@ pub mod pallet {
             org_id: T::AccountId,
             year: Year,
             products: Vec<ProductId>,
+            prev_id: Option<TrackingId>,
             props: Option<Vec<Property>>,
         ) -> DispatchResultWithPostInfo {
             // T::CreateRoleOrigin::ensure_origin(origin.clone())?;
@@ -188,6 +189,10 @@ pub mod pallet {
 
             if let Some(props) = props {
                 tracking_builder = tracking_builder.with_props(props);
+            }
+
+            if let Some(prev_id) = prev_id {
+                tracking_builder = tracking_builder.with_prev_id(prev_id);
             }
 
             let tracking = tracking_builder.build();

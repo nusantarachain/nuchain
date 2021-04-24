@@ -43,6 +43,7 @@ pub fn store_test_tracking<T: Config>(
             products,
             registered,
             updated: None,
+            prev_id: None,
             props: None,
         },
     );
@@ -150,6 +151,7 @@ fn non_org_owner_cannot_register() {
                 org.clone(),
                 YEAR1,
                 vec![],
+                None,
                 None
             ),
             pallet_organization::Error::<Test>::NotExists
@@ -170,6 +172,7 @@ fn test_register_with_props() {
             org.clone(),
             YEAR1,
             vec![],
+            None,
             props.clone(),
         );
 
@@ -184,6 +187,7 @@ fn test_register_with_props() {
                 products: vec![],
                 registered: now,
                 updated: None,
+                prev_id: None,
                 props
             })
         );
@@ -202,6 +206,7 @@ fn test_register_with_invalid_props() {
                 org.clone(),
                 YEAR1,
                 vec![],
+                None,
                 Some(vec![Property::new(b"1234567891123456789", b"12345")]),
             ),
             Error::<Test>::InvalidPropName
@@ -214,6 +219,7 @@ fn test_register_with_invalid_props() {
                 org.clone(),
                 YEAR1,
                 vec![],
+                None,
                 Some(vec![Property::new(b"", b"12345")]),
             ),
             Error::<Test>::InvalidPropName
@@ -226,7 +232,11 @@ fn test_register_with_invalid_props() {
                 org.clone(),
                 YEAR1,
                 vec![],
-                Some(vec![Property::new(b"12345", b"123456789012345678901")]),
+                None,
+                Some(vec![Property::new(
+                    b"12345",
+                    b"123456789012345678901123456789012345678901"
+                )]),
             ),
             Error::<Test>::InvalidPropValue
         );
@@ -238,6 +248,7 @@ fn test_register_with_invalid_props() {
                 org.clone(),
                 YEAR1,
                 vec![],
+                None,
                 Some(vec![Property::new(b"12345", b"")]),
             ),
             Error::<Test>::InvalidPropValue
@@ -250,6 +261,7 @@ fn test_register_with_invalid_props() {
                 org.clone(),
                 YEAR1,
                 vec![],
+                None,
                 Some(vec![
                     // 6x
                     Property::new(b"12345", b"123456789012345678901"),
@@ -277,6 +289,7 @@ fn register_without_products() {
             YEAR1,
             vec![],
             None,
+            None,
         );
 
         assert_ok!(result);
@@ -290,6 +303,7 @@ fn register_without_products() {
                 products: vec![],
                 registered: now,
                 updated: None,
+                prev_id: None,
                 props: None
             })
         );
@@ -323,6 +337,7 @@ fn cannot_register_non_existing_product() {
                 b"00012345600002".to_vec(),
                 b"00012345600003".to_vec(),
             ],
+            None,
             None,
         );
 
@@ -363,6 +378,7 @@ fn register_with_valid_products() {
             YEAR2,
             products,
             None,
+            None,
         );
 
         assert_ok!(result);
@@ -380,6 +396,7 @@ fn register_with_valid_products() {
                 ],
                 registered: now,
                 updated: None,
+                prev_id: None,
                 props: None
             })
         );
@@ -408,6 +425,7 @@ fn register_with_invalid_sender() {
                 account_key(TEST_ORGANIZATION),
                 YEAR1,
                 vec!(),
+                None,
                 None
             ),
             dispatch::DispatchError::BadOrigin
@@ -425,6 +443,7 @@ fn register_with_missing_id() {
                 account_key(TEST_ORGANIZATION),
                 YEAR1,
                 vec!(),
+                None,
                 None
             ),
             Error::<Test>::InvalidOrMissingIdentifier
@@ -442,6 +461,7 @@ fn register_with_long_id() {
                 account_key(TEST_ORGANIZATION),
                 YEAR1,
                 vec!(),
+                None,
                 None
             ),
             Error::<Test>::InvalidOrMissingIdentifier
@@ -460,6 +480,7 @@ fn register_with_existing_id() {
             account_key(TEST_ORGANIZATION),
             YEAR1,
             vec![],
+            None,
             None
         ));
 
@@ -470,6 +491,7 @@ fn register_with_existing_id() {
                 account_key(TEST_ORGANIZATION),
                 YEAR1,
                 vec![],
+                None,
                 None
             ),
             Error::<Test>::TrackingAlreadyExists
@@ -499,6 +521,7 @@ fn register_with_too_many_products() {
                     b"00012345600010".to_vec(),
                     b"00012345600011".to_vec(),
                 ],
+                None,
                 None
             ),
             Error::<Test>::TrackingHasTooManyProducts
@@ -645,6 +668,7 @@ fn update_status_pickup() {
                 products: vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
                 registered: now,
                 updated: Some(now),
+                prev_id: None,
                 props: None
             })
         );
@@ -723,6 +747,7 @@ fn update_status_delivery() {
                 products: vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
                 registered: now,
                 updated: Some(now),
+                prev_id: None,
                 props: None
             })
         );
@@ -815,6 +840,7 @@ fn monitor_tracking_with_negative_latlon() {
                 products: vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
                 registered: now,
                 updated: Some(now),
+                prev_id: None,
                 props: None
             })
         );
@@ -932,4 +958,41 @@ fn delegated_account_can_update_status() {
             None
         ));
     });
+}
+
+#[test]
+fn register_tracking_with_prev_id() {
+    with_account_and_org(|sender, org, now| {
+        let id = TEST_TRACKING_ID.as_bytes().to_owned();
+
+        let props = Some(vec![Property::new(b"key", b"something")]);
+
+        let prev_id = Some(b"tracking-prev-01".to_vec());
+
+        let result = ProductTracking::register(
+            Origin::signed(sender),
+            id.clone(),
+            org.clone(),
+            YEAR1,
+            vec![],
+            prev_id.clone(),
+            props.clone(),
+        );
+
+        assert_ok!(result);
+
+        assert_eq!(
+            ProductTracking::tracking(&id),
+            Some(Track {
+                id: id.clone(),
+                owner: org,
+                status: STATUS_EMPTY.to_vec(),
+                products: vec![],
+                registered: now,
+                updated: None,
+                prev_id,
+                props
+            })
+        );
+    })
 }
