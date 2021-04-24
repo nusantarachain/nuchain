@@ -1,7 +1,7 @@
 {
     "PropName": "Vec<u8>",
     "PropValue": "Vec<u8>",
-    "ProductProperty": {
+    "Property": {
         "name": "PropName",
         "value": "PropValue"
     },
@@ -9,7 +9,7 @@
     "Product": {
         "id": "ProductId",
         "owner": "AccountId",
-        "props": "Option<Vec<ProductProperty>>",
+        "props": "Option<Vec<Property>>",
         "registered": "Moment"
     }
 }

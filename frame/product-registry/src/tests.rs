@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-    self as pallet_product_registry, mock::*, Config, Error, Product, ProductId, ProductProperty,
-    Products, ProductsOfOrganization,
+    self as pallet_product_registry, mock::*, Config, Error, Product, ProductId, Products,
+    ProductsOfOrganization, Property,
 };
 use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, dispatch};
 
@@ -123,9 +123,9 @@ fn create_product_with_valid_props() {
             org.clone(),
             YEAR2,
             Some(vec![
-                ProductProperty::new(b"prop1", b"val1"),
-                ProductProperty::new(b"prop2", b"val2"),
-                ProductProperty::new(b"prop3", b"val3"),
+                Property::new(b"prop1", b"val1"),
+                Property::new(b"prop2", b"val2"),
+                Property::new(b"prop3", b"val3"),
             ]),
         );
 
@@ -138,9 +138,9 @@ fn create_product_with_valid_props() {
                 owner: org,
                 registered: now,
                 props: Some(vec![
-                    ProductProperty::new(b"prop1", b"val1"),
-                    ProductProperty::new(b"prop2", b"val2"),
-                    ProductProperty::new(b"prop3", b"val3"),
+                    Property::new(b"prop1", b"val1"),
+                    Property::new(b"prop2", b"val2"),
+                    Property::new(b"prop3", b"val3"),
                 ]),
             })
         );
@@ -263,12 +263,12 @@ fn create_product_with_too_many_props() {
                 account_key(TEST_ORGANIZATION),
                 YEAR1,
                 Some(vec![
-                    ProductProperty::new(b"prop1", b"val1"),
-                    ProductProperty::new(b"prop2", b"val2"),
-                    ProductProperty::new(b"prop3", b"val3"),
-                    ProductProperty::new(b"prop4", b"val4"),
-                    ProductProperty::new(b"prop5", b"val5"),
-                    ProductProperty::new(b"prop6", b"val6")
+                    Property::new(b"prop1", b"val1"),
+                    Property::new(b"prop2", b"val2"),
+                    Property::new(b"prop3", b"val3"),
+                    Property::new(b"prop4", b"val4"),
+                    Property::new(b"prop5", b"val5"),
+                    Property::new(b"prop6", b"val6")
                 ])
             ),
             Error::<Test>::TooManyProps
@@ -286,9 +286,9 @@ fn create_product_with_invalid_prop_name() {
                 account_key(TEST_ORGANIZATION),
                 YEAR1,
                 Some(vec![
-                    ProductProperty::new(b"prop1", b"val1"),
-                    ProductProperty::new(b"prop2", b"val2"),
-                    ProductProperty::new(&LONG_VALUE.as_bytes().to_owned(), b"val3"),
+                    Property::new(b"prop1", b"val1"),
+                    Property::new(b"prop2", b"val2"),
+                    Property::new(&LONG_VALUE.as_bytes().to_owned(), b"val3"),
                 ])
             ),
             Error::<Test>::InvalidPropName
@@ -306,9 +306,9 @@ fn create_product_with_invalid_prop_value() {
                 account_key(TEST_ORGANIZATION),
                 YEAR2,
                 Some(vec![
-                    ProductProperty::new(b"prop1", b"val1"),
-                    ProductProperty::new(b"prop2", b"val2"),
-                    ProductProperty::new(b"prop3", &LONG_VALUE.as_bytes().to_owned()),
+                    Property::new(b"prop1", b"val1"),
+                    Property::new(b"prop2", b"val2"),
+                    Property::new(b"prop3", &LONG_VALUE.as_bytes().to_owned()),
                 ])
             ),
             Error::<Test>::InvalidPropValue

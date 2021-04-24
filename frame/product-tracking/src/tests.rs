@@ -43,7 +43,7 @@ pub fn store_test_tracking<T: Config>(
             products,
             registered,
             updated: None,
-            prev_id: None,
+            parent_id: None,
             props: None,
         },
     );
@@ -187,7 +187,7 @@ fn test_register_with_props() {
                 products: vec![],
                 registered: now,
                 updated: None,
-                prev_id: None,
+                parent_id: None,
                 props
             })
         );
@@ -303,7 +303,7 @@ fn register_without_products() {
                 products: vec![],
                 registered: now,
                 updated: None,
-                prev_id: None,
+                parent_id: None,
                 props: None
             })
         );
@@ -396,7 +396,7 @@ fn register_with_valid_products() {
                 ],
                 registered: now,
                 updated: None,
-                prev_id: None,
+                parent_id: None,
                 props: None
             })
         );
@@ -668,7 +668,7 @@ fn update_status_pickup() {
                 products: vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
                 registered: now,
                 updated: Some(now),
-                prev_id: None,
+                parent_id: None,
                 props: None
             })
         );
@@ -747,7 +747,7 @@ fn update_status_delivery() {
                 products: vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
                 registered: now,
                 updated: Some(now),
-                prev_id: None,
+                parent_id: None,
                 props: None
             })
         );
@@ -840,7 +840,7 @@ fn monitor_tracking_with_negative_latlon() {
                 products: vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
                 registered: now,
                 updated: Some(now),
-                prev_id: None,
+                parent_id: None,
                 props: None
             })
         );
@@ -961,13 +961,13 @@ fn delegated_account_can_update_status() {
 }
 
 #[test]
-fn register_tracking_with_prev_id() {
+fn register_tracking_with_parent_id() {
     with_account_and_org(|sender, org, now| {
         let id = TEST_TRACKING_ID.as_bytes().to_owned();
 
         let props = Some(vec![Property::new(b"key", b"something")]);
 
-        let prev_id = Some(b"tracking-prev-01".to_vec());
+        let parent_id = Some(b"tracking-prev-01".to_vec());
 
         let result = ProductTracking::register(
             Origin::signed(sender),
@@ -975,7 +975,7 @@ fn register_tracking_with_prev_id() {
             org.clone(),
             YEAR1,
             vec![],
-            prev_id.clone(),
+            parent_id.clone(),
             props.clone(),
         );
 
@@ -990,7 +990,7 @@ fn register_tracking_with_prev_id() {
                 products: vec![],
                 registered: now,
                 updated: None,
-                prev_id,
+                parent_id,
                 props
             })
         );

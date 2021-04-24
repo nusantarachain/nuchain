@@ -55,12 +55,11 @@ mod tests;
 // Note: these could also be passed as trait config parameters
 pub const PRODUCT_ID_MAX_LENGTH: usize = 36;
 pub const PRODUCT_PROP_NAME_MAX_LENGTH: usize = 10;
-pub const PRODUCT_PROP_VALUE_MAX_LENGTH: usize = 20;
+pub const PRODUCT_PROP_VALUE_MAX_LENGTH: usize = 36;
 pub const PRODUCT_MAX_PROPS: usize = 5;
 
 // Custom types
 pub type ProductId = Vec<u8>;
-pub type ProductProperty = Property;
 pub type Year = u32;
 
 #[frame_support::pallet]
@@ -90,7 +89,7 @@ pub mod pallet {
         // This a series of properties describing the product.
         // Typically, there would at least be a textual description, and SKU.
         // It could also contain instance / lot master data e.g. expiration, weight, harvest date.
-        pub props: Option<Vec<ProductProperty>>,
+        pub props: Option<Vec<Property>>,
         // Timestamp (approximate) at which the prodct was registered on-chain.
         pub registered: Moment,
     }
@@ -168,7 +167,7 @@ pub mod pallet {
             id: ProductId,
             org_id: T::AccountId,
             year: Year,
-            props: Option<Vec<ProductProperty>>,
+            props: Option<Vec<Property>>,
         ) -> DispatchResultWithPostInfo {
             // T::CreateRoleOrigin::ensure_origin(origin.clone())?;
             let who = ensure_signed(origin)?;
@@ -268,7 +267,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn validate_product_props(props: &Option<Vec<ProductProperty>>) -> Result<(), Error<T>> {
+    pub fn validate_product_props(props: &Option<Vec<Property>>) -> Result<(), Error<T>> {
         if let Some(props) = props {
             ensure!(props.len() <= PRODUCT_MAX_PROPS, Error::<T>::TooManyProps,);
             for prop in props {
@@ -296,7 +295,7 @@ where
 {
     id: ProductId,
     owner: AccountId,
-    props: Option<Vec<ProductProperty>>,
+    props: Option<Vec<Property>>,
     registered: Moment,
 }
 
@@ -315,7 +314,7 @@ where
         self
     }
 
-    pub fn with_props(mut self, props: Option<Vec<ProductProperty>>) -> Self {
+    pub fn with_props(mut self, props: Option<Vec<Property>>) -> Self {
         self.props = props;
         self
     }

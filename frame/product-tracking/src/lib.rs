@@ -54,7 +54,7 @@ pub const LISTENER_ENDPOINT: &str = "http://localhost:3005/nuchain_webhook";
 pub const LOCK_TIMEOUT_EXPIRATION: u64 = 3000; // in milli-seconds
 pub const MAX_PROPS: usize = 5;
 pub const PROP_NAME_MAX_LENGTH: usize = 10;
-pub const PROP_VALUE_MAX_LENGTH: usize = 30;
+pub const PROP_VALUE_MAX_LENGTH: usize = 36;
 
 pub type Year = u32;
 
@@ -153,14 +153,18 @@ pub mod pallet {
         /// * `org_id` - ID of organization associated with the product.
         /// * `year` - Year of the product registered.
         /// * `products` - List of product IDs.
-        #[pallet::weight(100_000)]
+        /// * `parent_id` - Optional tracking ID for this parent if any.
+        /// * `props` - Custom properties.
+        #[pallet::weight(
+            100_000 + ((products.len() * 10_000) as Weight) + ((props.as_ref().map(|a| a.len()).unwrap_or(0) * 10_000) as Weight)
+        )]
         pub fn register(
             origin: OriginFor<T>,
             id: TrackingId,
             org_id: T::AccountId,
             year: Year,
             products: Vec<ProductId>,
-            prev_id: Option<TrackingId>,
+            parent_id: Option<TrackingId>,
             props: Option<Vec<Property>>,
         ) -> DispatchResultWithPostInfo {
             // T::CreateRoleOrigin::ensure_origin(origin.clone())?;
@@ -191,8 +195,8 @@ pub mod pallet {
                 tracking_builder = tracking_builder.with_props(props);
             }
 
-            if let Some(prev_id) = prev_id {
-                tracking_builder = tracking_builder.with_prev_id(prev_id);
+            if let Some(parent_id) = parent_id {
+                tracking_builder = tracking_builder.with_parent_id(parent_id);
             }
 
             let tracking = tracking_builder.build();
@@ -224,7 +228,7 @@ pub mod pallet {
 
         /// Update tracking data.
         ///
-        /// Dispatcher of this function must be _signed_ and match `T::CreateRoleOrigin`.
+        /// Dispatcher of this function must be _signed_.
         ///
         #[pallet::weight(100_000)]
         pub fn update_status(

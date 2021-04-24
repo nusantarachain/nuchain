@@ -13,7 +13,9 @@
         "status": "TrackingStatus",
         "products": "Vec<ProductId>",
         "registered": "Moment",
-        "updated": "Option<Moment>"
+        "updated": "Option<Moment>",
+        "parent_id": "TrackingId",
+        "props": "Vec<Property>"
     },
     "TrackingEventType": {
         "_enum": [

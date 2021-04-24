@@ -21,8 +21,8 @@ pub struct Track<AccountId, Moment> {
     pub products: Vec<ProductId>,
     pub registered: Moment,
     pub updated: Option<Moment>,
-    /// previous tracking id yg merefer ke track sebelumnya apabila ada.
-    pub prev_id: Option<TrackingId>,
+    /// parent tracking id yg merefer ke track sebelumnya apabila ada.
+    pub parent_id: Option<TrackingId>,
     pub props: Option<Vec<Property>>,
 }
 
