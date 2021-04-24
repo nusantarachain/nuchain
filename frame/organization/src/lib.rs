@@ -43,6 +43,7 @@ use frame_support::{
         Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, OnUnbalanced,
         ReservableCurrency, WithdrawReasons,
     },
+    types::Property,
 };
 use frame_system::ensure_signed;
 use sp_core::crypto::UncheckedFrom;
@@ -60,6 +61,10 @@ pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, EncodeLike};
 use pallet_did::{self as did, Did};
+
+pub const MAX_PROPS: usize = 5;
+pub const PROP_NAME_MAX_LENGTH: usize = 10;
+pub const PROP_VALUE_MAX_LENGTH: usize = 60;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -134,6 +139,9 @@ pub mod pallet {
 
         /// Whether the organization suspended or not
         pub suspended: bool,
+
+        /// Custom properties
+        pub props: Option<Vec<Property>>,
     }
 
     #[pallet::error]
@@ -170,6 +178,15 @@ pub mod pallet {
 
         /// The organization is suspended
         Suspended,
+
+        /// Too many properties in organization object.
+        TooManyProps,
+
+        /// Invalid properties name.
+        InvalidPropName,
+
+        /// Invalid properties value.
+        InvalidPropValue,
 
         /// Unknown error occurred
         Unknown,
@@ -309,7 +326,7 @@ pub mod pallet {
     where
         T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
     {
-        /// Add new object.
+        /// Add new Organization.
         ///
         /// The dispatch origin for this call must be _Signed_.
         ///
@@ -323,6 +340,7 @@ pub mod pallet {
             admin: <T::Lookup as StaticLookup>::Source,
             website: Vec<u8>,
             email: Vec<u8>,
+            props: Option<Vec<Property>>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin.clone())?;
 
@@ -334,6 +352,8 @@ pub mod pallet {
                 name.len() <= T::MaxOrgNameLength::get(),
                 Error::<T>::NameTooLong
             );
+
+            Self::validate_props(&props)?;
 
             let index = Self::next_index()?;
 
@@ -378,6 +398,7 @@ pub mod pallet {
                     website: website.clone(),
                     email: email.clone(),
                     suspended: false,
+                    props,
                 },
             );
 
@@ -654,6 +675,26 @@ macro_rules! method_is_flag {
 
 /// The main implementation of this Organization pallet.
 impl<T: Config> Pallet<T> {
+    /// Validasi properties
+    pub fn validate_props(props: &Option<Vec<Property>>) -> Result<(), Error<T>> {
+        if let Some(props) = props {
+            ensure!(props.len() <= MAX_PROPS, Error::<T>::TooManyProps);
+            for prop in props {
+                let len = prop.name().len();
+                ensure!(
+                    len > 0 && len <= PROP_NAME_MAX_LENGTH,
+                    Error::<T>::InvalidPropName
+                );
+                let len = prop.value().len();
+                ensure!(
+                    len > 0 && len <= PROP_VALUE_MAX_LENGTH,
+                    Error::<T>::InvalidPropValue
+                );
+            }
+        }
+        Ok(())
+    }
+
     /// Memastikan origin dapat akses resource.
     ///
     /// Prosedur ini akan memeriksa apakah origin admin

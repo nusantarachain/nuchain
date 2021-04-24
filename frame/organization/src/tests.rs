@@ -182,7 +182,8 @@ fn can_create_organization() {
             b"ORG1 DESCRIPTION".to_vec(),
             *BOB,
             b"".to_vec(),
-            b"".to_vec()
+            b"".to_vec(),
+            None
         ));
     });
 }
@@ -197,7 +198,8 @@ fn create_org_balance_deducted() {
             b"ORG1 DESCRIPTION".to_vec(),
             *BOB,
             b"".to_vec(),
-            b"".to_vec()
+            b"".to_vec(),
+            None
         ));
         assert_eq!(Balances::total_balance(&*ALICE), 30);
     });
@@ -214,7 +216,8 @@ fn insufficient_balance_cannot_create() {
                 b"ORG2 DESCRIPTION".to_vec(),
                 *BOB,
                 b"".to_vec(),
-                b"".to_vec()
+                b"".to_vec(),
+                None
             ),
             pallet_balances::Error::<Test, _>::InsufficientBalance
         );
@@ -234,7 +237,8 @@ fn org_id_incremented_correctly() {
             b"ORG2 DESCRIPTION".to_vec(),
             *BOB,
             b"".to_vec(),
-            b"".to_vec()
+            b"".to_vec(),
+            None
         ));
         let org_id1 = last_org_id().unwrap();
 
@@ -245,7 +249,8 @@ fn org_id_incremented_correctly() {
             b"ORG4 DESCRIPTION".to_vec(),
             *BOB,
             b"".to_vec(),
-            b"".to_vec()
+            b"".to_vec(),
+            None
         ));
         let org_id2 = last_org_id().unwrap();
         assert_eq!(Pallet::<Test>::next_index().unwrap(), 5);
@@ -272,6 +277,7 @@ where
         *BOB,
         b"".to_vec(),
         b"".to_vec(),
+        None
     ));
     let index = <OrgIdIndex<Test>>::get().unwrap();
     func(Organization::organization_index(index).unwrap(), index);
@@ -286,6 +292,119 @@ fn new_created_org_active() {
             assert_eq!(Organization::is_gov(org_id), false);
             assert_eq!(Organization::is_system(org_id), false);
         });
+    });
+}
+
+#[test]
+fn create_organization_with_properties() {
+    new_test_ext().execute_with(|| {
+        let props = vec![Property::new(b"satu", b"1")];
+        assert_ok!(Organization::create(
+            Origin::signed(*ALICE),
+            b"ORG1".to_vec(),
+            b"ORG1 DESCRIPTION".to_vec(),
+            *BOB,
+            b"".to_vec(),
+            b"".to_vec(),
+            Some(props.clone())
+        ));
+
+        let org_id = Organization::organization_index(1).unwrap();
+        let org = Organization::organization(org_id).unwrap();
+        assert_eq!(org.props, Some(props));
+    });
+}
+
+#[test]
+fn create_organization_with_too_many_props() {
+    new_test_ext().execute_with(|| {
+        let props = vec![
+            Property::new(b"satu", b"1"),
+            Property::new(b"dua", b"2"),
+            Property::new(b"tiga", b"3"),
+            Property::new(b"empat", b"4"),
+            Property::new(b"lima", b"5"),
+            Property::new(b"enam", b"6"),
+        ];
+        assert_noop!(
+            Organization::create(
+                Origin::signed(*ALICE),
+                b"ORG1".to_vec(),
+                b"ORG1 DESCRIPTION".to_vec(),
+                *BOB,
+                b"".to_vec(),
+                b"".to_vec(),
+                Some(props.clone())
+            ),
+            Error::<Test>::TooManyProps
+        );
+    });
+}
+
+#[test]
+fn create_organization_with_invalid_pop_name() {
+    new_test_ext().execute_with(|| {
+        let props = vec![Property::new(b"", b"1")];
+        assert_noop!(
+            Organization::create(
+                Origin::signed(*ALICE),
+                b"ORG1".to_vec(),
+                b"ORG1 DESCRIPTION".to_vec(),
+                *BOB,
+                b"".to_vec(),
+                b"".to_vec(),
+                Some(props.clone())
+            ),
+            Error::<Test>::InvalidPropName
+        );
+        let props = vec![Property::new(b"123456789012", b"1")];
+        assert_noop!(
+            Organization::create(
+                Origin::signed(*ALICE),
+                b"ORG1".to_vec(),
+                b"ORG1 DESCRIPTION".to_vec(),
+                *BOB,
+                b"".to_vec(),
+                b"".to_vec(),
+                Some(props.clone())
+            ),
+            Error::<Test>::InvalidPropName
+        );
+    });
+}
+
+#[test]
+fn create_organization_with_invalid_prop_value() {
+    new_test_ext().execute_with(|| {
+        let props = vec![Property::new(
+            b"1234567890",
+            b"1234567890123456789012345678901234567890123456789012345678901234567890",
+        )];
+        assert_noop!(
+            Organization::create(
+                Origin::signed(*ALICE),
+                b"ORG1".to_vec(),
+                b"ORG1 DESCRIPTION".to_vec(),
+                *BOB,
+                b"".to_vec(),
+                b"".to_vec(),
+                Some(props.clone())
+            ),
+            Error::<Test>::InvalidPropValue
+        );
+        let props = vec![Property::new(b"1234567890", b"")];
+        assert_noop!(
+            Organization::create(
+                Origin::signed(*ALICE),
+                b"ORG1".to_vec(),
+                b"ORG1 DESCRIPTION".to_vec(),
+                *BOB,
+                b"".to_vec(),
+                b"".to_vec(),
+                Some(props.clone())
+            ),
+            Error::<Test>::InvalidPropValue
+        );
     });
 }
 
