@@ -475,12 +475,12 @@ fn set_flags_system_only_for_force_origin() {
 fn add_member_works() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
-            assert_ok!(Organization::add_member(
+            assert_ok!(Organization::add_members(
                 Origin::signed(*BOB),
                 org_id,
-                *CHARLIE
+                vec![*CHARLIE]
             ));
-            assert_eq!(Organization::is_member(org_id, *CHARLIE), true);
+            assert_eq!(Organization::is_member(&org_id, &*CHARLIE), true);
         });
     });
 }
@@ -490,10 +490,10 @@ fn add_member_not_allowed_by_non_org_admin() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
             assert_err_ignore_postinfo!(
-                Organization::add_member(Origin::signed(*CHARLIE), org_id, *BOB),
+                Organization::add_members(Origin::signed(*CHARLIE), org_id, vec![*BOB]),
                 Error::<Test>::PermissionDenied
             );
-            assert_eq!(Organization::is_member(org_id, *CHARLIE), false);
+            assert_eq!(Organization::is_member(&org_id, &*CHARLIE), false);
         });
     });
 }
@@ -502,18 +502,18 @@ fn add_member_not_allowed_by_non_org_admin() {
 fn remove_member_works() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
-            assert_ok!(Organization::add_member(
+            assert_ok!(Organization::add_members(
                 Origin::signed(*BOB),
                 org_id,
-                *CHARLIE
+                vec![*CHARLIE]
             ));
-            assert_eq!(Organization::is_member(org_id, *CHARLIE), true);
+            assert_eq!(Organization::is_member(&org_id, &*CHARLIE), true);
             assert_ok!(Organization::remove_member(
                 Origin::signed(*BOB),
                 org_id,
                 *CHARLIE
             ));
-            assert_eq!(Organization::is_member(org_id, *CHARLIE), false);
+            assert_eq!(Organization::is_member(&org_id, &*CHARLIE), false);
         });
     });
 }
@@ -522,17 +522,17 @@ fn remove_member_works() {
 fn remove_member_non_admin_not_allowed() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
-            assert_ok!(Organization::add_member(
+            assert_ok!(Organization::add_members(
                 Origin::signed(*BOB),
                 org_id,
-                *CHARLIE
+                vec![*CHARLIE]
             ));
-            assert_eq!(Organization::is_member(org_id, *CHARLIE), true);
+            assert_eq!(Organization::is_member(&org_id, &*CHARLIE), true);
             assert_err_ignore_postinfo!(
                 Organization::remove_member(Origin::signed(*EVE), org_id, *CHARLIE),
                 Error::<Test>::PermissionDenied
             );
-            assert_eq!(Organization::is_member(org_id, *CHARLIE), true);
+            assert_eq!(Organization::is_member(&org_id, &*CHARLIE), true);
         });
     });
 }
@@ -541,18 +541,18 @@ fn remove_member_non_admin_not_allowed() {
 fn add_member_max_limit() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
-            for i in 1..4 {
-                assert_ok!(Organization::add_member(
-                    Origin::signed(*BOB),
-                    org_id,
-                    sr25519::Public::from_raw([i as u8; 32])
-                ));
-            }
+            assert_ok!(Organization::add_members(
+                Origin::signed(*BOB),
+                org_id,
+                (5..10)
+                    .map(|a| sr25519::Public::from_raw([a as u8; 32]))
+                    .collect()
+            ));
             assert_err_ignore_postinfo!(
-                Organization::add_member(Origin::signed(*BOB), org_id, *CHARLIE),
+                Organization::add_members(Origin::signed(*BOB), org_id, vec![*CHARLIE]),
                 Error::<Test>::MaxMemberReached
             );
-            assert_eq!(Organization::is_member(org_id, *CHARLIE), true);
+            assert_eq!(Organization::is_member(&org_id, &*CHARLIE), false);
         });
     });
 }
@@ -574,20 +574,20 @@ fn delegate_access_works() {
             // di block 3 akses masih valid
             // dan DAVE bisa add member pada organisasi BOB
             System::set_block_number(3);
-            assert_ok!(Organization::add_member(
+            assert_ok!(Organization::add_members(
                 Origin::signed(*DAVE),
                 org_id,
-                *CHARLIE
+                vec![*CHARLIE]
             ));
-            assert_eq!(Organization::is_member(org_id, *CHARLIE), true);
+            assert_eq!(Organization::is_member(&org_id, &*CHARLIE), true);
 
             // Setelah block ke-5 akses DAVE telah expired
             System::set_block_number(6);
             assert_err_ignore_postinfo!(
-                Organization::add_member(Origin::signed(*DAVE), org_id, *EVE),
+                Organization::add_members(Origin::signed(*DAVE), org_id, vec![*EVE]),
                 Error::<Test>::PermissionDenied
             );
-            assert_eq!(Organization::is_member(org_id, *EVE), false);
+            assert_eq!(Organization::is_member(&org_id, &*EVE), false);
         });
     });
 }
@@ -657,6 +657,12 @@ fn set_admin_works() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
             assert_eq!(Organization::get_admin(org_id), Some(*BOB));
+            // make member first
+            assert_ok!(Organization::add_members(
+                Origin::signed(*BOB),
+                org_id,
+                vec![*CHARLIE]
+            ));
             assert_ok!(Organization::set_admin(
                 Origin::signed(*BOB),
                 org_id,
@@ -672,12 +678,24 @@ fn only_admin_or_force_origin_can_set_admin() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
             assert_eq!(Organization::get_admin(org_id), Some(*BOB));
+            // make member first
+            assert_ok!(Organization::add_members(
+                Origin::signed(*BOB),
+                org_id,
+                vec![*CHARLIE]
+            ));
             assert_ok!(Organization::set_admin(
                 Origin::signed(*ALICE),
                 org_id,
                 *CHARLIE
             ));
             assert_eq!(Organization::get_admin(org_id), Some(*CHARLIE));
+            // make member first
+            assert_ok!(Organization::add_members(
+                Origin::signed(*BOB),
+                org_id,
+                vec![*DAVE]
+            ));
             assert_ok!(Organization::set_admin(
                 Origin::signed(*CHARLIE),
                 org_id,
@@ -694,12 +712,24 @@ fn only_admin_or_force_origin_can_set_admin() {
 }
 
 #[test]
+fn account_must_members_to_become_admin() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            assert_err_ignore_postinfo!(
+                Organization::set_admin(Origin::signed(*ALICE), org_id, *CHARLIE),
+                Error::<Test>::NotMember
+            );
+        });
+    });
+}
+
+#[test]
 fn cannot_dispatch_suspended_operation_when_suspended() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
             assert_ok!(Organization::suspend_org(Origin::signed(*ALICE), org_id));
             assert_err_ignore_postinfo!(
-                Organization::add_member(Origin::signed(*BOB), org_id, *CHARLIE),
+                Organization::add_members(Origin::signed(*BOB), org_id, vec![*CHARLIE]),
                 Error::<Test>::Suspended
             );
             assert_err_ignore_postinfo!(
@@ -728,6 +758,18 @@ fn force_origin_can_set_flags_even_when_suspended() {
                 org_id,
                 FlagDataBits(FlagDataBit::Government.into())
             ));
+        });
+    });
+}
+
+#[test]
+fn minimum_add_members_is_one_account() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            assert_err_ignore_postinfo!(
+                Organization::add_members(Origin::signed(*BOB), org_id, vec![]),
+                Error::<Test>::InvalidParameter
+            );
         });
     });
 }

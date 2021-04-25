@@ -30,7 +30,7 @@
 //!
 //! * `create_org` - Create organization.
 //! * `suspend_org` - Suspen organization.
-//! * `add_member` - Add account as member to the organization.
+//! * `add_members` - Add account as member to the organization.
 //! * `remove_member` - Remove account member from organization.
 //!
 
@@ -47,7 +47,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use sp_core::crypto::UncheckedFrom;
-use sp_runtime::traits::{Hash, StaticLookup};
+use sp_runtime::traits::Hash;
 use sp_std::{fmt::Debug, prelude::*};
 
 use enumflags2::{bitflags, BitFlags};
@@ -187,6 +187,11 @@ pub mod pallet {
 
         /// Invalid properties value.
         InvalidPropValue,
+
+        /// Account is not member of the organization.
+        NotMember,
+
+        InvalidParameter,
 
         /// Unknown error occurred
         Unknown,
@@ -423,6 +428,9 @@ pub mod pallet {
                 Default::default(),
             );
 
+            // admin added as member first
+            <Members<T>>::insert(&org_id, vec![admin.clone()]);
+
             // DID add attribute
             <pallet_did::Module<T>>::create_attribute(&org_id, &org_id, b"Org", &name, None)?;
             // Set owner of this organization in DID
@@ -436,18 +444,22 @@ pub mod pallet {
         /// Suspend organization
         ///
         /// The dispatch origin for this call must match `T::ForceOrigin`.
-        #[pallet::weight(100_000)]
+        #[pallet::weight(
+            <T as crate::Config>::WeightInfo::suspend_org()
+        )]
         pub fn suspend_org(
             origin: OriginFor<T>,
             org_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             T::ForceOrigin::ensure_origin(origin)?;
 
+            // W: 1 db read
             ensure!(
                 Organizations::<T>::contains_key(&org_id),
                 Error::<T>::NotExists
             );
 
+            // W: 1 db write
             Organizations::<T>::try_mutate(org_id, |org| {
                 org.as_mut()
                     .map(|org| {
@@ -461,7 +473,9 @@ pub mod pallet {
 
         /// Set organization flags
         ///
-        #[pallet::weight(100_000)]
+        #[pallet::weight(
+            <T as crate::Config>::WeightInfo::set_flags()
+        )]
         pub fn set_flags(
             origin: OriginFor<T>,
             org_id: T::AccountId,
@@ -491,13 +505,17 @@ pub mod pallet {
 
         /// Add member to the organization.
         ///
-        #[pallet::weight(100_000)]
-        pub fn add_member(
+        #[pallet::weight(
+            <T as crate::Config>::WeightInfo::add_members( accounts.len() as u32 )
+        )]
+        pub fn add_members(
             origin: OriginFor<T>,
             org_id: T::AccountId,
-            account_id: T::AccountId,
+            accounts: Vec<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
+
+            ensure!(accounts.len() > 0, Error::<T>::InvalidParameter);
 
             let org = Self::ensure_access(&sender, &org_id)?;
 
@@ -510,24 +528,29 @@ pub mod pallet {
                 Error::<T>::MaxMemberReached
             );
             ensure!(
-                !members.iter().any(|a| *a == account_id),
-                Error::<T>::BadIndex
+                !members.iter().any(|a| accounts.iter().any(|b| *b == *a)),
+                Error::<T>::AlreadyExists
             );
 
-            members.push(account_id.clone());
+            for account_id in accounts.iter() {
+                members.push(account_id.clone());
+            }
+
             members.sort();
 
             <Members<T>>::insert(&org_id, members);
 
             // <pallet_did::Module<T>>::create_delegate(&sender, &org.id, &account_id, b"OrgMember");
 
-            Self::deposit_event(Event::MemberAdded(org_id, account_id));
+            for account_id in accounts {
+                Self::deposit_event(Event::MemberAdded(org_id.clone(), account_id));
+            }
 
             Ok(().into())
         }
 
         /// Remove member from organization.
-        #[pallet::weight(100_000)]
+        #[pallet::weight(<T as crate::Config>::WeightInfo::remove_member())]
         pub fn remove_member(
             origin: OriginFor<T>,
             org_id: T::AccountId,
@@ -537,8 +560,6 @@ pub mod pallet {
 
             let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            // ensure!(org.admin == origin, Error::<T>::PermissionDenied);
-            // did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)?;
             Self::ensure_access(&origin, &org_id)?;
 
             ensure!(!org.suspended, Error::<T>::Suspended);
@@ -560,13 +581,18 @@ pub mod pallet {
 
         /// Change organization admin,
         /// the origin must be current admin or conform to `ForceOrigin`.
-        #[pallet::weight(100_000)]
+        #[pallet::weight(
+            <T as crate::Config>::WeightInfo::set_admin()
+        )]
         pub(crate) fn set_admin(
             origin: OriginFor<T>,
             org_id: T::AccountId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let origin_1 = ensure_signed(origin.clone())?;
+
+            // harus member terlebih dahulu untuk jadi admin
+            ensure!(Self::is_member(&org_id, &account_id), Error::<T>::NotMember);
 
             let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
@@ -577,11 +603,6 @@ pub mod pallet {
             }
 
             ensure!(org.admin != account_id, Error::<T>::AlreadySet);
-
-            // did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)?;
-
-            // did::Module::<T>::revoke_delegate_internal(&org_id, b"OrgAdmin", &account_id);
-            // did::Module::<T>::create_delegate(&org_id, &org_id, &account_id, b"OrgAdmin", None)?;
 
             <Organizations<T>>::mutate(&org_id, |org| {
                 if let Some(org) = org {
@@ -600,7 +621,9 @@ pub mod pallet {
         ///
         /// Only admin of organization can do this operation.
         ///
-        #[pallet::weight(100_000)]
+        #[pallet::weight(
+            <T as crate::Config>::WeightInfo::delegate_access()
+        )]
         pub(crate) fn delegate_access(
             origin: OriginFor<T>,
             org_id: T::AccountId,
@@ -609,21 +632,15 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            // let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
-
-            // ensure!(!org.suspended, Error::<T>::Suspended);
-            // ensure!(org.admin == origin, Error::<T>::PermissionDenied);
-
-            // did::Module::<T>::create_delegate(&origin, &org_id, &to, b"OrgAdmin", valid_for)?;
-
-            // Ok(().into())
             Self::h_delegate_access_as(&origin, &org_id, &to, b"OrgAdmin", valid_for)?;
             Ok(().into())
         }
 
         /// Delegate access to other account
         /// with custom type.
-        #[pallet::weight(100_000)]
+        #[pallet::weight(
+            <T as crate::Config>::WeightInfo::delegate_access_as()
+        )]
         pub fn delegate_access_as(
             origin: OriginFor<T>,
             org_id: T::AccountId,
@@ -750,9 +767,9 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Check whether account is member of the organization
-    pub fn is_member(id: T::AccountId, account_id: T::AccountId) -> bool {
+    pub fn is_member(id: &T::AccountId, account_id: &T::AccountId) -> bool {
         <Members<T>>::get(id)
-            .map(|a| a.iter().any(|id| *id == account_id))
+            .map(|a| a.iter().any(|id| id == account_id))
             .unwrap_or(false)
     }
 
