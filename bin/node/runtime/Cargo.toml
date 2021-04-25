@@ -83,7 +83,7 @@ pallet-utility = { version = "3.0.0", default-features = false, path = "../../..
 pallet-transaction-payment = { version = "3.0.0", default-features = false, path = "../../../frame/transaction-payment" }
 pallet-transaction-payment-rpc-runtime-api = { version = "3.0.0", default-features = false, path = "../../../frame/transaction-payment/rpc/runtime-api/" }
 pallet-vesting = { version = "3.0.0", default-features = false, path = "../../../frame/vesting" }
-pallet-nicks = { version = "3.0.0", default-features = false, path = "../../../frame/nicks" }
+# pallet-nicks = { version = "3.0.0", default-features = false, path = "../../../frame/nicks" }
 pallet-did = { version = "0.0.1", default-features = false, path = "../../../frame/did" }
 pallet-certificate = { version = "0.0.1", default-features = false, path = "../../../frame/certificate" }
 pallet-organization = { version = "0.0.1", default-features = false, path = "../../../frame/organization" }
@@ -158,7 +158,7 @@ std = [
 	"pallet-society/std",
 	"pallet-recovery/std",
 	"pallet-vesting/std",
-	"pallet-nicks/std",
+	# "pallet-nicks/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
