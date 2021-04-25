@@ -50,7 +50,7 @@ use crate::builders::*;
 // Note: these could also be passed as trait config parameters
 pub const IDENTIFIER_MAX_LENGTH: usize = 36;
 pub const SHIPMENT_MAX_PRODUCTS: usize = 10;
-pub const LISTENER_ENDPOINT: &str = "http://localhost:3005/nuchain_webhook";
+// pub const LISTENER_ENDPOINT: &str = "http://localhost:3005/nuchain_webhook";
 pub const LOCK_TIMEOUT_EXPIRATION: u64 = 3000; // in milli-seconds
 pub const MAX_PROPS: usize = 5;
 pub const PROP_NAME_MAX_LENGTH: usize = 10;
@@ -111,10 +111,10 @@ pub mod pallet {
     pub type EventsOfTracking<T: Config> =
         StorageMap<_, Blake2_128Concat, TrackingId, Vec<TrackingEventIndex>>;
 
-    #[pallet::storage]
-    #[pallet::getter(fn ocw_notifications)]
-    pub type OcwNotifications<T: Config> =
-        StorageMap<_, Identity, T::BlockNumber, Vec<TrackingEventIndex>>;
+    // #[pallet::storage]
+    // #[pallet::getter(fn ocw_notifications)]
+    // pub type OcwNotifications<T: Config> =
+    //     StorageMap<_, Identity, T::BlockNumber, Vec<TrackingEventIndex>>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -158,7 +158,7 @@ pub mod pallet {
         #[pallet::weight(
             (20_000_000 as Weight)
             .saturating_add(T::DbWeight::get().reads(3 as Weight))
-            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
             .saturating_add(
                 ((products.len() * 10_000) as Weight)
                     .saturating_add((props.as_ref().map(|a| a.len()).unwrap_or(0) * 10_000) as Weight)
@@ -224,7 +224,7 @@ pub mod pallet {
             // Store tracking event (1 DB read, 3 DB writes)
             let event_idx = Self::store_event(event)?;
             // Update offchain notifications (1 DB write)
-            <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
+            // <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
 
             // Raise events
             Self::deposit_event(Event::TrackingRegistered(who.clone(), id.clone(), org_id));
@@ -239,7 +239,7 @@ pub mod pallet {
         #[pallet::weight(
             (20_000_000 as Weight)
             .saturating_add(T::DbWeight::get().reads(3 as Weight))
-            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
         )]
         pub fn update_status(
             origin: OriginFor<T>,
@@ -288,7 +288,7 @@ pub mod pallet {
             // Store tracking event (1 DB read, 3 DB writes)
             let event_idx = Self::store_event(event)?;
             // Update offchain notifications (1 DB write)
-            <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
+            // <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
 
             // Update tracking (1 DB write)
             track.status = status.clone();
@@ -308,22 +308,22 @@ pub mod pallet {
     // ----------------------------------------------------------------
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn offchain_worker(block_number: T::BlockNumber) {
-            // Acquiring the lock
-            let mut lock = StorageLock::<Time>::with_deadline(
-                b"product_tracking_ocw::lock",
-                rt_offchain::Duration::from_millis(LOCK_TIMEOUT_EXPIRATION),
-            );
+        // fn offchain_worker(block_number: T::BlockNumber) {
+        //     // Acquiring the lock
+        //     let mut lock = StorageLock::<Time>::with_deadline(
+        //         b"product_tracking_ocw::lock",
+        //         rt_offchain::Duration::from_millis(LOCK_TIMEOUT_EXPIRATION),
+        //     );
 
-            match lock.try_lock() {
-                Ok(_guard) => {
-                    Self::process_ocw_notifications(block_number);
-                }
-                Err(_err) => {
-                    debug::info!("[product_tracking_ocw] lock is already acquired");
-                }
-            };
-        }
+        //     match lock.try_lock() {
+        //         Ok(_guard) => {
+        //             Self::process_ocw_notifications(block_number);
+        //         }
+        //         Err(_err) => {
+        //             debug::info!("[product_tracking_ocw] lock is already acquired");
+        //         }
+        //     };
+        // }
     }
 }
 
@@ -416,102 +416,105 @@ impl<T: Config> Pallet<T> {
 
     // --- Offchain worker methods ---
 
-    fn process_ocw_notifications(block_number: T::BlockNumber) {
-        // Check last processed block
-        let last_processed_block_ref =
-            StorageValueRef::persistent(b"product_tracking_ocw::last_proccessed_block");
+    // fn process_ocw_notifications(block_number: T::BlockNumber) {
+    //     // Check last processed block
+    //     let last_processed_block_ref =
+    //         StorageValueRef::persistent(b"product_tracking_ocw::last_proccessed_block");
 
-        let mut last_processed_block: u32 = match last_processed_block_ref.get::<T::BlockNumber>() {
-            Some(Some(_last_proccessed_block)) if _last_proccessed_block >= block_number => {
-                debug::info!(
-                    "[product_tracking_ocw] Skipping: Block {:?} has already been processed.",
-                    block_number
-                );
-                return;
-            }
-            Some(Some(_last_proccessed_block)) => _last_proccessed_block
-                .try_into()
-                .ok()
-                .expect("numeric value; qed"),
-            None => 0u32, //TODO: define a OCW_MAX_BACKTRACK_PERIOD param
-            // None => {
-            //     last_processed_block = 0u32;
-            // }
-            _ => {
-                debug::error!("[product_tracking_ocw] Error reading product_tracking_ocw::last_proccessed_block.");
-                return;
-            }
-        };
+    //     let mut last_processed_block: u32 = match last_processed_block_ref.get::<T::BlockNumber>() {
+    //         Some(Some(_last_proccessed_block)) if _last_proccessed_block >= block_number => {
+    //             debug::info!(
+    //                 "[product_tracking_ocw] Skipping: Block {:?} has already been processed.",
+    //                 block_number
+    //             );
+    //             return;
+    //         }
+    //         Some(Some(_last_proccessed_block)) => _last_proccessed_block
+    //             .try_into()
+    //             .ok()
+    //             .expect("numeric value; qed"),
+    //         None => 0u32, //TODO: define a OCW_MAX_BACKTRACK_PERIOD param
+    //         // None => {
+    //         //     last_processed_block = 0u32;
+    //         // }
+    //         _ => {
+    //             debug::error!("[product_tracking_ocw] Error reading product_tracking_ocw::last_proccessed_block.");
+    //             return;
+    //         }
+    //     };
 
-        let start_block = last_processed_block + 1;
-        let end_block: u32 = block_number.try_into().ok().expect("numeric value; qed");
-        for current_block in start_block..end_block {
-            debug::debug!(
-                "[product_tracking_ocw] Processing notifications for block {}",
-                current_block
-            );
-            if let Some(ev_indices) =
-                Self::ocw_notifications::<T::BlockNumber>(current_block.into())
-            {
-                let listener_results: Result<Vec<_>, _> = ev_indices
-                    .iter()
-                    .map(|idx| match Self::event_by_idx(idx) {
-                        Some(ev) => Self::notify_listener(&ev),
-                        None => Ok(()),
-                    })
-                    .collect();
+    //     let start_block = last_processed_block + 1;
+    //     let end_block: u32 = block_number.try_into().ok().expect("numeric value; qed");
+    //     for current_block in start_block..end_block {
+    //         debug::debug!(
+    //             "[product_tracking_ocw] Processing notifications for block {}",
+    //             current_block
+    //         );
+    //         if let Some(ev_indices) =
+    //             Self::ocw_notifications::<T::BlockNumber>(current_block.into())
+    //         {
+    //             let listener_results: Result<Vec<_>, _> = ev_indices
+    //                 .iter()
+    //                 .map(|idx| match Self::event_by_idx(idx) {
+    //                     Some(ev) => Self::notify_listener(&ev),
+    //                     None => Ok(()),
+    //                 })
+    //                 .collect();
 
-                if let Err(err) = listener_results {
-                    debug::warn!("[product_tracking_ocw] notify_listener error: {}", err);
-                    break;
-                }
-            }
+    //             if let Err(err) = listener_results {
+    //                 debug::warn!("[product_tracking_ocw] notify_listener error: {}", err);
+    //                 break;
+    //             }
+    //         }
 
-            // @TODO(Robin): clean up OcwNotifications storage.
+    //         // @TODO(Robin): clean up OcwNotifications storage.
 
-            last_processed_block = current_block;
-        }
+    //         last_processed_block = current_block;
+    //     }
 
-        // Save last processed block
-        if last_processed_block >= start_block {
-            last_processed_block_ref.set(&last_processed_block);
-            debug::info!(
-                "[product_tracking_ocw] Notifications successfully processed up to block {}",
-                last_processed_block
-            );
-        }
-    }
+    //     // Save last processed block
+    //     if last_processed_block >= start_block {
+    //         last_processed_block_ref.set(&last_processed_block);
+    //         // debug::info!(
+    //         //     "[product_tracking_ocw] Notifications successfully processed up to block {}",
+    //         //     last_processed_block
+    //         // );
+    //     }
+    // }
 
-    fn notify_listener(ev: &TrackingEvent<T::Moment>) -> Result<(), &'static str> {
-        debug::info!("notifying listener: {:?}", ev);
+    // fn notify_listener(ev: &TrackingEvent<T::Moment>) -> Result<(), &'static str> {
+    //     debug::info!("notifying listener: {:?}", ev);
 
-        let request =
-            sp_runtime::offchain::http::Request::post(&LISTENER_ENDPOINT, vec![ev.to_string()]);
+    //     let request =
+    //         sp_runtime::offchain::http::Request::post(&LISTENER_ENDPOINT, vec![
+    //             ev.to_string()
+    //         ]);
 
-        let timeout =
-            sp_io::offchain::timestamp().add(sp_runtime::offchain::Duration::from_millis(3000));
+    //     let timeout =
+    //         sp_io::offchain::timestamp().add(sp_runtime::offchain::Duration::from_millis(3000));
 
-        let pending = request
-            .add_header(&"Content-Type", &"text/plain")
-            .deadline(timeout) // Setting the timeout time
-            .send() // Sending the request out by the host
-            .map_err(|_| "http post request building error")?;
+    //     let pending = request
+    //         .add_header(&"Content-Type", &"text/plain")
+    //         .deadline(timeout) // Setting the timeout time
+    //         .send() // Sending the request out by the host
+    //         .map_err(|_| "http post request building error")?;
 
-        let response = pending
-            .try_wait(timeout)
-            .map_err(|e| {
-                debug::warn!("http post request sent error: {:?}", e);
-                "error 1"
-            })?
-            .map_err(|e| {
-                debug::warn!("http post request sent error: {:?}", e);
-                "error 2"
-            })?;
+    //     let response = pending.wait()
+    //         .map_err(|_| "Error in waiting http response")?;
+    //         // .try_wait(timeout)
+    //         // .map_err(|e| {
+    //         //     debug::warn!("http post request sent error: {:?}", e);
+    //         //     "error 1"
+    //         // })?
+    //         // .map_err(|e| {
+    //         //     debug::warn!("http post request sent error: {:?}", e);
+    //         //     "error 2"
+    //         // })?;
 
-        if response.code != 200 {
-            return Err("http response error");
-        }
+    //     if response.code != 200 {
+    //         return Err("http response error");
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }
