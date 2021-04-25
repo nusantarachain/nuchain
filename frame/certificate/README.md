@@ -13,7 +13,7 @@ This is Substrate pallet generated using [Reframe](https://github.com/Ansvia/ref
 
 * `add_org` - 
 * `add_cert` - 
-* `issue_cert` -
+* `issue` -
 
 [`Call`]: ./enum.Call.html
 [`Config`]: ./trait.Config.html

@@ -3,6 +3,7 @@ use codec::{Decode, Encode};
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
+pub type Text = Vec<u8>;
 pub type PropName = Vec<u8>;
 pub type PropValue = Vec<u8>;
 

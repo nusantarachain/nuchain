@@ -161,7 +161,13 @@ pub mod pallet {
         /// * `year` - Year of the product produced.
         /// * `props` - Properties for the product.
         ///
-        #[pallet::weight(10_000)]
+        #[pallet::weight(
+            (20_000_000 as Weight).saturating_add(
+                T::DbWeight::get().reads(2 as Weight)
+                .saturating_add(
+                    T::DbWeight::get().writes(3 as Weight)
+                ))
+         )]
         pub fn register(
             origin: OriginFor<T>,
             id: ProductId,

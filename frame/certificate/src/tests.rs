@@ -3,6 +3,7 @@ use crate as pallet_certificate;
 
 use frame_support::{
     assert_err_ignore_postinfo, assert_ok, ord_parameter_types, parameter_types, traits::Time,
+    types::Text,
 };
 use frame_system::EnsureSignedBy;
 use sp_core::{sr25519, H256};
@@ -172,7 +173,8 @@ macro_rules! create_org {
             b"".to_vec(),
             $to,
             b"".to_vec(),
-            b"".to_vec()
+            b"".to_vec(),
+            None
         ));
     };
 }
@@ -186,7 +188,7 @@ fn get_last_created_cert_id() -> Option<CertId> {
 
 fn get_last_issued_cert_id() -> Option<IssuedId> {
     match last_event() {
-        CertEvent::CertIssued(cert_id, _) => Some(cert_id),
+        CertEvent::CertIssued(cert_id, _, _) => Some(cert_id),
         _ => None,
     }
 }
@@ -219,12 +221,12 @@ impl CertDetail<<Test as frame_system::Config>::AccountId> {
             name: b"CERT1".to_vec(),
             description: b"CERT1 desc".to_vec(),
             org_id,
-            signer_name: vec![],
+            signer_name: None,
         }
     }
 
-    fn signer(mut self, signer_name: Vec<u8>) -> Self {
-        self.signer_name = signer_name;
+    fn signer(mut self, signer_name: Text) -> Self {
+        self.signer_name = Some(signer_name);
         self
     }
 }
@@ -240,7 +242,7 @@ where
 
         let org_id = last_org_id();
 
-        assert_ok!(Certificate::create_cert(
+        assert_ok!(Certificate::create(
             Origin::signed(Bob.into()),
             CertDetail::new(org_id).signer(b"Grohl".to_vec())
         ));
@@ -253,19 +255,19 @@ where
             Some(b"CERT1 desc".to_vec())
         );
         assert_eq!(
-            Certificate::get(&cert_id).map(|a| a.signer_name),
+            Certificate::get(&cert_id).and_then(|a| a.signer_name),
             Some(b"Grohl".to_vec())
         );
 
         System::set_block_number(2);
 
-        assert_ok!(Certificate::issue_cert(
+        assert_ok!(Certificate::issue(
             Origin::signed(Bob.into()),
             org_id,
             cert_id,
             (*ORG_CERT_REF).clone(),
             b"Dave Grohl".to_vec(),
-            b"ADDITIONAL DATA".to_vec(),
+            Some(vec![Property::new(b"satu", b"1")]),
             None,
             None
         ));
@@ -276,10 +278,7 @@ where
         assert_eq!(issued_cert.cert_id, cert_id);
         assert_eq!(issued_cert.human_id, *ORG_CERT_REF);
         assert_eq!(issued_cert.recipient, b"Dave Grohl".to_vec());
-        assert_eq!(
-            issued_cert.additional_data,
-            Some(b"ADDITIONAL DATA".to_vec())
-        );
+        assert_eq!(issued_cert.props, Some(vec![Property::new(b"satu", b"1")]));
 
         func(org_id, cert_id, issued_id);
     })
@@ -291,7 +290,7 @@ fn create_cert_works() {
         System::set_block_number(1);
         create_org!(b"ORG1", Bob.into());
         let last_org_id = last_org_id();
-        assert_ok!(Certificate::create_cert(
+        assert_ok!(Certificate::create(
             Origin::signed(Bob.into()),
             CertDetail::new(last_org_id)
         ));
@@ -310,8 +309,8 @@ fn create_cert_works() {
                     Some(b"CERT1 desc".to_vec())
                 );
                 assert_eq!(
-                    Certificate::get(&cert_id).map(|cert| cert.signer_name),
-                    Some(vec![])
+                    Certificate::get(&cert_id).and_then(|cert| cert.signer_name),
+                    None
                 );
             }
             _ => assert!(false, "no event"),
@@ -325,27 +324,33 @@ fn issue_cert_with_account_handler_works() {
         System::set_block_number(1);
         create_org!(b"ORG1", Bob.into());
         let org_id = last_org_id();
-        assert_ok!(Certificate::create_cert(
+        assert_ok!(Certificate::create(
             Origin::signed(Bob.into()),
             CertDetail::new(org_id)
         ));
         let cert_id = get_last_created_cert_id().unwrap();
 
-        assert_ok!(Certificate::issue_cert(
+        assert_ok!(Certificate::issue(
             Origin::signed(Bob.into()),
             org_id,
             cert_id,
             (*ORG_CERT_REF).clone(),
             b"Dave".to_vec(),
-            b"ADDITIONAL DATA".to_vec(),
+            None,
             Some(Charlie.into()),
             None
         ));
+        let issued_id = get_last_issued_cert_id().unwrap();
+        let account: <Test as frame_system::Config>::AccountId = Charlie.into();
+        assert_eq!(
+            IssuedCertOwner::<Test>::get(&org_id, &account),
+            Some(vec![issued_id])
+        );
     });
 }
 
 #[test]
-fn issue_cert_should_work() {
+fn issue_cert_works() {
     with_org_cert_issued(|_, _, _| {});
 }
 
@@ -355,7 +360,7 @@ fn cannot_create_cert_without_org() {
         System::set_block_number(1);
         create_org!(b"ORG1", Bob.into());
         assert_err_ignore_postinfo!(
-            Certificate::create_cert(
+            Certificate::create(
                 Origin::signed(Bob.into()),
                 // use non existent org address
                 CertDetail::new(sp_keyring::Sr25519Keyring::One.into())
@@ -371,7 +376,7 @@ fn only_org_admin_can_create_cert() {
         System::set_block_number(1);
         create_org!(b"ORG2", Charlie.into());
         assert_err_ignore_postinfo!(
-            Certificate::create_cert(Origin::signed(Bob.into()), CertDetail::new(last_org_id())),
+            Certificate::create(Origin::signed(Bob.into()), CertDetail::new(last_org_id())),
             Error::<Test>::PermissionDenied
         );
     });
@@ -382,7 +387,7 @@ fn revoke_issued_cert_should_work() {
     with_org_cert_issued(|org_id, _cert_id, issued_id| {
         assert_eq!(Certificate::valid_certificate(&issued_id), true);
 
-        assert_ok!(Certificate::revoke_certificate(
+        assert_ok!(Certificate::revoke(
             Origin::signed(Bob.into()),
             org_id,
             issued_id.clone(),
@@ -392,7 +397,7 @@ fn revoke_issued_cert_should_work() {
         assert_eq!(Certificate::valid_certificate(&issued_id), false);
 
         // balikin lagi
-        assert_ok!(Certificate::revoke_certificate(
+        assert_ok!(Certificate::revoke(
             Origin::signed(Bob.into()),
             org_id,
             issued_id.clone(),
@@ -409,7 +414,7 @@ fn only_org_admin_can_revoke() {
         assert_eq!(Certificate::valid_certificate(&issued_id), true);
 
         assert_err_ignore_postinfo!(
-            Certificate::revoke_certificate(
+            Certificate::revoke(
                 Origin::signed(Charlie.into()),
                 org_id,
                 issued_id.clone(),

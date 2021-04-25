@@ -65,6 +65,7 @@ where
                 website: vec![],
                 email: vec![],
                 suspended: false,
+                props: None
             },
         );
 

@@ -29,15 +29,19 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! * `create_cert` -
-//! * `issue_cert` -
+//! * `create` -
+//! * `issue` -
 //!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use base58::ToBase58;
 
-use frame_support::{ensure, traits::EnsureOrigin};
+use frame_support::{
+    ensure,
+    traits::EnsureOrigin,
+    types::{Property, Text},
+};
 use frame_system::ensure_signed;
 pub use pallet::*;
 // use sp_core::H256;
@@ -54,6 +58,10 @@ use codec::{Decode, Encode};
 
 type CertId = [u8; 32];
 type IssuedId = [u8; 11];
+
+pub const MAX_PROPS: usize = 5;
+pub const PROP_NAME_MAX_LENGTH: usize = 10;
+pub const PROP_VALUE_MAX_LENGTH: usize = 60;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -96,7 +104,7 @@ pub mod pallet {
         pub org_id: AccountId,
 
         /// Name of person who publish the certificate.
-        pub signer_name: Vec<u8>,
+        pub signer_name: Option<Text>,
     }
 
     #[pallet::error]
@@ -122,6 +130,15 @@ pub mod pallet {
         /// Organization not exists
         OrganizationNotExists,
 
+        /// Too many properties in organization object.
+        TooManyProps,
+
+        /// Invalid properties name.
+        InvalidPropName,
+
+        /// Invalid properties value.
+        InvalidPropValue,
+
         /// Unknown error occurred
         Unknown,
     }
@@ -141,8 +158,9 @@ pub mod pallet {
         ///
         /// param:
         ///     1 - Hash of issued certificate.
-        ///     2 - Recipient of certificate.
-        CertIssued(IssuedId, Option<T::AccountId>),
+        ///     2 - Organization ID.
+        ///     3 - Recipient of certificate.
+        CertIssued(IssuedId, T::AccountId, Option<T::AccountId>),
     }
 
     #[pallet::storage]
@@ -166,13 +184,13 @@ pub mod pallet {
         pub time: Moment<T>,
 
         /// Expiration in days
-        pub expired: Moment<T>,
+        pub expired: Option<Moment<T>>,
 
         /// Flag whether this given certificate is revoked
         pub revoked: bool,
 
         /// Additional data to embed
-        pub additional_data: Option<Vec<u8>>,
+        pub props: Option<Vec<Property>>,
     }
 
     /// double map pair of: Issued id -> Proof
@@ -192,8 +210,8 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId, // organization id
         Blake2_128Concat,
-        T::AccountId,      // acc handler id
-        Vec<CertProof<T>>, // proof
+        T::AccountId,  // acc handler id
+        Vec<IssuedId>, // proof
     >;
 
     #[pallet::storage]
@@ -212,8 +230,8 @@ pub mod pallet {
         ///
         /// # <weight>
         /// # </weight>
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::create_cert())]
-        pub(super) fn create_cert(
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::create())]
+        pub(super) fn create(
             origin: OriginFor<T>,
             detail: CertDetail<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
@@ -225,7 +243,9 @@ pub mod pallet {
             ensure!(detail.description.len() >= 3, Error::<T>::TooShort);
             ensure!(detail.description.len() <= 1000, Error::<T>::TooLong);
 
-            ensure!(detail.signer_name.len() <= 100, Error::<T>::TooLong);
+            if let Some(ref signer_name) = detail.signer_name {
+                ensure!(signer_name.len() <= 100, Error::<T>::TooLong);
+            }
 
             // ensure access
             let org = <pallet_organization::Module<T>>::organization(&detail.org_id)
@@ -258,13 +278,13 @@ pub mod pallet {
         /// # <weight>
         /// # </weight>
         #[pallet::weight(70_000_000)]
-        pub(super) fn issue_cert(
+        pub(super) fn issue(
             origin: OriginFor<T>,
             org_id: T::AccountId,
             cert_id: CertId,
             human_id: Vec<u8>, // human readable provider based id, eg: ORG/KOM/11321
             recipient: Vec<u8>, // person name
-            additional_data: Vec<u8>,
+            props: Option<Vec<Property>>,
             acc_handler: Option<T::AccountId>,
             expired: Option<Moment<T>>,
         ) -> DispatchResultWithPostInfo {
@@ -272,10 +292,14 @@ pub mod pallet {
 
             let _cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
 
-            ensure!(additional_data.len() < 100, Error::<T>::TooLong);
+            // if let Some(ref props) = props {
+            //     ensure!(props.len() < 100, Error::<T>::TooLong);
+            // }
 
             ensure!(human_id.len() < 100, Error::<T>::TooLong);
             ensure!(recipient.len() < 100, Error::<T>::TooLong);
+
+            Self::validate_props(&props)?;
 
             // ensure access
             let org = <pallet_organization::Module<T>>::organization(&org_id)
@@ -284,22 +308,28 @@ pub mod pallet {
 
             // generate issue id
             // this id is unique per user per cert.
-            let issue_id: IssuedId = Self::generate_issued_id(
-                &org,
-                org_id
-                    .as_ref()
-                    .iter()
-                    .chain(cert_id.encode().iter())
-                    .chain(human_id.iter())
-                    .chain(recipient.iter())
-                    .chain(additional_data.iter())
+            let data = org_id
+                .as_ref()
+                .iter()
+                .chain(cert_id.encode().iter())
+                .chain(human_id.iter())
+                .chain(recipient.iter())
+                .cloned()
+                .collect::<Vec<u8>>();
+
+            let data = if let Some(ref props) = props {
+                data.iter()
+                    .chain(props.encode().iter())
                     .cloned()
-                    .collect::<Vec<u8>>(),
-            );
+                    .collect::<Vec<u8>>()
+            } else {
+                data.iter().cloned().collect::<Vec<u8>>()
+            };
+            let issued_id: IssuedId = Self::generate_issued_id(&org, data);
 
             // pastikan belum pernah di-issue
             ensure!(
-                !IssuedCert::<T>::contains_key(&issue_id),
+                !IssuedCert::<T>::contains_key(&issued_id),
                 Error::<T>::AlreadyExists
             );
 
@@ -308,9 +338,9 @@ pub mod pallet {
                 human_id,
                 recipient,
                 time: <T as pallet::Config>::Time::now(),
-                expired: expired.unwrap_or_default(),
+                expired: expired,
                 revoked: false,
-                additional_data: Some(additional_data),
+                props,
             };
 
             if let Some(ref acc_handler) = acc_handler {
@@ -318,23 +348,23 @@ pub mod pallet {
                 // dengan ditambahkan sertifikat pada koleksi penerima.
                 IssuedCertOwner::<T>::mutate(&org_id, acc_handler, |vs| {
                     if let Some(vs) = vs.as_mut() {
-                        vs.push(proof.clone());
+                        vs.push(issued_id.clone());
                     } else {
-                        *vs = Some(vec![proof.clone()]);
+                        *vs = Some(vec![issued_id.clone()]);
                     }
                 });
             }
 
-            IssuedCert::<T>::insert(&issue_id, proof);
+            IssuedCert::<T>::insert(&issued_id, proof);
 
-            Self::deposit_event(Event::CertIssued(issue_id, acc_handler));
+            Self::deposit_event(Event::CertIssued(issued_id, org_id, acc_handler));
 
             Ok(().into())
         }
 
         /// Revoke sertifikat berdasarkan issue id-nya.
         #[pallet::weight(0)]
-        pub(super) fn revoke_certificate(
+        pub(super) fn revoke(
             origin: OriginFor<T>,
             org_id: T::AccountId,
             issued_id: IssuedId,
@@ -454,9 +484,29 @@ impl<T: Config> Pallet<T> {
         Self::issued_cert(id)
             .map(|proof| {
                 let now = <T as pallet::Config>::Time::now();
-                proof.expired < now && !proof.revoked
+                proof.expired.map(|a| a < now).unwrap_or(true) && !proof.revoked
             })
             .unwrap_or(false)
+    }
+
+    /// Validasi properties
+    pub fn validate_props(props: &Option<Vec<Property>>) -> Result<(), Error<T>> {
+        if let Some(props) = props {
+            ensure!(props.len() <= MAX_PROPS, Error::<T>::TooManyProps);
+            for prop in props {
+                let len = prop.name().len();
+                ensure!(
+                    len > 0 && len <= PROP_NAME_MAX_LENGTH,
+                    Error::<T>::InvalidPropName
+                );
+                let len = prop.value().len();
+                ensure!(
+                    len > 0 && len <= PROP_VALUE_MAX_LENGTH,
+                    Error::<T>::InvalidPropValue
+                );
+            }
+        }
+        Ok(())
     }
 }
 

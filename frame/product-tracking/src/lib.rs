@@ -156,7 +156,13 @@ pub mod pallet {
         /// * `parent_id` - Optional tracking ID for this parent if any.
         /// * `props` - Custom properties.
         #[pallet::weight(
-            100_000 + ((products.len() * 10_000) as Weight) + ((props.as_ref().map(|a| a.len()).unwrap_or(0) * 10_000) as Weight)
+            (20_000_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+            .saturating_add(
+                ((products.len() * 10_000) as Weight)
+                    .saturating_add((props.as_ref().map(|a| a.len()).unwrap_or(0) * 10_000) as Weight)
+            )
         )]
         pub fn register(
             origin: OriginFor<T>,
@@ -230,7 +236,11 @@ pub mod pallet {
         ///
         /// Dispatcher of this function must be _signed_.
         ///
-        #[pallet::weight(100_000)]
+        #[pallet::weight(
+            (20_000_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+        )]
         pub fn update_status(
             origin: OriginFor<T>,
             id: TrackingId,

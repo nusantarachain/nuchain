@@ -191,10 +191,11 @@ runtime-benchmarks = [
 	"pallet-vesting/runtime-benchmarks",
 	"pallet-offences-benchmarking",
 	"pallet-session-benchmarking",
-	"pallet-organization/runtime-benchmarks",
 	"frame-system-benchmarking",
 	"hex-literal",
-	"pallet-nicks/runtime-benchmarks"
+	# "pallet-nicks/runtime-benchmarks",
+	"pallet-organization/runtime-benchmarks",
+	"pallet-certificate/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-executive/try-runtime",

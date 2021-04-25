@@ -115,6 +115,6 @@ Ada 4 object storage yang digunakan:
 * `add_org` metode untuk menambahkan organisasi baru.
 * `suspend_org` metode untuk memblokir organisasi (auth).
 * `add_cert` metode untuk membuat sertifikat baru.
-* `issue_cert` metode untuk menerbitkan sertifikat untuk seseorang.
+* `issue` metode untuk menerbitkan sertifikat untuk seseorang.
 * `revoke` metode untuk mencabut sertifikat yang telah diterbitkan untuk seseorang.
 * `destroy` metode untuk memusnahkan sertifikat yang telah diterima oleh seseorang.

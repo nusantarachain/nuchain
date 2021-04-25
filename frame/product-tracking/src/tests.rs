@@ -128,6 +128,7 @@ where
                 website: vec![],
                 email: vec![],
                 suspended: false,
+                props: None,
             },
         );
         // Make sender as org owner
