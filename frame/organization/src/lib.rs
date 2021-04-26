@@ -347,8 +347,8 @@ pub mod pallet {
         ///     - `N` length of properties * 100_000.
         /// # </weight>
         #[pallet::weight(
-            <T as crate::Config>::WeightInfo::create()
-            + (props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as Weight
+            <T as Config>::WeightInfo::create()
+                .saturating_add((props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as Weight)
         )]
         pub fn create(
             origin: OriginFor<T>,
@@ -457,8 +457,8 @@ pub mod pallet {
         ///     - `N` length of properties * 100_000.
         /// # </weight>
         #[pallet::weight(
-            <T as crate::Config>::WeightInfo::update()
-            + (props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as Weight
+            <T as Config>::WeightInfo::update()
+                .saturating_add((props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as Weight)
         )]
         pub fn update(
             origin: OriginFor<T>,
@@ -536,7 +536,7 @@ pub mod pallet {
         ///
         /// The dispatch origin for this call must match `T::ForceOrigin`.
         #[pallet::weight(
-            <T as crate::Config>::WeightInfo::suspend_org()
+            <T as Config>::WeightInfo::suspend_org()
         )]
         pub fn suspend_org(
             origin: OriginFor<T>,
@@ -565,7 +565,7 @@ pub mod pallet {
         /// Set organization flags
         ///
         #[pallet::weight(
-            <T as crate::Config>::WeightInfo::set_flags()
+            <T as Config>::WeightInfo::set_flags()
         )]
         pub fn set_flags(
             origin: OriginFor<T>,
@@ -597,7 +597,7 @@ pub mod pallet {
         /// Add member to the organization.
         ///
         #[pallet::weight(
-            <T as crate::Config>::WeightInfo::add_members( accounts.len() as u32 )
+            <T as Config>::WeightInfo::add_members( accounts.len() as u32 )
         )]
         pub fn add_members(
             origin: OriginFor<T>,
@@ -641,7 +641,7 @@ pub mod pallet {
         }
 
         /// Remove member from organization.
-        #[pallet::weight(<T as crate::Config>::WeightInfo::remove_member())]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_member())]
         pub fn remove_member(
             origin: OriginFor<T>,
             org_id: T::AccountId,
@@ -673,7 +673,7 @@ pub mod pallet {
         /// Change organization admin,
         /// the origin must be current admin or conform to `ForceOrigin`.
         #[pallet::weight(
-            <T as crate::Config>::WeightInfo::set_admin()
+            <T as Config>::WeightInfo::set_admin()
         )]
         pub(crate) fn set_admin(
             origin: OriginFor<T>,
@@ -713,7 +713,7 @@ pub mod pallet {
         /// Only admin of organization can do this operation.
         ///
         #[pallet::weight(
-            <T as crate::Config>::WeightInfo::delegate_access()
+            <T as Config>::WeightInfo::delegate_access()
         )]
         pub(crate) fn delegate_access(
             origin: OriginFor<T>,
@@ -730,7 +730,7 @@ pub mod pallet {
         /// Delegate access to other account
         /// with custom type.
         #[pallet::weight(
-            <T as crate::Config>::WeightInfo::delegate_access_as()
+            <T as Config>::WeightInfo::delegate_access_as()
         )]
         pub fn delegate_access_as(
             origin: OriginFor<T>,
