@@ -91,6 +91,18 @@ benchmarks! {
         assert_eq!(OrgIdIndex::<T>::get(), Some(1));
     }
 
+    update {
+        let caller = whitelisted_caller();
+        let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+        let org_id:T::AccountId = setup_org::<T>(&caller);
+    }: _(RawOrigin::Signed(caller.clone()), org_id,
+        Some(b"newname".to_vec()),
+        Some(b"newdesc".to_vec()),
+        Some(b"https://test.org".to_vec()),
+        Some(b"info@test.org".to_vec()),
+        None
+        )
+
     suspend_org {
         let caller = whitelisted_caller();
         let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());

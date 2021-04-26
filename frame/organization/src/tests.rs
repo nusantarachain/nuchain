@@ -119,6 +119,10 @@ lazy_static::lazy_static! {
     pub static ref CHARLIE: sr25519::Public = sr25519::Public::from_raw([3u8; 32]);
     pub static ref DAVE: sr25519::Public = sr25519::Public::from_raw([4u8; 32]);
     pub static ref EVE: sr25519::Public = sr25519::Public::from_raw([5u8; 32]);
+
+    // groups
+    pub static ref GROUP1: sr25519::Public = sr25519::Public::from_raw([6u8; 32]);
+    pub static ref GROUP2: sr25519::Public = sr25519::Public::from_raw([7u8; 32]);
 }
 
 ord_parameter_types! {
@@ -554,6 +558,101 @@ fn add_member_max_limit() {
             );
             assert_eq!(Organization::is_member(&org_id, &*CHARLIE), false);
         });
+    });
+}
+
+type TestOrg = pallet_organization::Organization<<Test as frame_system::Config>::AccountId>;
+
+#[test]
+fn update_works() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            assert_eq!(
+                Organization::organization(&org_id),
+                Some(TestOrg {
+                    id: org_id.clone(),
+                    name: b"ORG1".to_vec(),
+                    description: b"ORG1 DESCRIPTION".to_vec(),
+                    admin: *BOB,
+                    website: b"".to_vec(),
+                    email: b"".to_vec(),
+                    suspended: false,
+                    props: None
+                })
+            );
+            let new_name = b"ORG1-B";
+            let new_desc = b"ORG1-B DESC";
+            let new_website = b"https://org1-b.org";
+            let new_email = b"info@org1-b.org";
+            let new_props = vec![Property::new(b"satu", b"1")];
+            assert_ok!(Organization::update(
+                Origin::signed(*BOB),
+                org_id.clone(),
+                Some(new_name.to_vec()),
+                Some(new_desc.to_vec()),
+                Some(new_website.to_vec()),
+                Some(new_email.to_vec()),
+                Some(new_props.clone())
+            ));
+
+            assert_eq!(
+                Organization::organization(&org_id),
+                Some(TestOrg {
+                    id: org_id,
+                    name: new_name.to_vec(),
+                    description: new_desc.to_vec(),
+                    admin: *BOB,
+                    website: new_website.to_vec(),
+                    email: new_email.to_vec(),
+                    suspended: false,
+                    props: Some(new_props)
+                })
+            );
+        });
+    });
+}
+
+#[test]
+fn update_not_changed() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            assert_eq!(
+                Organization::organization(&org_id),
+                Some(TestOrg {
+                    id: org_id.clone(),
+                    name: b"ORG1".to_vec(),
+                    description: b"ORG1 DESCRIPTION".to_vec(),
+                    admin: *BOB,
+                    website: b"".to_vec(),
+                    email: b"".to_vec(),
+                    suspended: false,
+                    props: None
+                })
+            );
+
+            assert_err_ignore_postinfo!(
+                Organization::update(
+                    Origin::signed(*BOB),
+                    org_id.clone(),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None
+                ),
+                Error::<Test>::NotChanged
+            );
+        });
+    });
+}
+
+#[test]
+fn update_not_exists() {
+    new_test_ext().execute_with(|| {
+        assert_err_ignore_postinfo!(
+            Organization::update(Origin::signed(*BOB), *GROUP2, None, None, None, None, None),
+            Error::<Test>::NotExists
+        );
     });
 }
 

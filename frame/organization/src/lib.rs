@@ -43,7 +43,7 @@ use frame_support::{
         Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, OnUnbalanced,
         ReservableCurrency, WithdrawReasons,
     },
-    types::Property,
+    types::{Property, Text},
 };
 use frame_system::ensure_signed;
 use sp_core::crypto::UncheckedFrom;
@@ -193,6 +193,9 @@ pub mod pallet {
 
         InvalidParameter,
 
+        /// Changes not made
+        NotChanged,
+
         /// Unknown error occurred
         Unknown,
     }
@@ -209,6 +212,9 @@ pub mod pallet {
 
         /// When object deleted
         OrganizationDeleted(T::AccountId),
+
+        /// Organization data has been updated
+        OrganizationUpdated(T::AccountId),
 
         /// Organization has been suspended.
         OrganizationSuspended(T::AccountId),
@@ -346,11 +352,11 @@ pub mod pallet {
         )]
         pub fn create(
             origin: OriginFor<T>,
-            name: Vec<u8>,
-            description: Vec<u8>,
+            name: Text,
+            description: Text,
             admin: T::AccountId,
-            website: Vec<u8>,
-            email: Vec<u8>,
+            website: Text,
+            email: Text,
             props: Option<Vec<Property>>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin.clone())?;
@@ -437,6 +443,91 @@ pub mod pallet {
             <pallet_did::Module<T>>::set_owner(&who, &org_id, &admin);
 
             Self::deposit_event(Event::OrganizationAdded(org_id, admin));
+
+            Ok(().into())
+        }
+
+        /// Update organization data.
+        ///
+        /// The dispatch origin for this call must be _Signed_.
+        ///
+        /// # <weight>
+        /// ## Weight
+        /// - `O(N)` where:
+        ///     - `N` length of properties * 100_000.
+        /// # </weight>
+        #[pallet::weight(
+            <T as crate::Config>::WeightInfo::update()
+            + (props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as Weight
+        )]
+        pub fn update(
+            origin: OriginFor<T>,
+            org_id: T::AccountId,
+            name: Option<Text>,
+            description: Option<Text>,
+            website: Option<Text>,
+            email: Option<Text>,
+            props: Option<Vec<Property>>,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin.clone())?;
+
+            if let Some(ref name) = name {
+                ensure!(
+                    name.len() >= T::MinOrgNameLength::get(),
+                    Error::<T>::NameTooShort
+                );
+                ensure!(
+                    name.len() <= T::MaxOrgNameLength::get(),
+                    Error::<T>::NameTooLong
+                );
+            }
+
+            Self::validate_props(&props)?;
+
+            let org = Self::ensure_access(&who, &org_id)?;
+            ensure!(!org.suspended, Error::<T>::Suspended);
+
+            // // W: 1 db read
+            // gak perlu ini, try_mutate sudah melakukannya
+            // ensure!(
+            //     Organizations::<T>::contains_key(&org_id),
+            //     Error::<T>::NotExists
+            // );
+
+            Organizations::<T>::try_mutate(&org_id, |ref mut org| {
+                if let Some(org) = org {
+                    let mut updated = false;
+                    if let Some(name) = name {
+                        org.name = name;
+                        updated = true;
+                    }
+                    if let Some(description) = description {
+                        org.description = description;
+                        updated = true;
+                    }
+                    if let Some(website) = website {
+                        org.website = website;
+                        updated = true;
+                    }
+                    if let Some(email) = email {
+                        org.email = email;
+                        updated = true;
+                    }
+                    if props.is_some() {
+                        org.props = props;
+                        updated = true;
+                    }
+                    if updated {
+                        Ok(())
+                    } else {
+                        Err(Error::<T>::NotChanged)
+                    }
+                } else {
+                    Err(Error::<T>::NotExists)
+                }
+            })?;
+
+            Self::deposit_event(Event::OrganizationUpdated(org_id));
 
             Ok(().into())
         }
