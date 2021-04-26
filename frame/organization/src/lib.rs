@@ -201,7 +201,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance")]
     pub enum Event<T: Config> {
-        /// Some object added inside the system.
+        /// New organization registered.
         ///
         /// 1: organization id (hash)
         /// 2: creator account id
