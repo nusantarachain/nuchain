@@ -61,6 +61,7 @@ pub fn store_test_event<T: Config>(
         readings: vec![],
         status: status.clone(),
         timestamp: pallet_timestamp::Module::<T>::now(),
+        props: None,
     };
     let event_idx = <EventCount<T>>::get()
         .unwrap_or(0)
@@ -472,13 +473,13 @@ fn register_with_long_id() {
 
 #[test]
 fn register_with_existing_id() {
-    with_account_and_org(|_sender, _org, _now| {
+    with_account_and_org(|_sender, org, _now| {
         let existing_tracking = TEST_TRACKING_ID.as_bytes().to_owned();
 
         assert_ok!(ProductTracking::register(
             Origin::signed(account_key(TEST_SENDER)),
             existing_tracking.clone(),
-            account_key(TEST_ORGANIZATION),
+            org,
             YEAR1,
             vec![],
             None,
@@ -489,7 +490,7 @@ fn register_with_existing_id() {
             ProductTracking::register(
                 Origin::signed(account_key(TEST_SENDER)),
                 existing_tracking,
-                account_key(TEST_ORGANIZATION),
+                org,
                 YEAR1,
                 vec![],
                 None,
@@ -542,9 +543,88 @@ fn update_status_with_invalid_sender() {
                 STATUS_QA_CHECK.to_vec(),
                 now,
                 None,
+                None,
                 None
             ),
             dispatch::DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
+fn update_status_with_custom_props_works() {
+    // test ini memastikan bahwa update status yang menyertakan props
+    // akan menambahkan properties di TrackingEvent (bukan di Tracking object-nya)
+    with_account_and_org(|sender, org, now| {
+        let tracking_id = TEST_TRACKING_ID.as_bytes().to_owned();
+
+        store_test_tracking::<Test>(
+            tracking_id.clone(),
+            org,
+            STATUS_PENDING.to_vec(),
+            vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
+            now,
+        );
+
+        store_test_event::<Test>(
+            tracking_id.clone(),
+            TrackingEventType::TrackingRegistration,
+            b"registered".to_vec(),
+        );
+
+        assert_ok!(ProductTracking::update_status(
+            Origin::signed(sender),
+            TEST_TRACKING_ID.as_bytes().to_owned(),
+            STATUS_QA_CHECK.to_vec(),
+            now,
+            None,
+            None,
+            Some(vec![Property::new(b"satu", b"001")])
+        ));
+
+        let event_index = ProductTracking::events_of_tracking(&tracking_id)
+            .and_then(|mut a| a.pop())
+            .expect("event index");
+
+        assert_eq!(
+            ProductTracking::event_by_idx(event_index).and_then(|ev| ev.props),
+            Some(vec![Property::new(b"satu", b"001")])
+        );
+    });
+}
+
+#[test]
+fn update_status_with_custom_props_invalid() {
+    // test ini memastikan bahwa update status yang menyertakan props
+    // tetapi invalid props-nya
+    with_account_and_org(|sender, org, now| {
+        let tracking_id = TEST_TRACKING_ID.as_bytes().to_owned();
+
+        store_test_tracking::<Test>(
+            tracking_id.clone(),
+            org,
+            STATUS_PENDING.to_vec(),
+            vec![TEST_PRODUCT_ID.as_bytes().to_owned()],
+            now,
+        );
+
+        store_test_event::<Test>(
+            tracking_id.clone(),
+            TrackingEventType::TrackingRegistration,
+            b"registered".to_vec(),
+        );
+
+        assert_noop!(
+            ProductTracking::update_status(
+                Origin::signed(sender),
+                TEST_TRACKING_ID.as_bytes().to_owned(),
+                STATUS_QA_CHECK.to_vec(),
+                now,
+                None,
+                None,
+                Some(vec![Property::new(b"", b"001")])
+            ),
+            Error::<Test>::InvalidPropName
         );
     });
 }
@@ -560,6 +640,7 @@ fn update_status_with_missing_tracking_id() {
                 vec![],
                 STATUS_QA_CHECK.to_vec(),
                 now,
+                None,
                 None,
                 None
             ),
@@ -580,6 +661,7 @@ fn update_status_with_long_tracking_id() {
                 STATUS_QA_CHECK.to_vec(),
                 now,
                 None,
+                None,
                 None
             ),
             Error::<Test>::InvalidOrMissingIdentifier,
@@ -599,6 +681,7 @@ fn update_status_with_unknown_tracking() {
                 unknown_tracking,
                 STATUS_QA_CHECK.to_vec(),
                 now,
+                None,
                 None,
                 None
             ),
@@ -638,6 +721,7 @@ fn update_status_pickup() {
             STATUS_QA_CHECK.to_vec(),
             now,
             None,
+            None,
             None
         ));
 
@@ -652,6 +736,7 @@ fn update_status_pickup() {
                 readings: vec![],
                 status: STATUS_QA_CHECK.to_vec(),
                 timestamp: now,
+                props: None
             })
         );
         assert_eq!(
@@ -716,6 +801,7 @@ fn update_status_delivery() {
             STATUS_DELIVER.to_vec(),
             now,
             None,
+            None,
             None
         ));
 
@@ -730,6 +816,7 @@ fn update_status_delivery() {
                 readings: vec![],
                 status: STATUS_DELIVER.to_vec(),
                 timestamp: now,
+                props: None
             })
         );
         assert_eq!(
@@ -792,14 +879,14 @@ fn monitor_tracking_with_negative_latlon() {
         // Define location & readings for sensor reading
         let location = ReadPoint {
             // Rio de Janeiro, Brazil
-            latitude: I16F16::from_num(-22.9466369),
-            longitude: I16F16::from_num(-43.233472),
+            latitude: b"-22.9466369".to_vec(),
+            longitude: b"-43.233472".to_vec(),
         };
 
         let readings = vec![Reading {
             device_id: "14d453ea4bdf46bc8042".as_bytes().to_owned(),
             reading_type: ReadingType::Temperature,
-            value: I16F16::from_num(20.123),
+            value: b"20.123".to_vec(),
             timestamp: now,
         }];
 
@@ -810,7 +897,8 @@ fn monitor_tracking_with_negative_latlon() {
             STATUS_QA_CHECK.to_vec(),
             now,
             Some(location.clone()),
-            Some(readings.clone())
+            Some(readings.clone()),
+            None
         ));
 
         // Storage is correctly updated
@@ -824,6 +912,7 @@ fn monitor_tracking_with_negative_latlon() {
                 readings: readings,
                 status: STATUS_QA_CHECK.to_vec(),
                 timestamp: now,
+                props: None
             })
         );
         assert_eq!(
@@ -876,6 +965,7 @@ fn non_org_owner_cannot_update_status() {
                 STATUS_QA_CHECK.to_vec(),
                 now,
                 None,
+                None,
                 None
             ),
             Error::<Test>::PermissionDenied
@@ -910,6 +1000,7 @@ fn hacker_cannot_update_status() {
                 id.clone(),
                 STATUS_DELIVER.to_vec(),
                 now,
+                None,
                 None,
                 None
             ),
@@ -955,6 +1046,7 @@ fn delegated_account_can_update_status() {
             id.clone(),
             STATUS_DELIVER.to_vec(),
             now,
+            None,
             None,
             None
         ));

@@ -52,44 +52,8 @@ pub struct TrackingEvent<Moment> {
     pub readings: Vec<Reading<Moment>>,
     pub status: TrackingStatus,
     pub timestamp: Moment,
+    pub props: Option<Vec<Property>>,
 }
-
-// impl<Moment> fmt::Display for TrackingEvent<Moment>
-// where
-//     Moment: fmt::Debug,
-// {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         // write!(f, "{:?}", self)
-
-//         fn to_str(d: &Vec<u8>) -> str {
-//             str::from_utf8(d).ok_or_else(|| "")
-//         }
-
-//         write!(f, r#"""
-//         {{
-//             "event_type": "{:?}",
-//             "tracking_id": "{}",
-//             "status": "{}",
-//             "location": "{}",
-//         }}
-//         """#, self.event_type, 
-//             to_str(&self.tracking_id),
-//             self.status,
-//             self.location)
-//     }
-// }
-
-
-// impl<Moment> TrackingEvent<Moment> {
-//     pub fn to_json(&self) -> Vec<u8> {
-//         // let mut d = HashMap::new();
-//         // d.insert("event_type", self.event_type.clone());
-
-//         // serde_json_wasm::to_vec(&d).unwrap_or_else(|_| b"{}".to_vec())
-        
-//        vec![]
-//     }
-// }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct ReadPoint {

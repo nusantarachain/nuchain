@@ -248,12 +248,15 @@ pub mod pallet {
             #[pallet::compact] timestamp: T::Moment,
             location: Option<ReadPoint>,
             readings: Option<Vec<Reading<T::Moment>>>,
+            props: Option<Vec<Property>>,
         ) -> DispatchResultWithPostInfo {
             // T::CreateRoleOrigin::ensure_origin(origin.clone())?;
             let who = ensure_signed(origin)?;
 
             // Validate format of tracking ID
             Self::validate_identifier(&id)?;
+
+            Self::validate_props(&props)?;
 
             let mut track = <Tracking<T>>::get(&id).ok_or(Error::<T>::TrackingIsUnknown)?;
 
@@ -281,6 +284,7 @@ pub mod pallet {
                 .with_readings(readings.unwrap_or_default())
                 .at_time(timestamp)
                 .with_status(status.clone())
+                .with_props(props)
                 .build();
 
             // Storage writes

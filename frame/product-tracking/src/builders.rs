@@ -83,6 +83,7 @@ where
     readings: Vec<Reading<Moment>>,
     status: TrackingStatus,
     timestamp: Moment,
+    props: Option<Vec<Property>>,
 }
 
 impl<Moment> Default for TrackingEventBuilder<Moment>
@@ -97,6 +98,7 @@ where
             readings: Vec::<Reading<Moment>>::default(),
             status: b"registered".to_vec(),
             timestamp: Moment::default(),
+            props: Default::default(),
         }
     }
 }
@@ -135,6 +137,11 @@ where
         self
     }
 
+    pub fn with_props(mut self, props: Option<Vec<Property>>) -> Self {
+        self.props = props;
+        self
+    }
+
     pub fn build(self) -> TrackingEvent<Moment> {
         TrackingEvent::<Moment> {
             event_type: self.event_type,
@@ -143,6 +150,7 @@ where
             readings: self.readings,
             status: self.status,
             timestamp: self.timestamp,
+            props: self.props,
         }
     }
 }
