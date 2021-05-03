@@ -1,0 +1,9 @@
+FROM debian:stretch-slim
+
+WORKDIR /src
+
+RUN apt-get update && apt-get install git -y && apt install -y cmake pkg-config libssl-dev git build-essential clang libclang-dev curl libz-dev
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --default-toolchain nightly
+RUN . ~/.cargo/env && rustup target add wasm32-unknown-unknown --toolchain nightly && cargo install cargo-deb
+
+CMD bash

@@ -5,7 +5,7 @@ GIT_REV=$(shell git rev-parse --short HEAD)
 OS:=$(shell uname | sed -e 's/\(.*\)/\L\1/')
 BIN_NAME=nuchain-$(NODE_VERSION)-$(GIT_REV)-$(OS)
 WASM_RUNTIME_OUT=nuchain-runtime-$(GIT_REV).compact.wasm
-DISTRO=$(shell lsb_release -id | head -1 | cut -f2)-$(shell lsb_release -r | head -1 | cut -f2)-$(shell lsb_release -c | head -1 | cut -f2)
+DISTRO=$(cat /etc/os-release | grep '^VERSION_ID=' | cut -d '"' -f 2)
 
 check:
 	cargo check --release
