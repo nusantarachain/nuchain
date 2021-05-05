@@ -54,8 +54,8 @@ mod tests;
 // General constraints to limit data size
 // Note: these could also be passed as trait config parameters
 pub const PRODUCT_ID_MAX_LENGTH: usize = 36;
-pub const PRODUCT_PROP_NAME_MAX_LENGTH: usize = 10;
-pub const PRODUCT_PROP_VALUE_MAX_LENGTH: usize = 36;
+pub const PRODUCT_PROP_NAME_MAX_LENGTH: usize = 30;
+pub const PRODUCT_PROP_VALUE_MAX_LENGTH: usize = 60;
 pub const PRODUCT_MAX_PROPS: usize = 5;
 
 // Custom types
@@ -125,6 +125,11 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Some product are registered in blockchain.
+        ///
+        /// params:
+        /// 1: account who register the product
+        /// 2: product id
+        /// 3: organization id where product belong
         ProductRegistered(T::AccountId, ProductId, T::AccountId),
     }
 

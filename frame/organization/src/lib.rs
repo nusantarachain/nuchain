@@ -68,8 +68,8 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
-pub const MAX_PROPS: usize = 5;
-pub const PROP_NAME_MAX_LENGTH: usize = 10;
+pub const MAX_PROPS: usize = 10;
+pub const PROP_NAME_MAX_LENGTH: usize = 30;
 pub const PROP_VALUE_MAX_LENGTH: usize = 60;
 
 #[frame_support::pallet]
@@ -210,8 +210,8 @@ pub mod pallet {
         /// 2: creator account id
         OrganizationAdded(T::AccountId, T::AccountId),
 
-        /// When object deleted
-        OrganizationDeleted(T::AccountId),
+        // /// When object deleted
+        // OrganizationDeleted(T::AccountId),
 
         /// Organization data has been updated
         OrganizationUpdated(T::AccountId),

@@ -53,8 +53,8 @@ pub const SHIPMENT_MAX_PRODUCTS: usize = 10;
 // pub const LISTENER_ENDPOINT: &str = "http://localhost:3005/nuchain_webhook";
 pub const LOCK_TIMEOUT_EXPIRATION: u64 = 3000; // in milli-seconds
 pub const MAX_PROPS: usize = 5;
-pub const PROP_NAME_MAX_LENGTH: usize = 10;
-pub const PROP_VALUE_MAX_LENGTH: usize = 36;
+pub const PROP_NAME_MAX_LENGTH: usize = 30;
+pub const PROP_VALUE_MAX_LENGTH: usize = 60;
 
 pub type Year = u32;
 
