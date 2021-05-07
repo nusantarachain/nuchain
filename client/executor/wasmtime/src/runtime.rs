@@ -181,7 +181,8 @@ pub fn create_runtime(
 		}
 	}
 
-	let engine = Engine::new(&config);
+	let engine = Engine::new(&config)
+		.map_err(|e| WasmError::Other(format!("cannot initialize engine: {}", e)))?;
 	let module_wrapper = ModuleWrapper::new(&engine, code)
 		.map_err(|e| WasmError::Other(format!("cannot create module: {}", e)))?;
 
