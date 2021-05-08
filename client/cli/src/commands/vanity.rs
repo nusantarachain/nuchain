@@ -50,6 +50,10 @@ pub struct VanityCmd {
 	#[allow(missing_docs)]
 	#[structopt(flatten)]
 	crypto_scheme: CryptoSchemeFlag,
+
+	/// Treat pattern as Regex.
+	#[structopt(long)]
+	as_regex: bool,
 }
 
 impl VanityCmd {
@@ -57,7 +61,7 @@ impl VanityCmd {
 	pub fn run(&self) -> error::Result<()> {
 		let formated_seed = with_crypto_scheme!(
 			self.crypto_scheme.scheme,
-			generate_key(&self.pattern, self.network_scheme.network.clone().unwrap_or_default()),
+			generate_key(&self.pattern, self.network_scheme.network.clone().unwrap_or_default(), self.as_regex),
 		)?;
 
 		with_crypto_scheme!(
@@ -77,6 +81,7 @@ impl VanityCmd {
 fn generate_key<Pair>(
 	desired: &str,
 	network_override: Ss58AddressFormat,
+	as_regex: bool
 ) -> Result<String, &'static str>
 	where
 		Pair: sp_core::Pair,
@@ -89,6 +94,12 @@ fn generate_key<Pair>(
 	let mut best = 0;
 	let mut seed = Pair::Seed::default();
 	let mut done = 0;
+
+	let re = if as_regex {
+		Regex::new(&desired).ok()
+	}else{
+		None
+	};
 
 	loop {
 		if done % 100000 == 0 {
@@ -104,6 +115,11 @@ fn generate_key<Pair>(
 			best = score;
 			if best >= top {
 				println!("best: {} == top: {}", best, top);
+				return Ok(utils::format_seed::<Pair>(seed.clone()));
+			}
+		}
+		if let Some(ref re) = re {
+			if re.is_match(&ss58) {
 				return Ok(utils::format_seed::<Pair>(seed.clone()));
 			}
 		}
@@ -137,6 +153,8 @@ fn next_seed(seed: &mut [u8]) {
 		}
 	}
 }
+
+use regex::Regex;
 
 /// Calculate the score of a key based on the desired
 /// input.
