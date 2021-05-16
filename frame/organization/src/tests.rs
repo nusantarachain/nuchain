@@ -329,6 +329,11 @@ fn create_organization_with_too_many_props() {
             Property::new(b"empat", b"4"),
             Property::new(b"lima", b"5"),
             Property::new(b"enam", b"6"),
+            Property::new(b"enam", b"6"),
+            Property::new(b"enam", b"6"),
+            Property::new(b"enam", b"6"),
+            Property::new(b"enam", b"6"),
+            Property::new(b"enam", b"6"),
         ];
         assert_noop!(
             Organization::create(
@@ -346,7 +351,7 @@ fn create_organization_with_too_many_props() {
 }
 
 #[test]
-fn create_organization_with_invalid_pop_name() {
+fn create_organization_with_invalid_prop_name() {
     new_test_ext().execute_with(|| {
         let props = vec![Property::new(b"", b"1")];
         assert_noop!(
@@ -361,7 +366,7 @@ fn create_organization_with_invalid_pop_name() {
             ),
             Error::<Test>::InvalidPropName
         );
-        let props = vec![Property::new(b"123456789012", b"1")];
+        let props = vec![Property::new(b"123456789012123456789012123456789012", b"1")];
         assert_noop!(
             Organization::create(
                 Origin::signed(*ALICE),
