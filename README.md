@@ -188,7 +188,7 @@ Tertarik dengan proyek ini? Anda bisa ikut kontribusi dengan beberapa cara:
 
 ## Dokumentasi
 
-Untuk dokumentasi lebih lengkap baca [Nuchain Wiki](https://github.com/nusantarachain/nuchain/wiki).
+Untuk dokumentasi lebih lengkapnya kunjungi [https://nuchain.network](https://nuchain.network/).
 
 ## Komunitas
 
