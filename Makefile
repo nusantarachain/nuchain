@@ -21,6 +21,10 @@ build-wasm-runtime:
 	@@echo Building WASM runtime...
 	@@cargo build --release -p nuchain-runtime
 
+build-benchmark:
+	@@echo Building binary for benchmark...
+	cargo build -p nuchain-node --release --features="runtime-benchmarks"
+
 deb:
 	@@echo Packaging for $(DISTRO)
 	@@cargo deb -p nuchain-node
@@ -44,6 +48,7 @@ package:
 	test \
 	build \
 	build-wasm-runtime \
+	build-benchmark \
 	package \
 	deb
 
