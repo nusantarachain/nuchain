@@ -7,6 +7,7 @@ use frame_support::{
 };
 use frame_system::EnsureSignedBy;
 use sp_core::{sr25519, H256};
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -130,6 +131,7 @@ impl Time for Test {
     }
 }
 
+type AccountId = <Test as frame_system::Config>::AccountId;
 type CertEvent = pallet_certificate::Event<Test>;
 
 fn last_event() -> CertEvent {
@@ -229,6 +231,16 @@ impl CertDetail<<Test as frame_system::Config>::AccountId> {
         self.signer_name = Some(signer_name);
         self
     }
+
+    fn set_name(mut self, name: Text) -> Self {
+        self.name = name;
+        self
+    }
+
+    fn set_description(mut self, description: Text) -> Self {
+        self.description = description;
+        self
+    }
 }
 
 fn with_org_cert_issued<F>(func: F)
@@ -315,6 +327,35 @@ fn create_cert_works() {
             }
             _ => assert!(false, "no event"),
         }
+    });
+}
+
+fn create_cert(origin: Sr25519Keyring, org_id: AccountId, name: &str) -> CertId {
+    assert_ok!(Certificate::create(
+        Origin::signed(origin.into()),
+        CertDetail::new(org_id).set_name(name.as_bytes().to_vec())
+    ));
+    match last_event() {
+        CertEvent::CertAdded(index, cert_id, org_id) => cert_id,
+        _ => panic!("cannot get cert id"),
+    }
+}
+
+#[test]
+fn list_certs_by_organization() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+        create_org!(b"ORG1", Bob.into());
+        let org_id = last_org_id();
+        let cert1_id = create_cert(Bob, org_id, "cert1");
+        let cert2_id = create_cert(Bob, org_id, "cert2");
+        let vs = Certificate::certificate_of_org(&org_id).unwrap();
+        assert_eq!(vs, vec![cert1_id, cert2_id]);
+        create_org!(b"ORG2", Charlie.into());
+        let org_id = last_org_id();
+        let cert3_id = create_cert(Charlie, org_id, "cert1");
+        let vs = Certificate::certificate_of_org(&org_id).unwrap();
+        assert_eq!(vs, vec![cert3_id]);
     });
 }
 

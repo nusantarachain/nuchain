@@ -28,6 +28,7 @@ use frame_support::assert_ok;
 use frame_system::{EventRecord, RawOrigin};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::Bounded;
+use sp_std::vec;
 
 use crate::Module as Certificate;
 use pallet_organization::Module as Organization;
