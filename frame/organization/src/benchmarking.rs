@@ -22,6 +22,7 @@ use super::*;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_system::{EventRecord, RawOrigin};
 use sp_runtime::traits::Bounded;
+use sp_std::vec;
 
 use crate::{Module as Organization, OrgIdIndex, OrganizationIndexOf, Organizations};
 

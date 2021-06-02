@@ -18,7 +18,7 @@
 
 //! # Pallet Certificate
 //!
-//! - [`nicks::Config`](./trait.Config.html)
+//! - [`certificate::Config`](./trait.Config.html)
 //! - [`Call`](./enum.Call.html)
 //!
 //! ## Overview
@@ -29,8 +29,9 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! * `create` -
-//! * `issue` -
+//! * `create` - Create certificate.
+//! * `issue` - Issue certificate.
+//! * `revoke` - Revoke certificate.
 //!
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -44,7 +45,6 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 pub use pallet::*;
-// use sp_core::H256;
 use sp_runtime::traits::Hash;
 use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, prelude::*, vec};
@@ -211,7 +211,17 @@ pub mod pallet {
         T::AccountId, // organization id
         Blake2_128Concat,
         T::AccountId,  // acc handler id
-        Vec<IssuedId>, // proof
+        Vec<IssuedId>, // proof: id of issued certs
+    >;
+
+    /// Collection of certificates inside organization
+    #[pallet::storage]
+    #[pallet::getter(fn certificate_of_org)]
+    pub type CertificateOfOrg<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        T::AccountId, // organization id
+        Vec<CertId>,
     >;
 
     #[pallet::storage]
@@ -262,6 +272,13 @@ pub mod pallet {
 
             Self::deposit_event(Event::CertAdded(index, cert_id, detail.org_id.clone()));
 
+            CertificateOfOrg::<T>::mutate(&detail.org_id, |vs| {
+                if let Some(vs) = vs.as_mut() {
+                    vs.push(cert_id);
+                } else {
+                    *vs = Some(vec![cert_id]);
+                }
+            });
             Certificates::<T>::insert(cert_id, detail);
 
             Ok(().into())

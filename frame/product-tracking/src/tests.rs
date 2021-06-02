@@ -209,7 +209,7 @@ fn test_register_with_invalid_props() {
                 YEAR1,
                 vec![],
                 None,
-                Some(vec![Property::new(b"1234567891123456789", b"12345")]),
+                Some(vec![Property::new(b"0123456789012345678901234567891", b"12345")]),
             ),
             Error::<Test>::InvalidPropName
         );
@@ -237,7 +237,7 @@ fn test_register_with_invalid_props() {
                 None,
                 Some(vec![Property::new(
                     b"12345",
-                    b"123456789012345678901123456789012345678901"
+                    b"0123456789012345678901234567890123456789012345678901234567891"
                 )]),
             ),
             Error::<Test>::InvalidPropValue
