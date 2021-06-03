@@ -382,7 +382,7 @@ fn full_native_block_import_works() {
 		);
 		assert_eq!(
 			Balances::total_balance(&bob()),
-			179 * DOLLARS - fees,
+			(179 * DOLLARS - fees) + 10_000_000,
 		);
 		let events = vec![
 			EventRecord {
@@ -483,7 +483,7 @@ fn full_wasm_block_import_works() {
 		);
 		assert_eq!(
 			Balances::total_balance(&bob()),
-			179 * DOLLARS - 1 * fees,
+			(179 * DOLLARS - 1 * fees) + 10_000_000,
 		);
 	});
 }

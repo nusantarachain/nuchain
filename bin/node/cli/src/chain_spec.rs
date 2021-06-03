@@ -613,7 +613,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_staging_test_net_chain_spec() {
-        staging_staging_config().build_storage().unwrap();
+        staging_config().build_storage().unwrap();
     }
 
     #[test]

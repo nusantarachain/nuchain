@@ -96,6 +96,12 @@ pub trait ChainApi: Send + Sync {
 
 	/// Returns a block body given the block id.
 	fn block_body(&self, at: &BlockId<Self::Block>) -> Self::BodyFuture;
+
+	/// Returns a block header given the block id.
+	fn block_header(
+		&self,
+		at: &BlockId<Self::Block>,
+	) -> Result<Option<<Self::Block as BlockT>::Header>, Self::Error>;
 }
 
 /// Pool configuration options.
@@ -238,7 +244,7 @@ impl<B: ChainApi> Pool<B> {
 	) -> Result<(), B::Error> {
 		// Get details of all extrinsics that are already in the pool
 		let in_pool_tags = self.validated_pool.extrinsics_tags(hashes)
-			.into_iter().filter_map(|x| x).flat_map(|x| x);
+			.into_iter().filter_map(|x| x).flatten();
 
 		// Prune all transactions that provide given tags
 		let prune_status = self.validated_pool.prune_tags(in_pool_tags)?;
@@ -582,6 +588,13 @@ mod tests {
 
 		fn block_body(&self, _id: &BlockId<Self::Block>) -> Self::BodyFuture {
 			futures::future::ready(Ok(None))
+		}
+
+		fn block_header(
+			&self,
+			_: &BlockId<Self::Block>,
+		) -> Result<Option<<Self::Block as BlockT>::Header>, Self::Error> {
+			Ok(None)
 		}
 	}
 
