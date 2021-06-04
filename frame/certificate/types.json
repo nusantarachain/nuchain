@@ -12,6 +12,9 @@
         "human_name": "Vec<u8>",
         "time": "Moment",
         "expired": "Moment",
-        "revoked": "bool"
+        "revoked": "bool",
+        "block": "BlockNumber",
+        "signer_name": "Text",
+        "props": "Option<Vec<Property>>"
     }
 }
