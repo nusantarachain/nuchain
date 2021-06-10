@@ -237,6 +237,7 @@ impl CertDetail<<Test as frame_system::Config>::AccountId> {
         self
     }
 
+    #[allow(dead_code)]
     fn set_description(mut self, description: Text) -> Self {
         self.description = description;
         self
@@ -262,14 +263,9 @@ where
         let cert_id = get_last_created_cert_id().expect("cert_id of new created cert");
         println!("cert_id: {:#?}", cert_id.to_base58());
         assert_eq!(Certificate::get(&cert_id).map(|a| a.org_id), Some(org_id));
-        assert_eq!(
-            Certificate::get(&cert_id).map(|a| a.description),
-            Some(b"CERT1 desc".to_vec())
-        );
-        assert_eq!(
-            Certificate::get(&cert_id).and_then(|a| a.signer_name),
-            Some(b"Grohl".to_vec())
-        );
+        let cert = Certificate::get(&cert_id).unwrap();
+        assert_eq!(cert.description, b"CERT1 desc".to_vec());
+        assert_eq!(cert.signer_name, Some(b"Grohl".to_vec()));
 
         System::set_block_number(2);
 
@@ -290,6 +286,8 @@ where
         assert_eq!(issued_cert.cert_id, cert_id);
         assert_eq!(issued_cert.human_id, *ORG_CERT_REF);
         assert_eq!(issued_cert.recipient, b"Dave Grohl".to_vec());
+        assert_eq!(issued_cert.block, 2);
+        assert_eq!(issued_cert.signer_name, cert.signer_name);
         assert_eq!(issued_cert.props, Some(vec![Property::new(b"satu", b"1")]));
 
         func(org_id, cert_id, issued_id);
@@ -312,21 +310,31 @@ fn create_cert_works() {
                 assert_eq!(cert_id.len(), 32);
                 assert_eq!(org_id, last_org_id);
 
-                assert_eq!(
-                    Certificate::get(&cert_id).map(|cert| cert.name),
-                    Some(b"CERT1".to_vec())
-                );
-                assert_eq!(
-                    Certificate::get(&cert_id).map(|cert| cert.description),
-                    Some(b"CERT1 desc".to_vec())
-                );
-                assert_eq!(
-                    Certificate::get(&cert_id).and_then(|cert| cert.signer_name),
-                    None
-                );
+                let cert = Certificate::get(&cert_id).unwrap();
+
+                assert_eq!(cert.name, b"CERT1".to_vec());
+                assert_eq!(cert.description, b"CERT1 desc".to_vec());
+                assert_eq!(cert.signer_name, None);
             }
             _ => assert!(false, "no event"),
         }
+    });
+}
+
+#[test]
+fn update_cert_works() {
+    with_org_cert_issued(|_org_id, cert_id, _issued_id| {
+        let cert = Certificate::get(&cert_id).unwrap();
+        assert_eq!(cert.signer_name, Some(b"Grohl".to_vec()));
+
+        let new_signer_name = b"Kurt Cobain".to_vec();
+        assert_ok!(Certificate::update(
+            Origin::signed(Bob.into()),
+            cert_id,
+            new_signer_name.clone()
+        ));
+        let cert = Certificate::get(&cert_id).unwrap();
+        assert_eq!(cert.signer_name, Some(new_signer_name));
     });
 }
 
@@ -336,7 +344,7 @@ fn create_cert(origin: Sr25519Keyring, org_id: AccountId, name: &str) -> CertId 
         CertDetail::new(org_id).set_name(name.as_bytes().to_vec())
     ));
     match last_event() {
-        CertEvent::CertAdded(index, cert_id, org_id) => cert_id,
+        CertEvent::CertAdded(_index, cert_id, _org_id) => cert_id,
         _ => panic!("cannot get cert id"),
     }
 }

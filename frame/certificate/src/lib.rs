@@ -19,7 +19,6 @@
 //! # Pallet Certificate
 //!
 //! - [`certificate::Config`](./trait.Config.html)
-//! - [`Call`](./enum.Call.html)
 //!
 //! ## Overview
 //!
@@ -30,6 +29,7 @@
 //! ### Dispatchable Functions
 //!
 //! * `create` - Create certificate.
+//! * `update` - Update certificate.
 //! * `issue` - Issue certificate.
 //! * `revoke` - Revoke certificate.
 //!
@@ -152,11 +152,19 @@ pub mod pallet {
     )]
     pub enum Event<T: Config> {
         /// Some certificate added.
+        ///
+        /// params:
+        ///     1 - index
+        ///     2 - certificate id
+        ///     3 - organization who created the certificate.
         CertAdded(u64, CertId, T::AccountId),
+
+        /// Certificate updated.
+        CertUpdated(CertId),
 
         /// Some cert was issued
         ///
-        /// param:
+        /// params:
         ///     1 - Hash of issued certificate.
         ///     2 - Organization ID.
         ///     3 - Recipient of certificate.
@@ -188,6 +196,12 @@ pub mod pallet {
 
         /// Flag whether this given certificate is revoked
         pub revoked: bool,
+
+        /// Created at block
+        pub block: T::BlockNumber,
+
+        /// Signer person name
+        pub signer_name: Option<Vec<u8>>,
 
         /// Additional data to embed
         pub props: Option<Vec<Property>>,
@@ -234,9 +248,10 @@ pub mod pallet {
     where
         T::AccountId: AsRef<[u8]>,
     {
-        /// Create new certificate
+        /// Create new certificate.
         ///
-        /// The dispatch origin for this call must be _Signed_.
+        /// The dispatch origin for this call must be _Signed_
+        /// and has access to the organization.
         ///
         /// # <weight>
         /// # </weight>
@@ -284,6 +299,37 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// Update certificate.
+        ///
+        /// Currently only support update for the signer name.
+        ///
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::create())]
+        pub(super) fn update(
+            origin: OriginFor<T>,
+            cert_id: CertId,
+            signer_name: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
+            let sender = ensure_signed(origin)?;
+
+            ensure!(signer_name.len() > 1, Error::<T>::TooShort);
+            ensure!(signer_name.len() <= 100, Error::<T>::TooLong);
+
+            let cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
+
+            // ensure access
+            let org = <pallet_organization::Module<T>>::organization(&cert.org_id)
+                .ok_or(Error::<T>::OrganizationNotExists)?;
+            Self::ensure_org_access2(&sender, &org)?;
+
+            Certificates::<T>::mutate(&cert_id, |rec| {
+                if let Some(rec) = rec.as_mut() {
+                    rec.signer_name = Some(signer_name);
+                }
+            });
+
+            Ok(().into())
+        }
+
         /// Issue certificate.
         ///
         /// After organization create certificate; admin should be able to
@@ -307,7 +353,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
 
-            let _cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
+            let cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
 
             // if let Some(ref props) = props {
             //     ensure!(props.len() < 100, Error::<T>::TooLong);
@@ -350,6 +396,9 @@ pub mod pallet {
                 Error::<T>::AlreadyExists
             );
 
+            let block = <frame_system::Module<T>>::block_number();
+            let signer_name = cert.signer_name.clone();
+
             let proof = CertProof {
                 cert_id,
                 human_id,
@@ -357,6 +406,8 @@ pub mod pallet {
                 time: <T as pallet::Config>::Time::now(),
                 expired: expired,
                 revoked: false,
+                block,
+                signer_name,
                 props,
             };
 
