@@ -91,7 +91,7 @@ where
 		B: backend::Backend<Block>,
 	{
 		let spec = self.runtime_version(id)?.spec_version;
-		let code = self.wasm_override
+		let code = if let Some(d) = self.wasm_override
 			.as_ref()
 			.map(|o| o.get(&spec, onchain_code.heap_pages))
 			.flatten() {
