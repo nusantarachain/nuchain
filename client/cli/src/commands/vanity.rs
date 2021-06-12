@@ -196,7 +196,7 @@ mod tests {
 
 	#[test]
 	fn test_generation_with_single_char() {
-		let seed = generate_key::<sr25519::Pair>("ab", Default::default()).unwrap();
+		let seed = generate_key::<sr25519::Pair>("ab", Default::default(), false).unwrap();
 		assert!(
 			sr25519::Pair::from_seed_slice(&hex::decode(&seed[2..]).unwrap())
 				.unwrap()
@@ -208,7 +208,7 @@ mod tests {
 
 	#[test]
 	fn generate_key_respects_network_override() {
-		let seed = generate_key::<sr25519::Pair>("ab", Ss58AddressFormat::PolkadotAccount).unwrap();
+		let seed = generate_key::<sr25519::Pair>("ab", Ss58AddressFormat::PolkadotAccount, false).unwrap();
 		assert!(
 			sr25519::Pair::from_seed_slice(&hex::decode(&seed[2..]).unwrap())
 				.unwrap()

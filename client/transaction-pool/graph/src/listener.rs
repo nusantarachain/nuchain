@@ -97,12 +97,8 @@ impl<H: hash::Hash + traits::Member + Serialize, C: ChainApi> Listener<H, C> {
 	}
 
 	/// Transaction was removed as invalid.
-	pub fn invalid(&mut self, tx: &H, warn: bool) {
-		if warn {
-			warn!(target: "txpool", "[{:?}] Extrinsic invalid", tx);
-		} else {
-			debug!(target: "txpool", "[{:?}] Extrinsic invalid", tx);
-		}
+	pub fn invalid(&mut self, tx: &H) {
+		debug!(target: "txpool", "[{:?}] Extrinsic invalid", tx);
 		self.fire(tx, |watcher| watcher.invalid());
 	}
 
