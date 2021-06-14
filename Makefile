@@ -20,6 +20,7 @@ build:
 build-wasm-runtime:
 	@@echo Building WASM runtime...
 	@@cargo build --release -p nuchain-runtime
+	du -h target/release/wbuild/nuchain-runtime/nuchain_runtime.compact.wasm
 
 deb:
 	@@echo Packaging for $(DISTRO)
