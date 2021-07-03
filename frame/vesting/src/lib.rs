@@ -57,10 +57,10 @@ use sp_runtime::{DispatchResult, RuntimeDebug, traits::{
 	StaticLookup, Zero, AtLeast32BitUnsigned, MaybeSerializeDeserialize, Convert
 }};
 use frame_support::{decl_module, decl_event, decl_storage, decl_error, ensure};
-use frame_support::traits::{
+use frame_support::{traits::{
 	Currency, LockableCurrency, VestingSchedule, WithdrawReasons, LockIdentifier,
 	ExistenceRequirement, Get,
-};
+}, weights::Weight};
 use frame_system::{ensure_signed, ensure_root};
 pub use weights::WeightInfo;
 
@@ -240,7 +240,7 @@ decl_module! {
 		/// - `amount`: The amount of funds to transfer and will be vested.
 		/// - `schedule`: The vesting schedule attached to the transfer.
 		///
-		/// Emits `VestingCreated`.
+		/// Emits `VestingUpdated`.
 		///
 		/// # <weight>
 		/// - `O(1)`.
@@ -277,7 +277,7 @@ decl_module! {
 		/// - `amount`: The amount of funds to transfer and will be vested.
 		/// - `schedule`: The vesting schedule attached to the transfer.
 		///
-		/// Emits `VestingCreated`.
+		/// Emits `VestingUpdated`.
 		///
 		/// # <weight>
 		/// - `O(1)`.
@@ -304,6 +304,32 @@ decl_module! {
 			Self::add_vesting_schedule(&target, schedule.locked, schedule.per_block, schedule.starting_block)
 				.expect("user does not have an existing vesting schedule; q.e.d.");
 
+			Ok(())
+		}
+
+		/// Clear locked vesting funds.
+		/// 
+		/// The dispatch origin for this call must be _Root_.
+		/// 
+		/// - `target`: The account to clear.
+		/// 
+		/// Emits `VestingCompleted`
+		/// 
+		/// # <weight>
+		/// - `O(1)`.
+		/// - DbWeight: 3 Reads, 2 Writes
+		/// # </weight>
+		/// 
+		#[weight = T::DbWeight::get().reads(3 as Weight) + T::DbWeight::get().writes(2 as Weight)]
+		pub fn clear(origin, target: <T::Lookup as StaticLookup>::Source) -> DispatchResult {
+			ensure_root(origin)?;
+			let target = T::Lookup::lookup(target)?;
+			ensure!(Vesting::<T>::contains_key(&target), Error::<T>::NotVesting);
+			
+			T::Currency::remove_lock(VESTING_ID, &target);
+			Vesting::<T>::remove(&target);
+			
+			Self::deposit_event(RawEvent::VestingCompleted(target));
 			Ok(())
 		}
 	}
