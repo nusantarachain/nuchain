@@ -17,15 +17,15 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::alloc::string::ToString;
-use core::convert::TryInto;
+// use codec::alloc::string::ToString;
+// use core::convert::TryInto;
 use frame_support::{
-    debug, ensure,
-    sp_runtime::offchain::{
-        self as rt_offchain,
-        storage::StorageValueRef,
-        storage_lock::{StorageLock, Time},
-    },
+    ensure,
+    // sp_runtime::offchain::{
+    //     self as rt_offchain,
+    //     storage::StorageValueRef,
+    //     storage_lock::{StorageLock, Time},
+    // },
     sp_std::prelude::*,
     types::Property,
 };
@@ -222,7 +222,7 @@ pub mod pallet {
             <Tracking<T>>::insert(&id, tracking);
             <TrackingOfOrganization<T>>::append(&org_id, year, &id);
             // Store tracking event (1 DB read, 3 DB writes)
-            let event_idx = Self::store_event(event)?;
+            let _event_idx = Self::store_event(event)?;
             // Update offchain notifications (1 DB write)
             // <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
 
