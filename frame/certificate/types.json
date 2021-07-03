@@ -5,7 +5,7 @@
         "name": "Vec<u8>",
         "description": "Vec<u8>",
         "org_id": "AccountId",
-        "signer_name": "Vec<u8>"
+        "signer_name": "Option<Vec<u8>>"
     },
     "CertProof": {
         "cert_id": "CertId",
