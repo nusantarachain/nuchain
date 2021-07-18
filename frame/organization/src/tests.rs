@@ -21,7 +21,7 @@ use crate as pallet_organization;
 
 use frame_support::{
     assert_err_ignore_postinfo, assert_noop, assert_ok, ord_parameter_types, parameter_types,
-    traits::AllowAll
+    traits::AllowAll,
 };
 use frame_system::EnsureSignedBy;
 use sp_core::{sr25519, H256};
@@ -136,6 +136,7 @@ ord_parameter_types! {
 }
 impl Config for Test {
     type Event = Event;
+    type Time = Timestamp;
     type CreationFee = CreationFee;
     type Currency = Balances;
     type Payment = ();
@@ -270,6 +271,27 @@ fn org_id_incremented_correctly() {
         assert!(Pallet::<Test>::organization(org_id2)
             .map(|a| &a.name == b"ORG4")
             .unwrap_or(false));
+    });
+}
+
+#[test]
+fn create_org_timestamp_and_block_set() {
+    new_test_ext().execute_with(|| {
+        let now = Timestamp::now();
+        System::set_block_number(5);
+        assert_ok!(Organization::create(
+            Origin::signed(*ALICE),
+            b"ORG1".to_vec(),
+            b"ORG1 DESCRIPTION".to_vec(),
+            *BOB,
+            b"".to_vec(),
+            b"".to_vec(),
+            None
+        ));
+        let org_id = Organization::organization_index(1).unwrap();
+        let org = Organization::organization(&org_id).unwrap();
+        assert_eq!(org.timestamp, now);
+        assert_eq!(org.block, System::block_number());
     });
 }
 
@@ -571,25 +593,22 @@ fn add_member_max_limit() {
     });
 }
 
-type TestOrg = pallet_organization::Organization<<Test as frame_system::Config>::AccountId>;
+// type TestOrg = pallet_organization::Organization<<Test as frame_system::Config>::AccountId>;
 
 #[test]
 fn update_works() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
-            assert_eq!(
-                Organization::organization(&org_id),
-                Some(TestOrg {
-                    id: org_id.clone(),
-                    name: b"ORG1".to_vec(),
-                    description: b"ORG1 DESCRIPTION".to_vec(),
-                    admin: *BOB,
-                    website: b"".to_vec(),
-                    email: b"".to_vec(),
-                    suspended: false,
-                    props: None
-                })
-            );
+            let org = Organization::organization(&org_id).unwrap();
+            assert_eq!(org.name, b"ORG1".to_vec());
+            assert_eq!(org.id, org_id.clone());
+            assert_eq!(org.description, b"ORG1 DESCRIPTION".to_vec());
+            assert_eq!(org.admin, *BOB);
+            assert_eq!(org.website, b"".to_vec());
+            assert_eq!(org.email, b"".to_vec());
+            assert_eq!(org.suspended, false);
+            assert_eq!(org.props, None);
+
             let new_name = b"ORG1-B";
             let new_desc = b"ORG1-B DESC";
             let new_website = b"https://org1-b.org";
@@ -605,19 +624,16 @@ fn update_works() {
                 Some(new_props.clone())
             ));
 
-            assert_eq!(
-                Organization::organization(&org_id),
-                Some(TestOrg {
-                    id: org_id,
-                    name: new_name.to_vec(),
-                    description: new_desc.to_vec(),
-                    admin: *BOB,
-                    website: new_website.to_vec(),
-                    email: new_email.to_vec(),
-                    suspended: false,
-                    props: Some(new_props)
-                })
-            );
+            let org = Organization::organization(&org_id).unwrap();
+
+            assert_eq!(org.id, org_id.clone());
+            assert_eq!(org.name, new_name.to_vec());
+            assert_eq!(org.description, new_desc.to_vec());
+            assert_eq!(org.admin, *BOB);
+            assert_eq!(org.website, new_website.to_vec());
+            assert_eq!(org.email, new_email.to_vec());
+            assert_eq!(org.suspended, false);
+            assert_eq!(org.props, Some(new_props));
         });
     });
 }
@@ -626,20 +642,6 @@ fn update_works() {
 fn update_not_changed() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
-            assert_eq!(
-                Organization::organization(&org_id),
-                Some(TestOrg {
-                    id: org_id.clone(),
-                    name: b"ORG1".to_vec(),
-                    description: b"ORG1 DESCRIPTION".to_vec(),
-                    admin: *BOB,
-                    website: b"".to_vec(),
-                    email: b"".to_vec(),
-                    suspended: false,
-                    props: None
-                })
-            );
-
             assert_err_ignore_postinfo!(
                 Organization::update(
                     Origin::signed(*BOB),

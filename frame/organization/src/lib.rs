@@ -41,14 +41,14 @@ use frame_support::{
     ensure,
     traits::{
         Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, OnUnbalanced,
-        ReservableCurrency, WithdrawReasons,
+        ReservableCurrency, Time, WithdrawReasons,
     },
     types::{Property, Text},
 };
 use frame_system::ensure_signed;
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::Hash;
-use sp_std::{fmt::Debug, prelude::*};
+use sp_std::prelude::*;
 
 use enumflags2::{bitflags, BitFlags};
 
@@ -86,6 +86,9 @@ pub mod pallet {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
+        /// Timestamp
+        type Time: Time;
+
         /// The currency trait.
         type Currency: ReservableCurrency<Self::AccountId>;
 
@@ -116,11 +119,12 @@ pub mod pallet {
     type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
         <T as frame_system::Config>::AccountId,
     >>::NegativeImbalance;
+    type Moment<T> = <<T as Config>::Time as Time>::Moment;
 
     #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
-    pub struct Organization<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
+    pub struct Organization<T: Config> {
         /// Organization ID
-        pub id: AccountId,
+        pub id: T::AccountId,
 
         /// object name
         pub name: Vec<u8>,
@@ -129,7 +133,7 @@ pub mod pallet {
         pub description: Vec<u8>,
 
         /// admin of the object
-        pub admin: AccountId,
+        pub admin: T::AccountId,
 
         /// Official website url
         pub website: Vec<u8>,
@@ -139,6 +143,12 @@ pub mod pallet {
 
         /// Whether the organization suspended or not
         pub suspended: bool,
+
+        /// Created at block
+        pub block: T::BlockNumber,
+
+        /// Creation timestamp
+        pub timestamp: Moment<T>,
 
         /// Custom properties
         pub props: Option<Vec<Property>>,
@@ -232,7 +242,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn organization)]
     pub type Organizations<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Organization<T::AccountId>>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, Organization<T>>;
 
     /// Link organization index -> organization hash.
     /// Useful for lookup organization from index.
@@ -404,6 +414,8 @@ pub mod pallet {
                     .collect::<Vec<u8>>(),
             ));
 
+            let block = <frame_system::Pallet<T>>::block_number();
+
             Organizations::<T>::insert(
                 org_id.clone(),
                 Organization {
@@ -414,6 +426,8 @@ pub mod pallet {
                     website: website.clone(),
                     email: email.clone(),
                     suspended: false,
+                    block,
+                    timestamp: <T as pallet::Config>::Time::now(),
                     props,
                 },
             );
@@ -815,7 +829,7 @@ impl<T: Config> Pallet<T> {
     pub fn ensure_access(
         origin: &T::AccountId,
         org_id: &T::AccountId,
-    ) -> Result<Organization<T::AccountId>, Error<T>> {
+    ) -> Result<Organization<T>, Error<T>> {
         let org = Self::organization(&org_id).ok_or(Error::<T>::NotExists)?;
 
         if &org.admin != origin {
@@ -840,7 +854,7 @@ impl<T: Config> Pallet<T> {
     /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
     pub fn ensure_access_active(
         origin: &T::AccountId,
-        org: &Organization<T::AccountId>,
+        org: &Organization<T>,
     ) -> Result<(), Error<T>> {
         // ensure!(&org.admin == origin, Error::<T>::PermissionDenied);
 
