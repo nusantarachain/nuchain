@@ -2,8 +2,8 @@ use super::*;
 use crate as pallet_certificate;
 
 use frame_support::{
-    assert_err_ignore_postinfo, assert_ok, ord_parameter_types, parameter_types, traits::Time,
-    types::Text,
+    assert_err_ignore_postinfo, assert_ok, ord_parameter_types, parameter_types, traits::AllowAll,
+    traits::Time, types::Text,
 };
 use frame_system::EnsureSignedBy;
 use sp_core::{sr25519, H256};
@@ -22,12 +22,12 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Timestamp: pallet_timestamp::{Module, Call, Storage},
-        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-        Did: pallet_did::{Module, Call, Storage, Event<T>},
-        Organization: pallet_organization::{Module, Call, Storage, Event<T>},
-        Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage},
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Did: pallet_did::{Pallet, Call, Storage, Event<T>},
+        Organization: pallet_organization::{Pallet, Call, Storage, Event<T>},
+        Certificate: pallet_certificate::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -37,7 +37,8 @@ parameter_types! {
         frame_system::limits::BlockWeights::simple_max(1024);
 }
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
+    type BaseCallFilter = AllowAll;
+    type OnSetCode = ();
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
@@ -62,9 +63,12 @@ impl frame_system::Config for Test {
 }
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
+    pub const MaxReserves: u32 = 50;
 }
 impl pallet_balances::Config for Test {
     type MaxLocks = ();
+    type MaxReserves = MaxReserves;
+    type ReserveIdentifier = [u8; 8];
     type Balance = u64;
     type Event = Event;
     type DustRemoval = ();
@@ -103,6 +107,7 @@ ord_parameter_types! {
 
 impl pallet_organization::Config for Test {
     type Event = Event;
+    type Time = Timestamp;
     type CreationFee = CreationFee;
     type Currency = Balances;
     type Payment = ();
@@ -115,8 +120,8 @@ impl pallet_organization::Config for Test {
 
 impl Config for Test {
     type Event = Event;
+    type Time = Timestamp;
     type ForceOrigin = EnsureSignedBy<Root, sr25519::Public>;
-    type Time = Self;
     type WeightInfo = ();
 }
 
@@ -139,7 +144,7 @@ fn last_event() -> CertEvent {
         .into_iter()
         .map(|r| r.event)
         .filter_map(|e| {
-            if let Event::pallet_certificate(inner) = e {
+            if let Event::Certificate(inner) = e {
                 Some(inner)
             } else {
                 None
@@ -200,9 +205,10 @@ fn last_org_id() -> <Test as frame_system::Config>::AccountId {
         .into_iter()
         .map(|r| r.event)
         .filter_map(|ev| {
-            if let Event::pallet_organization(
-                pallet_organization::Event::<Test>::OrganizationAdded(org_id, _),
-            ) = ev
+            if let Event::Organization(pallet_organization::Event::<Test>::OrganizationAdded(
+                org_id,
+                _,
+            )) = ev
             {
                 Some(org_id)
             } else {

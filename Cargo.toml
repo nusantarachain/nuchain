@@ -128,7 +128,7 @@ members = [
 	"frame/vesting",
     "frame/did",
     "frame/organization",
-    # "frame/certificate",
+    "frame/certificate",
     # "frame/product-registry",
     # "frame/product-tracking",
 	"primitives/api",

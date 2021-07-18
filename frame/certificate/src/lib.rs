@@ -256,7 +256,7 @@ pub mod pallet {
         /// # <weight>
         /// # </weight>
         #[pallet::weight(<T as pallet::Config>::WeightInfo::create())]
-        pub(super) fn create(
+        pub fn create(
             origin: OriginFor<T>,
             detail: CertDetail<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
@@ -273,7 +273,7 @@ pub mod pallet {
             }
 
             // ensure access
-            let org = <pallet_organization::Module<T>>::organization(&detail.org_id)
+            let org = <pallet_organization::Pallet<T>>::organization(&detail.org_id)
                 .ok_or(Error::<T>::OrganizationNotExists)?;
             Self::ensure_org_access2(&sender, &org)?;
 
@@ -304,7 +304,7 @@ pub mod pallet {
         /// Currently only support update for the signer name.
         ///
         #[pallet::weight(<T as pallet::Config>::WeightInfo::create())]
-        pub(super) fn update(
+        pub fn update(
             origin: OriginFor<T>,
             cert_id: CertId,
             signer_name: Vec<u8>,
@@ -317,7 +317,7 @@ pub mod pallet {
             let cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
 
             // ensure access
-            let org = <pallet_organization::Module<T>>::organization(&cert.org_id)
+            let org = <pallet_organization::Pallet<T>>::organization(&cert.org_id)
                 .ok_or(Error::<T>::OrganizationNotExists)?;
             Self::ensure_org_access2(&sender, &org)?;
 
@@ -341,7 +341,7 @@ pub mod pallet {
         /// # <weight>
         /// # </weight>
         #[pallet::weight(70_000_000)]
-        pub(super) fn issue(
+        pub fn issue(
             origin: OriginFor<T>,
             org_id: T::AccountId,
             cert_id: CertId,
@@ -365,7 +365,7 @@ pub mod pallet {
             Self::validate_props(&props)?;
 
             // ensure access
-            let org = <pallet_organization::Module<T>>::organization(&org_id)
+            let org = <pallet_organization::Pallet<T>>::organization(&org_id)
                 .ok_or(Error::<T>::OrganizationNotExists)?;
             Self::ensure_org_access2(&sender, &org)?;
 
@@ -396,7 +396,7 @@ pub mod pallet {
                 Error::<T>::AlreadyExists
             );
 
-            let block = <frame_system::Module<T>>::block_number();
+            let block = <frame_system::Pallet<T>>::block_number();
             let signer_name = cert.signer_name.clone();
 
             let proof = CertProof {
@@ -432,7 +432,7 @@ pub mod pallet {
 
         /// Revoke sertifikat berdasarkan issue id-nya.
         #[pallet::weight(0)]
-        pub(super) fn revoke(
+        pub fn revoke(
             origin: OriginFor<T>,
             org_id: T::AccountId,
             issued_id: IssuedId,
@@ -440,7 +440,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            let org = <pallet_organization::Module<T>>::organization(&org_id)
+            let org = <pallet_organization::Pallet<T>>::organization(&org_id)
                 .ok_or(Error::<T>::Unknown)?;
             Self::ensure_org_access2(&who, &org)?;
 
@@ -465,7 +465,7 @@ pub mod pallet {
 
         /// Check whether certificate is valid.
         #[pallet::weight(0)]
-        pub(super) fn validate_certificate(
+        pub fn validate_certificate(
             origin: OriginFor<T>,
             _issued_id: IssuedId,
         ) -> DispatchResultWithPostInfo {
@@ -494,8 +494,8 @@ impl<T: Config> Pallet<T> {
     fn ensure_org_access(
         who: &T::AccountId,
         org_id: &T::AccountId,
-    ) -> Result<Organization<T::AccountId>, Error<T>> {
-        let org = pallet_organization::Module::<T>::ensure_access(who, org_id)
+    ) -> Result<Organization<T>, Error<T>> {
+        let org = pallet_organization::Pallet::<T>::ensure_access(who, org_id)
             .map_err(|_| Error::<T>::PermissionDenied)?;
         Self::ensure_org_access2(who, &org)?;
         Ok(org)
@@ -503,11 +503,8 @@ impl<T: Config> Pallet<T> {
 
     /// Memastikan bahwa akun memiliki akses pada organisasi.
     /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
-    pub fn ensure_org_access2(
-        who: &T::AccountId,
-        org: &Organization<T::AccountId>,
-    ) -> Result<(), Error<T>> {
-        pallet_organization::Module::<T>::ensure_access_active(who, &org)
+    pub fn ensure_org_access2(who: &T::AccountId, org: &Organization<T>) -> Result<(), Error<T>> {
+        pallet_organization::Pallet::<T>::ensure_access_active(who, &org)
             .map_err(|_| Error::<T>::PermissionDenied)
     }
 
@@ -527,12 +524,12 @@ impl<T: Config> Pallet<T> {
 
     /// Generate Issued ID.
     ///
-    /// Issue ID ini merupakan hash dari data yang
+    /// Issue ID ini merupakan 11 karakter yang diramu dari hash data yang
     /// kemudian di-truncate agar pendek (10 chars) + karakter awal nama organisasi.
     ///
     /// dengan cara hanya mengambil 5 chars dari awal dan akhir
-    /// dari hash dalam bentuk base58, contoh output: 4p9w6uE2Zs
-    pub fn generate_issued_id(org: &Organization<T::AccountId>, data: Vec<u8>) -> IssuedId {
+    /// dari hash dalam bentuk base58, contoh output: A4p9w6uE2Zs
+    pub fn generate_issued_id(org: &Organization<T>, data: Vec<u8>) -> IssuedId {
         let hash = T::Hashing::hash(&data).encode().to_base58();
         let first = hash.as_bytes().iter().skip(2).take(5);
         let last = hash.as_bytes().iter().skip(hash.len() - 5);

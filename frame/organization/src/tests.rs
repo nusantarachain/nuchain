@@ -52,7 +52,6 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub BlockWeights: frame_system::limits::BlockWeights =
         frame_system::limits::BlockWeights::simple_max(1024);
-    pub const MaxReserves: u32 = 50;
 }
 impl frame_system::Config for Test {
     type BaseCallFilter = AllowAll;
@@ -82,6 +81,7 @@ impl frame_system::Config for Test {
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
+    pub const MaxReserves: u32 = 50;
 }
 
 impl pallet_balances::Config for Test {
