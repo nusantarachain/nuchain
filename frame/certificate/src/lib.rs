@@ -494,7 +494,7 @@ impl<T: Config> Pallet<T> {
     fn ensure_org_access(
         who: &T::AccountId,
         org_id: &T::AccountId,
-    ) -> Result<Organization<T::AccountId>, Error<T>> {
+    ) -> Result<Organization<T>, Error<T>> {
         let org = pallet_organization::Module::<T>::ensure_access(who, org_id)
             .map_err(|_| Error::<T>::PermissionDenied)?;
         Self::ensure_org_access2(who, &org)?;
@@ -505,7 +505,7 @@ impl<T: Config> Pallet<T> {
     /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
     pub fn ensure_org_access2(
         who: &T::AccountId,
-        org: &Organization<T::AccountId>,
+        org: &Organization<T>,
     ) -> Result<(), Error<T>> {
         pallet_organization::Module::<T>::ensure_access_active(who, &org)
             .map_err(|_| Error::<T>::PermissionDenied)
@@ -532,7 +532,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// dengan cara hanya mengambil 5 chars dari awal dan akhir
     /// dari hash dalam bentuk base58, contoh output: 4p9w6uE2Zs
-    pub fn generate_issued_id(org: &Organization<T::AccountId>, data: Vec<u8>) -> IssuedId {
+    pub fn generate_issued_id(org: &Organization<T>, data: Vec<u8>) -> IssuedId {
         let hash = T::Hashing::hash(&data).encode().to_base58();
         let first = hash.as_bytes().iter().skip(2).take(5);
         let last = hash.as_bytes().iter().skip(hash.len() - 5);

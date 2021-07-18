@@ -6,6 +6,9 @@
         "admin": "AccountId",
         "website": "Vec<u8>",
         "email": "Vec<u8>",
-        "suspended": "bool"
+        "suspended": "bool",
+        "block": "BlockNumber",
+        "timestamp": "Moment",
+        "props": "Option<Vec<Property>>"
     }
 }

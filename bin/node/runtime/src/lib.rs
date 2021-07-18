@@ -1052,6 +1052,7 @@ parameter_types! {
 
 impl pallet_organization::Config for Runtime {
     type Event = Event;
+    type Time = Timestamp;
     type CreationFee = CreationFee;
     type Currency = Balances;
     type Payment = Treasury;
