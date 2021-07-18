@@ -61,6 +61,7 @@ pub mod error;
 pub mod traits;
 pub mod weights;
 pub mod instances;
+pub mod types;
 
 #[doc(hidden)]
 pub mod unsigned {

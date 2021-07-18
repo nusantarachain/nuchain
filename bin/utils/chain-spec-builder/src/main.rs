@@ -96,7 +96,7 @@ impl ChainSpecBuilder {
 
 fn genesis_constructor(
 	authority_seeds: &[String],
-	nominator_accounts: &[AccountId],
+	_nominator_accounts: &[AccountId],
 	endowed_accounts: &[AccountId],
 	sudo_account: &AccountId,
 ) -> chain_spec::GenesisConfig {

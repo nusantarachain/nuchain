@@ -1,0 +1,56 @@
+{
+    "ProductId": "Identifier",
+    "Identifier": "Vec<u8>",
+    "Decimal": "i32",
+    "TrackingId": "Identifier",
+    "TrackingEventIndex": "u128",
+    "DeviceId": "Identifier",
+
+    "TrackingStatus": "Vec<u8>",
+    "Track": {
+        "id": "TrackingId",
+        "owner": "AccountId",
+        "status": "TrackingStatus",
+        "products": "Vec<ProductId>",
+        "registered": "Moment",
+        "updated": "Option<Moment>",
+        "parent_id": "TrackingId",
+        "props": "Vec<Property>"
+    },
+    "TrackingEventType": {
+        "_enum": [
+            "TrackingRegistration",
+            "TrackingUpdateStatus",
+            "TrackingScan",
+            "TrackingDeliver"
+        ]
+    },
+    "TrackingEvent": {
+        "event_type": "TrackingEventType",
+        "tracking_id": "TrackingId",
+        "location": "Option<ReadPoint>",
+        "readings": "Vec<Reading<Moment>>",
+        "status": "TrackingStatus",
+        "timestamp": "Moment"
+    },
+    "ReadPoint": {
+        "latitude": "Decimal",
+        "longitude": "Decimal"
+    },
+    "ReadingType": {
+        "_enum": [
+            "Humidity",
+            "Pressure",
+            "Shock",
+            "Tilt",
+            "Temperature",
+            "Vibration"
+        ]
+    },
+    "Reading": {
+        "device_id": "DeviceId",
+        "reading_type": "ReadingType",
+        "timestamp": "Moment",
+        "value": "Decimal"
+    }
+}
