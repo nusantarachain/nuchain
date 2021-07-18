@@ -50,7 +50,7 @@
 //! use sc_consensus_babe::BabeBlockImport;
 //! use sp_keystore::SyncCryptoStorePtr;
 //! use sp_keyring::sr25519::Keyring::{Alice, Bob};
-//! use node_cli::chain_spec::development_config;
+//! use nuchain_node::chain_spec::development_config;
 //! use sp_consensus_babe::AuthorityId;
 //! use manual_seal::{ConsensusDataProvider, consensus::babe::BabeConsensusDataProvider};
 //! use sp_runtime::{traits::IdentifyAccount, MultiSigner, generic::Era};
@@ -64,8 +64,8 @@
 //!
 //! sc_executor::native_executor_instance!(
 //! 	pub Executor,
-//! 	node_runtime::api::dispatch,
-//! 	node_runtime::native_version,
+//! 	nuchain_runtime::api::dispatch,
+//! 	nuchain_runtime::native_version,
 //! 	SignatureVerificationOverride,
 //! );
 //!
@@ -77,9 +77,9 @@
 //!     /// Provide an Executor type for the runtime
 //!     type Executor = Executor;
 //!     /// Provide the runtime itself
-//!     type Runtime = node_runtime::Runtime;
+//!     type Runtime = nuchain_runtime::Runtime;
 //!     /// A touch of runtime api
-//!     type RuntimeApi = node_runtime::RuntimeApi;
+//!     type RuntimeApi = nuchain_runtime::RuntimeApi;
 //!     /// A pinch of SelectChain implementation
 //!     type SelectChain = sc_consensus::LongestChain<TFullBackend<Self::Block>, Self::Block>;
 //!     /// A slice of concrete BlockImport type
@@ -90,7 +90,7 @@
 //! 		Self::SelectChain,
 //!     >;
 //!     /// and a dash of SignedExtensions
-//! 	type SignedExtras = node_runtime::SignedExtra;
+//! 	type SignedExtras = nuchain_runtime::SignedExtra;
 //!
 //!     /// Create your signed extras here.
 //! 	fn signed_extras(
@@ -199,7 +199,7 @@
 //! 	};
 //! 	let mut node = Node::<Requirements>::new(config).unwrap();
 //!
-//! 	type Balances = pallet_balances::Pallet<node_runtime::Runtime>;
+//! 	type Balances = pallet_balances::Pallet<nuchain_runtime::Runtime>;
 //!
 //! 	let (alice, bob) = (Alice.pair(), Bob.pair());
 //! 	let (alice_account_id, bob_acount_id) = (

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use std::sync::Arc;
-use node_runtime::{
+use nuchain_runtime::{
 	Executive, Indices, Runtime, UncheckedExtrinsic,
 };
 use sp_application_crypto::AppKey;

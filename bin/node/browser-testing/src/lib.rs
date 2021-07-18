@@ -55,7 +55,7 @@ fn deserialize_rpc_result<T: DeserializeOwned>(js_value: JsValue) -> T {
 
 #[wasm_bindgen_test]
 async fn runs() {
-	let mut client = node_cli::start_client(None, "info".into())
+	let mut client = nuchain_node::start_client(None, "info".into())
 			.unwrap();
 
 	// Check that the node handles rpc calls.

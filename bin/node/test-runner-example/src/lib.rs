@@ -30,8 +30,8 @@ type BlockImport<B, BE, C, SC> = BabeBlockImport<B, C, GrandpaBlockImport<BE, B,
 
 sc_executor::native_executor_instance!(
 	pub Executor,
-	node_runtime::api::dispatch,
-	node_runtime::native_version,
+	nuchain_runtime::api::dispatch,
+	nuchain_runtime::native_version,
 	(
 		frame_benchmarking::benchmarking::HostFunctions,
 		SignatureVerificationOverride,
@@ -44,8 +44,8 @@ struct NodeTemplateChainInfo;
 impl ChainInfo for NodeTemplateChainInfo {
 	type Block = node_primitives::Block;
 	type Executor = Executor;
-	type Runtime = node_runtime::Runtime;
-	type RuntimeApi = node_runtime::RuntimeApi;
+	type Runtime = nuchain_runtime::Runtime;
+	type RuntimeApi = nuchain_runtime::RuntimeApi;
 	type SelectChain = sc_consensus::LongestChain<TFullBackend<Self::Block>, Self::Block>;
 	type BlockImport = BlockImport<
 		Self::Block,
@@ -53,7 +53,7 @@ impl ChainInfo for NodeTemplateChainInfo {
 		TFullClient<Self::Block, Self::RuntimeApi, Self::Executor>,
 		Self::SelectChain,
 	>;
-	type SignedExtras = node_runtime::SignedExtra;
+	type SignedExtras = nuchain_runtime::SignedExtra;
 	type InherentDataProviders = (SlotTimestampProvider, sp_consensus_babe::inherents::InherentDataProvider);
 
 	fn signed_extras(from: <Self::Runtime as frame_system::Config>::AccountId) -> Self::SignedExtras {
@@ -74,7 +74,7 @@ mod tests {
 	use super::*;
 	use test_runner::{Node, client_parts, ConfigOrChainSpec, build_runtime, task_executor};
 	use sp_keyring::sr25519::Keyring::Alice;
-	use node_cli::chain_spec::development_config;
+	use nuchain_node::chain_spec::development_config;
 	use sp_runtime::{traits::IdentifyAccount, MultiSigner};
 
 	#[test]
@@ -97,7 +97,7 @@ mod tests {
 				.unwrap();
 
 			// look ma, I can read state.
-			let _events = node.with_state(|| frame_system::Pallet::<node_runtime::Runtime>::events());
+			let _events = node.with_state(|| frame_system::Pallet::<nuchain_runtime::Runtime>::events());
 			// get access to the underlying client.
 			let _client = node.client();
 		})

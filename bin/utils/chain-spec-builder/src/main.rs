@@ -23,7 +23,7 @@ use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 use structopt::StructOpt;
 
 use sc_keystore::LocalKeystore;
-use node_cli::chain_spec::{self, AccountId};
+use nuchain_node::chain_spec::{self, AccountId};
 use sp_core::{
 	sr25519,
 	crypto::{Public, Ss58Codec},
@@ -105,12 +105,13 @@ fn genesis_constructor(
 		.map(AsRef::as_ref)
 		.map(chain_spec::authority_keys_from_seed)
 		.collect::<Vec<_>>();
-
-	chain_spec::testnet_genesis(
+    
+	chain_spec::build_genesis(
 		authorities,
-		nominator_accounts.to_vec(),
+		// nominator_accounts.to_vec(),
 		sudo_account.clone(),
 		Some(endowed_accounts.to_vec()),
+        None
 	)
 }
 

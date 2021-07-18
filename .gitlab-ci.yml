@@ -294,13 +294,13 @@ test-deterministic-wasm:
     WASM_BUILD_NO_COLOR:           1
   script:
     # build runtime
-    - cargo build --verbose --release -p node-runtime
+    - cargo build --verbose --release -p nuchain-runtime
     # make checksum
-    - sha256sum target/release/wbuild/node-runtime/target/wasm32-unknown-unknown/release/node_runtime.wasm > checksum.sha256
+    - sha256sum target/release/wbuild/nuchain-runtime/target/wasm32-unknown-unknown/release/nuchain_runtime.wasm > checksum.sha256
     # clean up – FIXME: can we reuse some of the artifacts?
     - cargo clean
     # build again
-    - cargo build --verbose --release -p node-runtime
+    - cargo build --verbose --release -p nuchain-runtime
     # confirm checksum
     - sha256sum -c checksum.sha256
     - sccache -s

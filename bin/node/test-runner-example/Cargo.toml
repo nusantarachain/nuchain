@@ -15,9 +15,9 @@ pallet-balances = { path = "../../../frame/balances" }
 pallet-sudo = { path = "../../../frame/sudo" }
 pallet-transaction-payment = { path = "../../../frame/transaction-payment" }
 
-node-runtime = { path = "../runtime" }
+nuchain-runtime = { path = "../runtime" }
 node-primitives = { path = "../primitives" }
-node-cli = { path = "../cli" }
+nuchain-node = { path = "../cli" }
 
 grandpa = { package = "sc-finality-grandpa", path = "../../../client/finality-grandpa" }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
