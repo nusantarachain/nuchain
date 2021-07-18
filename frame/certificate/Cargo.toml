@@ -1,6 +1,6 @@
 [package]
 name = "pallet-certificate"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Robin <obin.mf@gmail.com>"]
 edition = "2018"
 license = "Apache-2"

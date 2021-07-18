@@ -1,6 +1,6 @@
 [package]
 name = "nuchain-runtime"
-version = "3.0.0-dev"
+version = "4.0.0-dev"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
 build = "build.rs"
@@ -89,6 +89,11 @@ pallet-transaction-payment-rpc-runtime-api = { version = "4.0.0-dev", default-fe
 pallet-transaction-storage = { version = "4.0.0-dev", default-features = false, path = "../../../frame/transaction-storage" }
 pallet-uniques = { version = "4.0.0-dev", default-features = false, path = "../../../frame/uniques" }
 pallet-vesting = { version = "4.0.0-dev", default-features = false, path = "../../../frame/vesting" }
+pallet-did = { version = "0.1.0", default-features = false, path = "../../../frame/did" }
+pallet-organization = { version = "0.1.0", default-features = false, path = "../../../frame/organization" }
+pallet-certificate = { version = "0.1.0", default-features = false, path = "../../../frame/certificate" }
+pallet-product-registry = { version = "4.0.0-dev", default-features = false, path = "../../../frame/product-registry" }
+pallet-product-tracking = { version = "4.0.0-dev", default-features = false, path = "../../../frame/product-tracking" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", path = "../../../utils/wasm-builder" }

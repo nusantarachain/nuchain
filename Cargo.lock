@@ -4195,7 +4195,7 @@ dependencies = [
 
 [[package]]
 name = "node-executor"
-version = "3.0.0-dev"
+version = "4.0.0-dev"
 dependencies = [
  "criterion",
  "frame-benchmarking",
@@ -4261,7 +4261,7 @@ dependencies = [
 
 [[package]]
 name = "node-rpc"
-version = "3.0.0-dev"
+version = "4.0.0-dev"
 dependencies = [
  "jsonrpc-core",
  "node-primitives",
@@ -4305,7 +4305,7 @@ dependencies = [
 
 [[package]]
 name = "node-testing"
-version = "3.0.0-dev"
+version = "4.0.0-dev"
 dependencies = [
  "criterion",
  "frame-support",
@@ -4453,7 +4453,7 @@ dependencies = [
 
 [[package]]
 name = "nuchain-runtime"
-version = "3.0.0-dev"
+version = "4.0.0-dev"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -4472,11 +4472,13 @@ dependencies = [
  "pallet-babe",
  "pallet-balances",
  "pallet-bounties",
+ "pallet-certificate",
  "pallet-collective",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
  "pallet-democracy",
+ "pallet-did",
  "pallet-election-provider-multi-phase",
  "pallet-elections-phragmen",
  "pallet-gilt",
@@ -4490,6 +4492,9 @@ dependencies = [
  "pallet-multisig",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-organization",
+ "pallet-product-registry",
+ "pallet-product-tracking",
  "pallet-proxy",
  "pallet-randomness-collective-flip",
  "pallet-recovery",
@@ -4814,7 +4819,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-certificate"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "base58 0.1.0",
  "frame-benchmarking",
@@ -4958,7 +4963,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-did"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5348,7 +5353,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-organization"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "enumflags2 0.7.1",
  "frame-benchmarking",
@@ -5368,7 +5373,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-product-registry"
-version = "3.0.0"
+version = "4.0.0-dev"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5386,7 +5391,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-product-tracking"
-version = "3.0.0"
+version = "4.0.0-dev"
 dependencies = [
  "frame-support",
  "frame-system",
