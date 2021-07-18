@@ -60,7 +60,7 @@ pub fn store_test_event<T: Config>(
         location: None,
         readings: vec![],
         status: status.clone(),
-        timestamp: pallet_timestamp::Module::<T>::now(),
+        timestamp: pallet_timestamp::Pallet::<T>::now(),
         props: None,
     };
     let event_idx = <EventCount<T>>::get()
@@ -129,11 +129,13 @@ where
                 website: vec![],
                 email: vec![],
                 suspended: false,
+                block: 1,
+                timestamp: 1,
                 props: None,
             },
         );
         // Make sender as org owner
-        <pallet_did::Module<Test>>::set_owner(&sender, &org, &sender);
+        <pallet_did::Pallet<Test>>::set_owner(&sender, &org, &sender);
 
         let now = 42;
         Timestamp::set_timestamp(now);
@@ -209,7 +211,10 @@ fn test_register_with_invalid_props() {
                 YEAR1,
                 vec![],
                 None,
-                Some(vec![Property::new(b"0123456789012345678901234567891", b"12345")]),
+                Some(vec![Property::new(
+                    b"0123456789012345678901234567891",
+                    b"12345"
+                )]),
             ),
             Error::<Test>::InvalidPropName
         );
@@ -316,11 +321,7 @@ fn register_without_products() {
         );
 
         assert!(System::events().iter().any(|er| er.event
-            == TestEvent::pallet_product_tracking(Event::TrackingRegistered(
-                sender,
-                id.clone(),
-                org
-            ))));
+            == TestEvent::ProductTracking(Event::TrackingRegistered(sender, id.clone(), org))));
     });
 }
 
@@ -409,11 +410,7 @@ fn register_with_valid_products() {
         );
 
         assert!(System::events().iter().any(|er| er.event
-            == TestEvent::pallet_product_tracking(Event::TrackingRegistered(
-                sender,
-                id.clone(),
-                org
-            ))));
+            == TestEvent::ProductTracking(Event::TrackingRegistered(sender, id.clone(), org))));
     });
 }
 
@@ -761,7 +758,7 @@ fn update_status_pickup() {
 
         // Event is raised
         assert!(System::events().iter().any(|er| er.event
-            == TestEvent::pallet_product_tracking(Event::TrackingStatusUpdated(
+            == TestEvent::ProductTracking(Event::TrackingStatusUpdated(
                 owner,
                 tracking_id.clone(),
                 2,
@@ -842,7 +839,7 @@ fn update_status_delivery() {
 
         // Events is raised
         assert!(System::events().iter().any(|er| er.event
-            == TestEvent::pallet_product_tracking(Event::TrackingStatusUpdated(
+            == TestEvent::ProductTracking(Event::TrackingStatusUpdated(
                 owner,
                 tracking_id.clone(),
                 2,
@@ -1033,7 +1030,7 @@ fn delegated_account_can_update_status() {
         let delegated = account_key("Wahid");
 
         // berikan akses ProductTracker kepada Wahid
-        assert_ok!(pallet_organization::Module::<Test>::h_delegate_access_as(
+        assert_ok!(pallet_organization::Pallet::<Test>::h_delegate_access_as(
             &sender,
             &org,
             &delegated,

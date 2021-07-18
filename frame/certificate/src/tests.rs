@@ -2,8 +2,8 @@ use super::*;
 use crate as pallet_certificate;
 
 use frame_support::{
-    assert_err_ignore_postinfo, assert_ok, ord_parameter_types, parameter_types, traits::AllowAll,
-    traits::Time, types::Text,
+    assert_err_ignore_postinfo, assert_ok, ord_parameter_types, parameter_types,
+    traits::{Time, AllowAll}, types::Text,
 };
 use frame_system::EnsureSignedBy;
 use sp_core::{sr25519, H256};

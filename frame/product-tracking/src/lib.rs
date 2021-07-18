@@ -188,13 +188,13 @@ pub mod pallet {
             Self::validate_new_tracking(&id)?;
 
             // Pastikan origin memiliki akses organisasi
-            <pallet_organization::Module<T>>::ensure_access_active_id(&who, &org_id)?;
+            <pallet_organization::Pallet<T>>::ensure_access_active_id(&who, &org_id)?;
 
             // Create a tracking instance
             let mut tracking_builder = Self::new_tracking()
                 .identified_by(id.clone())
                 .owned_by(org_id.clone())
-                .registered_at(<pallet_timestamp::Module<T>>::now())
+                .registered_at(<pallet_timestamp::Pallet<T>>::now())
                 .with_products(products);
 
             if let Some(props) = props {
@@ -224,7 +224,7 @@ pub mod pallet {
             // Store tracking event (1 DB read, 3 DB writes)
             let _event_idx = Self::store_event(event)?;
             // Update offchain notifications (1 DB write)
-            // <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
+            // <OcwNotifications<T>>::append(<frame_system::Pallet<T>>::block_number(), event_idx);
 
             // Raise events
             Self::deposit_event(Event::TrackingRegistered(who.clone(), id.clone(), org_id));
@@ -265,9 +265,9 @@ pub mod pallet {
             // Pastikan origin memiliki akses di organisasi (product owner)
             // atau origin memiliki akses sebagai ProductTracker
             ensure!(
-                <pallet_organization::Module<T>>::ensure_access_active_id(&who, &track.owner)
+                <pallet_organization::Pallet<T>>::ensure_access_active_id(&who, &track.owner)
                     .is_ok()
-                    || <pallet_did::Module<T>>::valid_delegate(
+                    || <pallet_did::Pallet<T>>::valid_delegate(
                         &track.owner,
                         b"ProductTracker",
                         &who
@@ -292,11 +292,11 @@ pub mod pallet {
             // Store tracking event (1 DB read, 3 DB writes)
             let event_idx = Self::store_event(event)?;
             // Update offchain notifications (1 DB write)
-            // <OcwNotifications<T>>::append(<frame_system::Module<T>>::block_number(), event_idx);
+            // <OcwNotifications<T>>::append(<frame_system::Pallet<T>>::block_number(), event_idx);
 
             // Update tracking (1 DB write)
             track.status = status.clone();
-            track.updated = Some(pallet_timestamp::Module::<T>::now());
+            track.updated = Some(pallet_timestamp::Pallet::<T>::now());
 
             <Tracking<T>>::insert(&id, track);
 
