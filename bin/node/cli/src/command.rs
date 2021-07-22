@@ -16,8 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::service::new_partial;
-use crate::{chain_spec, service, Cli, Subcommand};
+use crate::{chain_spec, service, service::new_partial, Cli, Subcommand};
 use node_executor::Executor;
 use nuchain_runtime::{Block, RuntimeApi};
 use sc_cli::{ChainSpec, Result, Role, RuntimeVersion, SubstrateCli};

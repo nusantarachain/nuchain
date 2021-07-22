@@ -20,26 +20,23 @@
 
 use grandpa_primitives::AuthorityId as GrandpaId;
 use hex_literal::hex;
-use nuchain_runtime::constants::currency::*;
-use nuchain_runtime::Block;
 use nuchain_runtime::{
-    wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig, BalancesConfig,
-    CouncilConfig, DemocracyConfig, ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig,
-    SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig, SudoConfig,
-    SystemConfig, TechnicalCommitteeConfig,
+	constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
+	BalancesConfig, Block, CouncilConfig, DemocracyConfig, ElectionsConfig, GrandpaConfig,
+	ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus,
+	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;
 use sc_telemetry::TelemetryEndpoints;
 use serde::{Deserialize, Serialize};
-use serde_json;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_runtime::{
-    traits::{IdentifyAccount, Verify},
-    Perbill,
+	traits::{IdentifyAccount, Verify},
+	Perbill,
 };
 
 pub use node_primitives::{AccountId, Balance, Signature};
@@ -210,7 +207,7 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 /// Helper function to generate an account ID from seed
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
-    AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }

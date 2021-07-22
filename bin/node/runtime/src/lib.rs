@@ -22,67 +22,67 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-
-use sp_std::prelude::*;
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	construct_runtime, parameter_types, RuntimeDebug,
-	weights::{
-		Weight, IdentityFee,
-		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
-		DispatchClass,
-	},
+	construct_runtime, parameter_types,
 	traits::{
-		Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, LockIdentifier,
-		U128CurrencyToVote, AllowAll, DenyAll,
+		AllowAll, Currency, DenyAll, Imbalance, InstanceFilter, KeyOwnerProofSystem,
+		LockIdentifier, OnUnbalanced, U128CurrencyToVote,
 	},
+	weights::{
+		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+		DispatchClass, IdentityFee, Weight,
+	},
+	PalletId, RuntimeDebug,
 };
 use frame_system::{
-	EnsureRoot, EnsureOneOf,
-	limits::{BlockWeights, BlockLength}
+	limits::{BlockLength, BlockWeights},
+	EnsureOneOf, EnsureRoot,
 };
-use frame_support::{traits::InstanceFilter, PalletId};
-use codec::{Encode, Decode, MaxEncodedLen};
+pub use node_primitives::{AccountId, Signature};
+use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
+use pallet_contracts::weights::WeightInfo;
+use pallet_election_provider_multi_phase::FallbackStrategy;
+use pallet_grandpa::{
+	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+};
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use pallet_session::historical as pallet_session_historical;
+pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
+use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
+use sp_api::impl_runtime_apis;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{
 	crypto::KeyTypeId,
 	u32_trait::{_1, _2, _3, _4, _5},
 	OpaqueMetadata,
 };
-pub use node_primitives::{AccountId, Signature};
-use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Index, Moment};
-use sp_api::impl_runtime_apis;
+use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-	Permill, Perbill, Perquintill, Percent, ApplyExtrinsicResult, impl_opaque_keys, generic,
-	create_runtime_str, FixedPointNumber,
+	create_runtime_str,
+	curve::PiecewiseLinear,
+	generic, impl_opaque_keys,
+	traits::{
+		self, BlakeTwo256, Block as BlockT, ConvertInto, NumberFor, OpaqueKeys,
+		SaturatedConversion, StaticLookup,
+	},
+	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
+	ApplyExtrinsicResult, FixedPointNumber, Perbill, Percent, Permill, Perquintill,
 };
-use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::transaction_validity::{TransactionValidity, TransactionSource, TransactionPriority};
-use sp_runtime::traits::{
-	self, BlakeTwo256, Block as BlockT, StaticLookup, SaturatedConversion, ConvertInto, OpaqueKeys,
-	NumberFor,
-};
-use sp_version::RuntimeVersion;
+use sp_std::prelude::*;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
-use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
-use pallet_grandpa::fg_primitives;
-use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
-pub use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment, CurrencyAdapter};
-use pallet_session::{historical as pallet_session_historical};
-use sp_inherents::{InherentData, CheckInherentsResult};
+use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
-use pallet_contracts::weights::WeightInfo;
-use pallet_election_provider_multi_phase::FallbackStrategy;
 
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
-#[cfg(any(feature = "std", test))]
-pub use pallet_balances::Call as BalancesCall;
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
 #[cfg(any(feature = "std", test))]
+pub use pallet_balances::Call as BalancesCall;
+#[cfg(any(feature = "std", test))]
 pub use pallet_staking::StakerStatus;
+#[cfg(any(feature = "std", test))]
+pub use sp_runtime::BuildStorage;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
@@ -90,7 +90,7 @@ use impls::Author;
 
 /// Constant values used within the runtime.
 pub mod constants;
-use constants::{time::*, currency::*};
+use constants::{currency::*, time::*};
 use sp_runtime::generic::Era;
 
 // Make the WASM binary available.
@@ -100,9 +100,11 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 /// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
 #[cfg(feature = "std")]
 pub fn wasm_binary_unwrap() -> &'static [u8] {
-	WASM_BINARY.expect("Development wasm binary is not available. This means the client is \
+	WASM_BINARY.expect(
+		"Development wasm binary is not available. This means the client is \
 						built with `SKIP_WASM_BUILD` flag and it is only usable for \
-						production chains. Please rebuild with the flag disabled.")
+						production chains. Please rebuild with the flag disabled.",
+	)
 }
 
 /// Runtime version.
@@ -125,7 +127,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 	sp_consensus_babe::BabeEpochConfiguration {
 		c: PRIMARY_PROBABILITY,
-		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots
+		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
 	};
 
 /// Native version.
@@ -141,18 +143,18 @@ type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
 pub struct DealWithFees;
 impl OnUnbalanced<NegativeImbalance> for DealWithFees {
-    fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
-        if let Some(fees) = fees_then_tips.next() {
-            // for fees, 80% to treasury, 20% to author
-            let mut split = fees.ration(80, 20);
-            if let Some(tips) = fees_then_tips.next() {
-                // for tips, if any, 80% to treasury, 20% to author (though this can be anything)
-                tips.ration_merge_into(80, 20, &mut split);
-            }
-            Treasury::on_unbalanced(split.0);
-            Author::on_unbalanced(split.1);
-        }
-    }
+	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
+		if let Some(fees) = fees_then_tips.next() {
+			// for fees, 80% to treasury, 20% to author
+			let mut split = fees.ration(80, 20);
+			if let Some(tips) = fees_then_tips.next() {
+				// for tips, if any, 80% to treasury, 20% to author (though this can be anything)
+				tips.ration_merge_into(80, 20, &mut split);
+			}
+			Treasury::on_unbalanced(split.0);
+			Author::on_unbalanced(split.1);
+		}
+	}
 }
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
@@ -256,14 +258,20 @@ parameter_types! {
 }
 
 /// The type used to represent the kinds of proxying allowed.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, MaxEncodedLen)]
+#[derive(
+	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, MaxEncodedLen,
+)]
 pub enum ProxyType {
 	Any,
 	NonTransfer,
 	Governance,
 	Staking,
 }
-impl Default for ProxyType { fn default() -> Self { Self::Any } }
+impl Default for ProxyType {
+	fn default() -> Self {
+		Self::Any
+	}
+}
 impl InstanceFilter<Call> for ProxyType {
     fn filter(&self, c: &Call) -> bool {
         match self {
@@ -271,19 +279,16 @@ impl InstanceFilter<Call> for ProxyType {
 			ProxyType::NonTransfer => !matches!(
 				c,
 				Call::Balances(..) |
-				Call::Assets(..) |
-				Call::Uniques(..) |
-				Call::Vesting(pallet_vesting::Call::vested_transfer(..)) |
-				Call::Indices(pallet_indices::Call::transfer(..))
+					Call::Assets(..) | Call::Uniques(..) |
+					Call::Vesting(pallet_vesting::Call::vested_transfer(..)) |
+					Call::Indices(pallet_indices::Call::transfer(..))
 			),
 			ProxyType::Governance => matches!(
 				c,
 				Call::Democracy(..) |
-				Call::Council(..) |
-				Call::Society(..) |
-				Call::TechnicalCommittee(..) |
-				Call::Elections(..) |
-				Call::Treasury(..)
+					Call::Council(..) | Call::Society(..) |
+					Call::TechnicalCommittee(..) |
+					Call::Elections(..) | Call::Treasury(..)
 			),
 			ProxyType::Staking => matches!(c, Call::Staking(..)),
         }
@@ -523,9 +528,10 @@ impl pallet_staking::Config for Runtime {
     // // a single extrinsic.
     // type OffchainSolutionWeightLimit = OffchainSolutionWeightLimit;
 	type ElectionProvider = ElectionProviderMultiPhase;
-	type GenesisElectionProvider =
-		onchain::OnChainSequentialPhragmen<pallet_election_provider_multi_phase::OnChainConfig<Self>>;
-    type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type GenesisElectionProvider = onchain::OnChainSequentialPhragmen<
+		pallet_election_provider_multi_phase::OnChainConfig<Self>,
+	>;
+	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 }
 
 
@@ -751,7 +757,7 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 type EnsureRootOrHalfCouncil = EnsureOneOf<
 	AccountId,
 	EnsureRoot<AccountId>,
-	pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>
+	pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>,
 >;
 impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 	type Event = Event;
@@ -911,57 +917,43 @@ parameter_types! {
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
 where
-    Call: From<LocalCall>,
+	Call: From<LocalCall>,
 {
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: Call,
-        public: <Signature as traits::Verify>::Signer,
-        account: AccountId,
-        nonce: Index,
-    ) -> Option<(
-        Call,
-        <UncheckedExtrinsic as traits::Extrinsic>::SignaturePayload,
-    )> {
-        let tip = 0;
-        // take the biggest period possible.
-        let period = BlockHashCount::get()
-            .checked_next_power_of_two()
-            .map(|c| c / 2)
-            .unwrap_or(2) as u64;
-        let current_block = System::block_number()
-            .saturated_into::<u64>()
-            // The `System::block_number` is initialized with `n+1`,
-            // so the actual block number is `n`.
-            .saturating_sub(1);
-        let era = Era::mortal(period, current_block);
-        let extra = (
-            frame_system::CheckSpecVersion::<Runtime>::new(),
-            frame_system::CheckTxVersion::<Runtime>::new(),
-            frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(era),
-            frame_system::CheckNonce::<Runtime>::from(nonce),
-            frame_system::CheckWeight::<Runtime>::new(),
-            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-        );
-        // let raw_payload = SignedPayload::new(call, extra)
-        //     .map_err(|e| {
-        //         debug::warn!("Unable to create signed payload: {:?}", e);
-        //     })
-        //     .ok()?;
-        // let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: Call,
+		public: <Signature as traits::Verify>::Signer,
+		account: AccountId,
+		nonce: Index,
+	) -> Option<(Call, <UncheckedExtrinsic as traits::Extrinsic>::SignaturePayload)> {
+		let tip = 0;
+		// take the biggest period possible.
+		let period =
+			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+		let current_block = System::block_number()
+			.saturated_into::<u64>()
+			// The `System::block_number` is initialized with `n+1`,
+			// so the actual block number is `n`.
+			.saturating_sub(1);
+		let era = Era::mortal(period, current_block);
+		let extra = (
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(era),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
 				log::warn!("Unable to create signed payload: {:?}", e);
 			})
 			.ok()?;
-		let signature = raw_payload
-			.using_encoded(|payload| {
-				C::sign(payload, public)
-			})?;
-        let address = Indices::unlookup(account);
-        let (call, extra, _) = raw_payload.deconstruct();
-        Some((call, (address, signature.into(), extra)))
-    }
+		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+		let address = Indices::unlookup(account);
+		let (call, extra, _) = raw_payload.deconstruct();
+		Some((call, (address, signature.into(), extra)))
+	}
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -969,8 +961,9 @@ impl frame_system::offchain::SigningTypes for Runtime {
     type Signature = Signature;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime where
-    Call: From<C>,
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+	Call: From<C>,
 {
     type Extrinsic = UncheckedExtrinsic;
     type OverarchingCall = Call;
@@ -995,26 +988,26 @@ impl pallet_offences::Config for Runtime {
 impl pallet_authority_discovery::Config for Runtime {}
 
 impl pallet_grandpa::Config for Runtime {
-    type Event = Event;
-    type Call = Call;
+	type Event = Event;
+	type Call = Call;
 
-    type KeyOwnerProofSystem = Historical;
+	type KeyOwnerProofSystem = Historical;
 
-    type KeyOwnerProof =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+	type KeyOwnerProof =
+		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 
-    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-        KeyTypeId,
-        GrandpaId,
-    )>>::IdentificationTuple;
+	type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+		KeyTypeId,
+		GrandpaId,
+	)>>::IdentificationTuple;
 
-    type HandleEquivocation = pallet_grandpa::EquivocationHandler<
-        Self::KeyOwnerIdentification,
-        Offences,
-        ReportLongevity,
-    >;
+	type HandleEquivocation = pallet_grandpa::EquivocationHandler<
+		Self::KeyOwnerIdentification,
+		Offences,
+		ReportLongevity,
+	>;
 
-    type WeightInfo = ();
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -1071,22 +1064,22 @@ parameter_types! {
 }
 
 impl pallet_society::Config for Runtime {
-    type Event = Event;
-    type PalletId = SocietyPalletId;
-    type Currency = Balances;
-    type Randomness = RandomnessCollectiveFlip;
-    type CandidateDeposit = CandidateDeposit;
-    type WrongSideDeduction = WrongSideDeduction;
-    type MaxStrikes = MaxStrikes;
-    type PeriodSpend = PeriodSpend;
-    type MembershipChanged = ();
-    type RotationPeriod = RotationPeriod;
-    type MaxLockDuration = MaxLockDuration;
-    type FounderSetOrigin =
-        pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
-    type SuspensionJudgementOrigin = pallet_society::EnsureFounder<Runtime>;
-    type MaxCandidateIntake = MaxCandidateIntake;
-    type ChallengePeriod = ChallengePeriod;
+	type Event = Event;
+	type PalletId = SocietyPalletId;
+	type Currency = Balances;
+	type Randomness = RandomnessCollectiveFlip;
+	type CandidateDeposit = CandidateDeposit;
+	type WrongSideDeduction = WrongSideDeduction;
+	type MaxStrikes = MaxStrikes;
+	type PeriodSpend = PeriodSpend;
+	type MembershipChanged = ();
+	type RotationPeriod = RotationPeriod;
+	type MaxLockDuration = MaxLockDuration;
+	type FounderSetOrigin =
+		pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>;
+	type SuspensionJudgementOrigin = pallet_society::EnsureFounder<Runtime>;
+	type MaxCandidateIntake = MaxCandidateIntake;
+	type ChallengePeriod = ChallengePeriod;
 }
 
 parameter_types! {
@@ -1361,13 +1354,9 @@ mod mmr {
     use super::Runtime;
     pub use pallet_mmr::primitives::*;
 
-	pub type Leaf = <
-		<Runtime as pallet_mmr::Config>::LeafData
-		as
-		LeafDataProvider
-	>::LeafData;
-    pub type Hash = <Runtime as pallet_mmr::Config>::Hash;
-    pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
+	pub type Leaf = <<Runtime as pallet_mmr::Config>::LeafData as LeafDataProvider>::LeafData;
+	pub type Hash = <Runtime as pallet_mmr::Config>::Hash;
+	pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
 }
 
 impl_runtime_apis! {
@@ -1713,17 +1702,17 @@ impl_runtime_apis! {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use frame_system::offchain::CreateSignedTransaction;
+	use super::*;
+	use frame_system::offchain::CreateSignedTransaction;
 
-    #[test]
-    fn validate_transaction_submitter_bounds() {
-        fn is_submit_signed_transaction<T>()
-        where
-            T: CreateSignedTransaction<Call>,
-        {
-        }
+	#[test]
+	fn validate_transaction_submitter_bounds() {
+		fn is_submit_signed_transaction<T>()
+		where
+			T: CreateSignedTransaction<Call>,
+		{
+		}
 
-        is_submit_signed_transaction::<Runtime>();
-    }
+		is_submit_signed_transaction::<Runtime>();
+	}
 }
