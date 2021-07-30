@@ -723,7 +723,11 @@ fn revoke_delegate_access_works() {
             assert_eq!(Organization::is_member(&org_id, &*CHARLIE), true);
 
             // revoke akses DAVE
-            assert_ok!(Organization::revoke_access(Origin::signed(*BOB), org_id, *DAVE));
+            assert_ok!(Organization::revoke_access(
+                Origin::signed(*BOB),
+                org_id,
+                *DAVE
+            ));
 
             // setelah masuk next block (block 4) harusnya DAVE sudah tidak memiliki akses
             System::set_block_number(4);
@@ -914,6 +918,76 @@ fn minimum_add_members_is_one_account() {
                 Organization::add_members(Origin::signed(*BOB), org_id, vec![]),
                 Error::<Test>::InvalidParameter
             );
+        });
+    });
+}
+
+// -------------- TRANSFER --------------
+
+#[test]
+fn transfer_value_works() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            assert_err_ignore_postinfo!(
+                Organization::transfer(Origin::signed(*BOB), org_id, *DAVE, 5),
+                pallet_balances::Error::<Test>::InsufficientBalance
+            );
+
+            // deposit 6
+            let _ = Balances::deposit_creating(&org_id, 6);
+            assert_ok!(Organization::transfer(
+                Origin::signed(*BOB),
+                org_id,
+                *DAVE,
+                5
+            ));
+
+            // saldo organisasi harusnya sekarang sisa 1 ARA
+            assert_eq!(Balances::free_balance(&org_id), 1);
+        });
+    });
+}
+
+#[test]
+fn non_super_admin_cannot_transfer_value() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            // deposit 1000
+            let _ = Balances::deposit_creating(&org_id, 6);
+
+            assert_err_ignore_postinfo!(
+                Organization::transfer(Origin::signed(*CHARLIE), org_id, *DAVE, 5),
+                Error::<Test>::PermissionDenied
+            );
+
+            // saldo organisasi tetap utuh
+            assert_eq!(Balances::free_balance(&org_id), 6);
+        });
+    });
+}
+
+#[test]
+fn delegated_admin_cannot_transfer_value() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            // deposit 1000
+            let _ = Balances::deposit_creating(&org_id, 6);
+
+            // berikan akses kepada CHARLIE
+            assert_ok!(Organization::delegate_access(
+                Origin::signed(*BOB),
+                org_id,
+                *CHARLIE,
+                Some(5) // kasih expiration time 5 block
+            ));
+
+            assert_err_ignore_postinfo!(
+                Organization::transfer(Origin::signed(*CHARLIE), org_id, *DAVE, 5),
+                Error::<Test>::PermissionDenied
+            );
+
+            // saldo organisasi tetap utuh
+            assert_eq!(Balances::free_balance(&org_id), 6);
         });
     });
 }

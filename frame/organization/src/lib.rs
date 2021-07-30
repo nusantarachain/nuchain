@@ -41,14 +41,15 @@ use frame_support::{
     dispatch::DispatchResult,
     ensure,
     traits::{
-        Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, OnUnbalanced,
-        ReservableCurrency, Time, WithdrawReasons,
+        Currency, EnsureOrigin,
+        ExistenceRequirement::{AllowDeath, KeepAlive},
+        Get, OnUnbalanced, ReservableCurrency, Time, WithdrawReasons,
     },
     types::{Property, Text},
 };
 use frame_system::ensure_signed;
 use sp_core::crypto::UncheckedFrom;
-use sp_runtime::traits::Hash;
+use sp_runtime::traits::{Hash, StaticLookup};
 use sp_std::prelude::*;
 
 use enumflags2::{bitflags, BitFlags};
@@ -783,6 +784,29 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
             Self::h_delegate_access_as(&origin, &org_id, &to, &delegate_type, valid_for)?;
+            Ok(().into())
+        }
+
+        /// Transfer balance from this organization to another org/account.
+        ///
+        /// Only super admin allowed to do this opperation.
+        ///
+        #[pallet::weight(<T as Config>::WeightInfo::transfer())]
+        pub fn transfer(
+            origin: OriginFor<T>,
+            org_id: T::AccountId,
+            dest: <T::Lookup as StaticLookup>::Source,
+            #[pallet::compact] value: <<T as Config>::Currency as Currency<T::AccountId>>::Balance,
+        ) -> DispatchResultWithPostInfo {
+            let transactor = ensure_signed(origin)?;
+
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
+
+            ensure!(!org.suspended, Error::<T>::Suspended);
+            ensure!(org.admin == transactor, Error::<T>::PermissionDenied);
+
+            let dest = T::Lookup::lookup(dest)?;
+            T::Currency::transfer(&org_id, &dest, value, AllowDeath)?;
             Ok(().into())
         }
     }
