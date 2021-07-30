@@ -39,11 +39,11 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Did: pallet_did::{Pallet, Call, Storage, Event<T>},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        Organization: pallet_organization::{Pallet, Call, Storage, Event<T>},
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+        Did: pallet_did::{Module, Call, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        Organization: pallet_organization::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -161,7 +161,7 @@ fn last_event() -> OrgEvent {
         .into_iter()
         .map(|r| r.event)
         .filter_map(|e| {
-            if let Event::Organization(inner) = e {
+            if let Event::pallet_organization(inner) = e {
                 Some(inner)
             } else {
                 None
@@ -689,6 +689,44 @@ fn delegate_access_works() {
 
             // Setelah block ke-5 akses DAVE telah expired
             System::set_block_number(6);
+            assert_err_ignore_postinfo!(
+                Organization::add_members(Origin::signed(*DAVE), org_id, vec![*EVE]),
+                Error::<Test>::PermissionDenied
+            );
+            assert_eq!(Organization::is_member(&org_id, &*EVE), false);
+        });
+    });
+}
+
+#[test]
+fn revoke_delegate_access_works() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            System::set_block_number(1);
+
+            // berikan akses kepada DAVE
+            assert_ok!(Organization::delegate_access(
+                Origin::signed(*BOB),
+                org_id,
+                *DAVE,
+                Some(10) // kasih expiration time 5 block
+            ));
+
+            // di block 3 akses masih valid
+            // dan DAVE bisa add member pada organisasi BOB
+            System::set_block_number(3);
+            assert_ok!(Organization::add_members(
+                Origin::signed(*DAVE),
+                org_id,
+                vec![*CHARLIE]
+            ));
+            assert_eq!(Organization::is_member(&org_id, &*CHARLIE), true);
+
+            // revoke akses DAVE
+            assert_ok!(Organization::revoke_access(Origin::signed(*BOB), org_id, *DAVE));
+
+            // setelah masuk next block (block 4) harusnya DAVE sudah tidak memiliki akses
+            System::set_block_number(4);
             assert_err_ignore_postinfo!(
                 Organization::add_members(Origin::signed(*DAVE), org_id, vec![*EVE]),
                 Error::<Test>::PermissionDenied

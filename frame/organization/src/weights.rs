@@ -53,6 +53,7 @@ pub trait WeightInfo {
 	fn remove_member() -> Weight;
 	fn set_admin() -> Weight;
 	fn delegate_access() -> Weight;
+	fn revoke_access() -> Weight;
 	fn delegate_access_as() -> Weight;
 }
 
@@ -99,6 +100,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn delegate_access() -> Weight {
 		(34_200_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(3 as Weight))
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+	fn revoke_access() -> Weight {
+		(34_200_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(5 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	fn delegate_access_as() -> Weight {
@@ -150,6 +156,11 @@ impl WeightInfo for () {
 	fn delegate_access() -> Weight {
 		(34_200_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+	fn revoke_access() -> Weight {
+		(34_200_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	fn delegate_access_as() -> Weight {

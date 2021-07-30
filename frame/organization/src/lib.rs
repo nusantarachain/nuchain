@@ -694,14 +694,14 @@ pub mod pallet {
             org_id: T::AccountId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            let origin_1 = ensure_signed(origin.clone())?;
+            let who = ensure_signed(origin.clone())?;
 
             // harus member terlebih dahulu untuk jadi admin
             ensure!(Self::is_member(&org_id, &account_id), Error::<T>::NotMember);
 
             let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            if org.admin != origin_1 {
+            if org.admin != who {
                 T::ForceOrigin::ensure_origin(origin)?;
             } else {
                 ensure!(!org.suspended, Error::<T>::Suspended);
@@ -720,7 +720,12 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Delegate admin access to other.
+        /// Delegate admin access to other user.
+        /// User who delegated will have all admin access
+        /// except:
+        /// 1. Change super admin (set_admin).
+        /// 2. Delegate access to other user.
+        /// 3. Revoke access from other user.
         ///
         /// Use _did_ for share access with expiration.
         ///
@@ -738,6 +743,29 @@ pub mod pallet {
             let origin = ensure_signed(origin)?;
 
             Self::h_delegate_access_as(&origin, &org_id, &to, b"OrgAdmin", valid_for)?;
+            Ok(().into())
+        }
+
+        /// Revoke admin access from user.
+        ///
+        /// Use _did_ for revoke delegation access.
+        ///
+        /// Only super admin of this organization can do this.
+        #[pallet::weight(<T as Config>::WeightInfo::revoke_access())]
+        pub fn revoke_access(
+            origin: OriginFor<T>,
+            org_id: T::AccountId,
+            delegate: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin.clone())?;
+
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
+
+            ensure!(!org.suspended, Error::<T>::Suspended);
+            ensure!(org.admin == who, Error::<T>::PermissionDenied);
+
+            did::Pallet::<T>::revoke_delegate(origin, org_id, b"OrgAdmin".to_vec(), delegate)?;
+
             Ok(().into())
         }
 
