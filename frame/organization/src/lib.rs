@@ -28,7 +28,8 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! * `create_org` - Create organization.
+//! * `create` - Create organization.
+//! * `update` - Update organization.
 //! * `suspend_org` - Suspen organization.
 //! * `add_members` - Add account as member to the organization.
 //! * `remove_member` - Remove account member from organization.
