@@ -28,7 +28,7 @@ use structopt::StructOpt;
 use utils::print_from_uri;
 
 /// The `vanity` command
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, StructOpt)]
 #[structopt(name = "vanity", about = "Generate a seed that provides a vanity address")]
 pub struct VanityCmd {
 	/// Desired pattern
@@ -46,6 +46,10 @@ pub struct VanityCmd {
 	#[allow(missing_docs)]
 	#[structopt(flatten)]
 	crypto_scheme: CryptoSchemeFlag,
+
+	/// Treat pattern as Regex.
+	#[structopt(long)]
+	as_regex: bool,
 }
 
 impl VanityCmd {
@@ -53,7 +57,11 @@ impl VanityCmd {
 	pub fn run(&self) -> error::Result<()> {
 		let formated_seed = with_crypto_scheme!(
 			self.crypto_scheme.scheme,
-			generate_key(&self.pattern, self.network_scheme.network.clone().unwrap_or_default()),
+			generate_key(
+				&self.pattern,
+				self.network_scheme.network.clone().unwrap_or_default(),
+				self.as_regex
+			),
 		)?;
 
 		with_crypto_scheme!(
@@ -73,6 +81,7 @@ impl VanityCmd {
 fn generate_key<Pair>(
 	desired: &str,
 	network_override: Ss58AddressFormat,
+	as_regex: bool,
 ) -> Result<String, &'static str>
 where
 	Pair: sp_core::Pair,
@@ -85,6 +94,8 @@ where
 	let mut best = 0;
 	let mut seed = Pair::Seed::default();
 	let mut done = 0;
+
+	let re = if as_regex { Regex::new(&desired).ok() } else { None };
 
 	loop {
 		if done % 100000 == 0 {
@@ -100,6 +111,11 @@ where
 			best = score;
 			if best >= top {
 				println!("best: {} == top: {}", best, top);
+				return Ok(utils::format_seed::<Pair>(seed.clone()))
+			}
+		}
+		if let Some(ref re) = re {
+			if re.is_match(&ss58) {
 				return Ok(utils::format_seed::<Pair>(seed.clone()))
 			}
 		}
@@ -133,6 +149,8 @@ fn next_seed(seed: &mut [u8]) {
 		}
 	}
 }
+
+use regex::Regex;
 
 /// Calculate the score of a key based on the desired
 /// input.
@@ -172,7 +190,7 @@ mod tests {
 
 	#[test]
 	fn test_generation_with_single_char() {
-		let seed = generate_key::<sr25519::Pair>("ab", Default::default()).unwrap();
+		let seed = generate_key::<sr25519::Pair>("ab", Default::default(), false).unwrap();
 		assert!(sr25519::Pair::from_seed_slice(&hex::decode(&seed[2..]).unwrap())
 			.unwrap()
 			.public()
@@ -182,7 +200,8 @@ mod tests {
 
 	#[test]
 	fn generate_key_respects_network_override() {
-		let seed = generate_key::<sr25519::Pair>("ab", Ss58AddressFormat::PolkadotAccount).unwrap();
+		let seed =
+			generate_key::<sr25519::Pair>("ab", Ss58AddressFormat::PolkadotAccount, false).unwrap();
 		assert!(sr25519::Pair::from_seed_slice(&hex::decode(&seed[2..]).unwrap())
 			.unwrap()
 			.public()
