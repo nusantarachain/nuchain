@@ -145,6 +145,12 @@ benchmarks! {
         let (org_id, member_id) = setup_org_with_members::<T>(&caller);
     }: _(RawOrigin::Signed(caller.clone()), org_id, member_id, Some(100u32.into()))
 
+    revoke_access {
+        let caller = whitelisted_caller();
+        let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+        let (org_id, member_id) = setup_org_with_members::<T>(&caller);
+    }: _(RawOrigin::Signed(caller.clone()), org_id, member_id)
+
     delegate_access_as {
         let caller = whitelisted_caller();
         let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());

@@ -131,6 +131,7 @@ ord_parameter_types! {
 }
 impl Config for Test {
     type Event = Event;
+    type Time = Timestamp;
     type CreationFee = CreationFee;
     type Currency = Balances;
     type Payment = ();
@@ -265,6 +266,27 @@ fn org_id_incremented_correctly() {
         assert!(Pallet::<Test>::organization(org_id2)
             .map(|a| &a.name == b"ORG4")
             .unwrap_or(false));
+    });
+}
+
+#[test]
+fn create_org_timestamp_and_block_set() {
+    new_test_ext().execute_with(|| {
+        let now = Timestamp::now();
+        System::set_block_number(5);
+        assert_ok!(Organization::create(
+            Origin::signed(*ALICE),
+            b"ORG1".to_vec(),
+            b"ORG1 DESCRIPTION".to_vec(),
+            *BOB,
+            b"".to_vec(),
+            b"".to_vec(),
+            None
+        ));
+        let org_id = Organization::organization_index(1).unwrap();
+        let org = Organization::organization(&org_id).unwrap();
+        assert_eq!(org.timestamp, now);
+        assert_eq!(org.block, System::block_number());
     });
 }
 
@@ -566,25 +588,22 @@ fn add_member_max_limit() {
     });
 }
 
-type TestOrg = pallet_organization::Organization<<Test as frame_system::Config>::AccountId>;
+// type TestOrg = pallet_organization::Organization<<Test as frame_system::Config>::AccountId>;
 
 #[test]
 fn update_works() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
-            assert_eq!(
-                Organization::organization(&org_id),
-                Some(TestOrg {
-                    id: org_id.clone(),
-                    name: b"ORG1".to_vec(),
-                    description: b"ORG1 DESCRIPTION".to_vec(),
-                    admin: *BOB,
-                    website: b"".to_vec(),
-                    email: b"".to_vec(),
-                    suspended: false,
-                    props: None
-                })
-            );
+            let org = Organization::organization(&org_id).unwrap();
+            assert_eq!(org.name, b"ORG1".to_vec());
+            assert_eq!(org.id, org_id.clone());
+            assert_eq!(org.description, b"ORG1 DESCRIPTION".to_vec());
+            assert_eq!(org.admin, *BOB);
+            assert_eq!(org.website, b"".to_vec());
+            assert_eq!(org.email, b"".to_vec());
+            assert_eq!(org.suspended, false);
+            assert_eq!(org.props, None);
+
             let new_name = b"ORG1-B";
             let new_desc = b"ORG1-B DESC";
             let new_website = b"https://org1-b.org";
@@ -600,19 +619,16 @@ fn update_works() {
                 Some(new_props.clone())
             ));
 
-            assert_eq!(
-                Organization::organization(&org_id),
-                Some(TestOrg {
-                    id: org_id,
-                    name: new_name.to_vec(),
-                    description: new_desc.to_vec(),
-                    admin: *BOB,
-                    website: new_website.to_vec(),
-                    email: new_email.to_vec(),
-                    suspended: false,
-                    props: Some(new_props)
-                })
-            );
+            let org = Organization::organization(&org_id).unwrap();
+
+            assert_eq!(org.id, org_id.clone());
+            assert_eq!(org.name, new_name.to_vec());
+            assert_eq!(org.description, new_desc.to_vec());
+            assert_eq!(org.admin, *BOB);
+            assert_eq!(org.website, new_website.to_vec());
+            assert_eq!(org.email, new_email.to_vec());
+            assert_eq!(org.suspended, false);
+            assert_eq!(org.props, Some(new_props));
         });
     });
 }
@@ -621,20 +637,6 @@ fn update_works() {
 fn update_not_changed() {
     new_test_ext().execute_with(|| {
         with_org(|org_id, _index| {
-            assert_eq!(
-                Organization::organization(&org_id),
-                Some(TestOrg {
-                    id: org_id.clone(),
-                    name: b"ORG1".to_vec(),
-                    description: b"ORG1 DESCRIPTION".to_vec(),
-                    admin: *BOB,
-                    website: b"".to_vec(),
-                    email: b"".to_vec(),
-                    suspended: false,
-                    props: None
-                })
-            );
-
             assert_err_ignore_postinfo!(
                 Organization::update(
                     Origin::signed(*BOB),
@@ -687,6 +689,48 @@ fn delegate_access_works() {
 
             // Setelah block ke-5 akses DAVE telah expired
             System::set_block_number(6);
+            assert_err_ignore_postinfo!(
+                Organization::add_members(Origin::signed(*DAVE), org_id, vec![*EVE]),
+                Error::<Test>::PermissionDenied
+            );
+            assert_eq!(Organization::is_member(&org_id, &*EVE), false);
+        });
+    });
+}
+
+#[test]
+fn revoke_delegate_access_works() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            System::set_block_number(1);
+
+            // berikan akses kepada DAVE
+            assert_ok!(Organization::delegate_access(
+                Origin::signed(*BOB),
+                org_id,
+                *DAVE,
+                Some(10) // kasih expiration time 5 block
+            ));
+
+            // di block 3 akses masih valid
+            // dan DAVE bisa add member pada organisasi BOB
+            System::set_block_number(3);
+            assert_ok!(Organization::add_members(
+                Origin::signed(*DAVE),
+                org_id,
+                vec![*CHARLIE]
+            ));
+            assert_eq!(Organization::is_member(&org_id, &*CHARLIE), true);
+
+            // revoke akses DAVE
+            assert_ok!(Organization::revoke_access(
+                Origin::signed(*BOB),
+                org_id,
+                *DAVE
+            ));
+
+            // setelah masuk next block (block 4) harusnya DAVE sudah tidak memiliki akses
+            System::set_block_number(4);
             assert_err_ignore_postinfo!(
                 Organization::add_members(Origin::signed(*DAVE), org_id, vec![*EVE]),
                 Error::<Test>::PermissionDenied
@@ -874,6 +918,76 @@ fn minimum_add_members_is_one_account() {
                 Organization::add_members(Origin::signed(*BOB), org_id, vec![]),
                 Error::<Test>::InvalidParameter
             );
+        });
+    });
+}
+
+// -------------- TRANSFER --------------
+
+#[test]
+fn transfer_value_works() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            assert_err_ignore_postinfo!(
+                Organization::transfer(Origin::signed(*BOB), org_id, *DAVE, 5),
+                pallet_balances::Error::<Test>::InsufficientBalance
+            );
+
+            // deposit 6
+            let _ = Balances::deposit_creating(&org_id, 6);
+            assert_ok!(Organization::transfer(
+                Origin::signed(*BOB),
+                org_id,
+                *DAVE,
+                5
+            ));
+
+            // saldo organisasi harusnya sekarang sisa 1 ARA
+            assert_eq!(Balances::free_balance(&org_id), 1);
+        });
+    });
+}
+
+#[test]
+fn non_super_admin_cannot_transfer_value() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            // deposit 1000
+            let _ = Balances::deposit_creating(&org_id, 6);
+
+            assert_err_ignore_postinfo!(
+                Organization::transfer(Origin::signed(*CHARLIE), org_id, *DAVE, 5),
+                Error::<Test>::PermissionDenied
+            );
+
+            // saldo organisasi tetap utuh
+            assert_eq!(Balances::free_balance(&org_id), 6);
+        });
+    });
+}
+
+#[test]
+fn delegated_admin_cannot_transfer_value() {
+    new_test_ext().execute_with(|| {
+        with_org(|org_id, _index| {
+            // deposit 1000
+            let _ = Balances::deposit_creating(&org_id, 6);
+
+            // berikan akses kepada CHARLIE
+            assert_ok!(Organization::delegate_access(
+                Origin::signed(*BOB),
+                org_id,
+                *CHARLIE,
+                Some(5) // kasih expiration time 5 block
+            ));
+
+            assert_err_ignore_postinfo!(
+                Organization::transfer(Origin::signed(*CHARLIE), org_id, *DAVE, 5),
+                Error::<Test>::PermissionDenied
+            );
+
+            // saldo organisasi tetap utuh
+            assert_eq!(Balances::free_balance(&org_id), 6);
         });
     });
 }

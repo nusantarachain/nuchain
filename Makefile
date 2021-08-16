@@ -6,6 +6,7 @@ OS:=$(shell uname | sed -e 's/\(.*\)/\L\1/')
 BIN_NAME=nuchain-$(NODE_VERSION)-$(GIT_REV)-$(OS)
 WASM_RUNTIME_OUT=nuchain-runtime-$(GIT_REV).compact.wasm
 DISTRO=$(cat /etc/os-release | grep '^VERSION_ID=' | cut -d '"' -f 2)
+RUNTIME_SPEC_VER=$(shell grep -o 'spec_version: [0-9]\+' bin/node/runtime/src/lib.rs | grep -o '[0-9]\+')
 
 check:
 	cargo check --release
@@ -20,6 +21,8 @@ build:
 build-wasm-runtime:
 	@@echo Building WASM runtime...
 	@@cargo build --release -p nuchain-runtime
+	@@cd target/release/wbuild/nuchain-runtime && \
+		cp nuchain_runtime.compact.wasm nuchain_runtime-$(RUNTIME_SPEC_VER).compact.wasm
 
 build-benchmark:
 	@@echo Building binary for benchmark...

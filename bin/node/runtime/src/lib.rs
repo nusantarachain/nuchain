@@ -117,7 +117,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 5,
+    spec_version: 7,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -1052,6 +1052,7 @@ parameter_types! {
 
 impl pallet_organization::Config for Runtime {
     type Event = Event;
+    type Time = Timestamp;
     type CreationFee = CreationFee;
     type Currency = Balances;
     type Payment = Treasury;

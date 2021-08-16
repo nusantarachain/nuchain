@@ -4364,7 +4364,7 @@ dependencies = [
 
 [[package]]
 name = "nuchain-node"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "assert_cmd",
  "async-std",

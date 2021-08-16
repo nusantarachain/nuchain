@@ -28,7 +28,8 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! * `create_org` - Create organization.
+//! * `create` - Create organization.
+//! * `update` - Update organization.
 //! * `suspend_org` - Suspen organization.
 //! * `add_members` - Add account as member to the organization.
 //! * `remove_member` - Remove account member from organization.
@@ -40,15 +41,16 @@ use frame_support::{
     dispatch::DispatchResult,
     ensure,
     traits::{
-        Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get, OnUnbalanced,
-        ReservableCurrency, WithdrawReasons,
+        Currency, EnsureOrigin,
+        ExistenceRequirement::{AllowDeath, KeepAlive},
+        Get, OnUnbalanced, ReservableCurrency, Time, WithdrawReasons,
     },
     types::{Property, Text},
 };
 use frame_system::ensure_signed;
 use sp_core::crypto::UncheckedFrom;
-use sp_runtime::traits::Hash;
-use sp_std::{fmt::Debug, prelude::*};
+use sp_runtime::traits::{Hash, StaticLookup};
+use sp_std::prelude::*;
 
 use enumflags2::{bitflags, BitFlags};
 
@@ -61,12 +63,6 @@ pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, EncodeLike};
 use pallet_did::{self as did, Did};
-
-type BalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
 
 pub const MAX_PROPS: usize = 10;
 pub const PROP_NAME_MAX_LENGTH: usize = 30;
@@ -91,6 +87,9 @@ pub mod pallet {
     pub trait Config: frame_system::Config + did::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// Timestamp
+        type Time: Time;
 
         /// The currency trait.
         type Currency: ReservableCurrency<Self::AccountId>;
@@ -117,10 +116,17 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
     }
 
+    type BalanceOf<T> =
+        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+        <T as frame_system::Config>::AccountId,
+    >>::NegativeImbalance;
+    type Moment<T> = <<T as Config>::Time as Time>::Moment;
+
     #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
-    pub struct Organization<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
+    pub struct Organization<T: Config> {
         /// Organization ID
-        pub id: AccountId,
+        pub id: T::AccountId,
 
         /// object name
         pub name: Vec<u8>,
@@ -129,7 +135,7 @@ pub mod pallet {
         pub description: Vec<u8>,
 
         /// admin of the object
-        pub admin: AccountId,
+        pub admin: T::AccountId,
 
         /// Official website url
         pub website: Vec<u8>,
@@ -139,6 +145,12 @@ pub mod pallet {
 
         /// Whether the organization suspended or not
         pub suspended: bool,
+
+        /// Created at block
+        pub block: T::BlockNumber,
+
+        /// Creation timestamp
+        pub timestamp: Moment<T>,
 
         /// Custom properties
         pub props: Option<Vec<Property>>,
@@ -212,7 +224,6 @@ pub mod pallet {
 
         // /// When object deleted
         // OrganizationDeleted(T::AccountId),
-
         /// Organization data has been updated
         OrganizationUpdated(T::AccountId),
 
@@ -233,7 +244,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn organization)]
     pub type Organizations<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Organization<T::AccountId>>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, Organization<T>>;
 
     /// Link organization index -> organization hash.
     /// Useful for lookup organization from index.
@@ -405,6 +416,8 @@ pub mod pallet {
                     .collect::<Vec<u8>>(),
             ));
 
+            let block = <frame_system::Pallet<T>>::block_number();
+
             Organizations::<T>::insert(
                 org_id.clone(),
                 Organization {
@@ -415,6 +428,8 @@ pub mod pallet {
                     website: website.clone(),
                     email: email.clone(),
                     suspended: false,
+                    block,
+                    timestamp: <T as pallet::Config>::Time::now(),
                     props,
                 },
             );
@@ -438,9 +453,9 @@ pub mod pallet {
             <Members<T>>::insert(&org_id, vec![admin.clone()]);
 
             // DID add attribute
-            <pallet_did::Module<T>>::create_attribute(&org_id, &org_id, b"Org", &name, None)?;
+            <pallet_did::Pallet<T>>::create_attribute(&org_id, &org_id, b"Org", &name, None)?;
             // Set owner of this organization in DID
-            <pallet_did::Module<T>>::set_owner(&who, &org_id, &admin);
+            <pallet_did::Pallet<T>>::set_owner(&who, &org_id, &admin);
 
             Self::deposit_event(Event::OrganizationAdded(org_id, admin));
 
@@ -577,7 +592,7 @@ pub mod pallet {
             let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
             if !(org.admin == origin_1
-                || did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin_1).is_ok())
+                || did::Pallet::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin_1).is_ok())
                 || flags.contains(FlagDataBit::System)
                 || flags.contains(FlagDataBit::Verified)
             {
@@ -631,7 +646,7 @@ pub mod pallet {
 
             <Members<T>>::insert(&org_id, members);
 
-            // <pallet_did::Module<T>>::create_delegate(&sender, &org.id, &account_id, b"OrgMember");
+            // <pallet_did::Pallet<T>>::create_delegate(&sender, &org.id, &account_id, b"OrgMember");
 
             for account_id in accounts {
                 Self::deposit_event(Event::MemberAdded(org_id.clone(), account_id));
@@ -675,19 +690,19 @@ pub mod pallet {
         #[pallet::weight(
             <T as Config>::WeightInfo::set_admin()
         )]
-        pub(crate) fn set_admin(
+        pub fn set_admin(
             origin: OriginFor<T>,
             org_id: T::AccountId,
             account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            let origin_1 = ensure_signed(origin.clone())?;
+            let who = ensure_signed(origin.clone())?;
 
             // harus member terlebih dahulu untuk jadi admin
             ensure!(Self::is_member(&org_id, &account_id), Error::<T>::NotMember);
 
             let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
 
-            if org.admin != origin_1 {
+            if org.admin != who {
                 T::ForceOrigin::ensure_origin(origin)?;
             } else {
                 ensure!(!org.suspended, Error::<T>::Suspended);
@@ -706,7 +721,12 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Delegate admin access to other.
+        /// Delegate admin access to other user.
+        /// User who delegated will have all admin access
+        /// except:
+        /// 1. Change super admin (set_admin).
+        /// 2. Delegate access to other user.
+        /// 3. Revoke access from other user.
         ///
         /// Use _did_ for share access with expiration.
         ///
@@ -715,7 +735,7 @@ pub mod pallet {
         #[pallet::weight(
             <T as Config>::WeightInfo::delegate_access()
         )]
-        pub(crate) fn delegate_access(
+        pub fn delegate_access(
             origin: OriginFor<T>,
             org_id: T::AccountId,
             to: T::AccountId,
@@ -724,6 +744,29 @@ pub mod pallet {
             let origin = ensure_signed(origin)?;
 
             Self::h_delegate_access_as(&origin, &org_id, &to, b"OrgAdmin", valid_for)?;
+            Ok(().into())
+        }
+
+        /// Revoke admin access from user.
+        ///
+        /// Use _did_ for revoke delegation access.
+        ///
+        /// Only super admin of this organization can do this.
+        #[pallet::weight(<T as Config>::WeightInfo::revoke_access())]
+        pub fn revoke_access(
+            origin: OriginFor<T>,
+            org_id: T::AccountId,
+            delegate: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin.clone())?;
+
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
+
+            ensure!(!org.suspended, Error::<T>::Suspended);
+            ensure!(org.admin == who, Error::<T>::PermissionDenied);
+
+            did::Pallet::<T>::revoke_delegate(origin, org_id, b"OrgAdmin".to_vec(), delegate)?;
+
             Ok(().into())
         }
 
@@ -741,6 +784,29 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
             Self::h_delegate_access_as(&origin, &org_id, &to, &delegate_type, valid_for)?;
+            Ok(().into())
+        }
+
+        /// Transfer balance from this organization to another org/account.
+        ///
+        /// Only super admin allowed to do this opperation.
+        ///
+        #[pallet::weight(<T as Config>::WeightInfo::transfer())]
+        pub fn transfer(
+            origin: OriginFor<T>,
+            org_id: T::AccountId,
+            dest: <T::Lookup as StaticLookup>::Source,
+            #[pallet::compact] value: <<T as Config>::Currency as Currency<T::AccountId>>::Balance,
+        ) -> DispatchResultWithPostInfo {
+            let transactor = ensure_signed(origin)?;
+
+            let org = Organizations::<T>::get(&org_id).ok_or(Error::<T>::NotExists)?;
+
+            ensure!(!org.suspended, Error::<T>::Suspended);
+            ensure!(org.admin == transactor, Error::<T>::PermissionDenied);
+
+            let dest = T::Lookup::lookup(dest)?;
+            T::Currency::transfer(&org_id, &dest, value, AllowDeath)?;
             Ok(().into())
         }
     }
@@ -816,11 +882,11 @@ impl<T: Config> Pallet<T> {
     pub fn ensure_access(
         origin: &T::AccountId,
         org_id: &T::AccountId,
-    ) -> Result<Organization<T::AccountId>, Error<T>> {
+    ) -> Result<Organization<T>, Error<T>> {
         let org = Self::organization(&org_id).ok_or(Error::<T>::NotExists)?;
 
         if &org.admin != origin {
-            did::Module::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)
+            did::Pallet::<T>::valid_delegate(&org_id, b"OrgAdmin", &origin)
                 .map_err(|_| Error::<T>::PermissionDenied)?;
         }
 
@@ -841,12 +907,12 @@ impl<T: Config> Pallet<T> {
     /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
     pub fn ensure_access_active(
         origin: &T::AccountId,
-        org: &Organization<T::AccountId>,
+        org: &Organization<T>,
     ) -> Result<(), Error<T>> {
         // ensure!(&org.admin == origin, Error::<T>::PermissionDenied);
 
         if &org.admin != origin {
-            did::Module::<T>::valid_delegate(&org.id, b"OrgAdmin", &origin)
+            did::Pallet::<T>::valid_delegate(&org.id, b"OrgAdmin", &origin)
                 .map_err(|_| Error::<T>::PermissionDenied)?;
         }
 
@@ -888,7 +954,7 @@ impl<T: Config> Pallet<T> {
         ensure!(!org.suspended, Error::<T>::Suspended);
         ensure!(&org.admin == origin, Error::<T>::PermissionDenied);
 
-        did::Module::<T>::create_delegate(&origin, &org_id, &to, delegate_type, valid_for)?;
+        did::Pallet::<T>::create_delegate(&origin, &org_id, &to, delegate_type, valid_for)?;
 
         Ok(())
     }
