@@ -24,7 +24,7 @@ use nuchain_runtime::{
 	constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
 	BalancesConfig, Block, CouncilConfig, DemocracyConfig, ElectionsConfig, GrandpaConfig,
 	ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus,
-	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, MAX_NOMINATIONS,
+	StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
@@ -92,12 +92,15 @@ fn session_keys(
     }
 }
 
-fn staging_config_genesis() -> GenesisConfig {
-    // stash, controller, session-key
-    // generated with secret:
-    // for i in 1 2 3 4 ; do for j in stash controller; do subkey inspect "$secret"/fir/$j/$i; done; done
-    // and
-    // for i in 1 2 3 4 ; do for j in session; do subkey --ed25519 inspect "$secret"//fir//$j//$i; done; done
+fn staging_testnet_config_genesis() -> GenesisConfig {
+	#[rustfmt::skip]
+	// stash, controller, session-key
+	// generated with secret:
+	// for i in 1 2 3 4 ; do for j in stash controller; do subkey inspect "$secret"/fir/$j/$i; done; done
+	//
+	// and
+	//
+	// for i in 1 2 3 4 ; do for j in session; do subkey --ed25519 inspect "$secret"//fir//$j//$i; done; done
 
     let initial_authorities: Vec<(
         AccountId,
@@ -187,7 +190,7 @@ pub fn staging_config() -> ChainSpec {
         "Nuchain Testnet",
         "nuchain_testnet",
         ChainType::Live,
-        staging_config_genesis,
+        staging_testnet_config_genesis,
         boot_nodes,
         Some(
             TelemetryEndpoints::new(vec![(MAIN_TELEMETRY_URL.to_string(), 0)])

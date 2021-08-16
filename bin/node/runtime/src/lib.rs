@@ -26,8 +26,8 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		AllowAll, Currency, DenyAll, Imbalance, InstanceFilter, KeyOwnerProofSystem,
-		LockIdentifier, OnUnbalanced, U128CurrencyToVote,
+		Currency, Everything, Imbalance, InstanceFilter, KeyOwnerProofSystem, LockIdentifier,
+		Nothing, OnUnbalanced, U128CurrencyToVote,
 	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -195,66 +195,66 @@ parameter_types! {
 const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
 impl frame_system::Config for Runtime {
-    type BaseCallFilter = AllowAll;
-    type BlockWeights = RuntimeBlockWeights;
-    type BlockLength = RuntimeBlockLength;
-    type DbWeight = RocksDbWeight;
-    type Origin = Origin;
-    type Call = Call;
-    type Index = Index;
-    type BlockNumber = BlockNumber;
-    type Hash = Hash;
-    type Hashing = BlakeTwo256;
-    type AccountId = AccountId;
-    type Lookup = Indices;
-    type Header = generic::Header<BlockNumber, BlakeTwo256>;
-    type Event = Event;
-    type BlockHashCount = BlockHashCount;
-    type Version = Version;
-    type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<Balance>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
-    type SS58Prefix = SS58Prefix;
-    type OnSetCode = ();
+	type BaseCallFilter = Everything;
+	type BlockWeights = RuntimeBlockWeights;
+	type BlockLength = RuntimeBlockLength;
+	type DbWeight = RocksDbWeight;
+	type Origin = Origin;
+	type Call = Call;
+	type Index = Index;
+	type BlockNumber = BlockNumber;
+	type Hash = Hash;
+	type Hashing = BlakeTwo256;
+	type AccountId = AccountId;
+	type Lookup = Indices;
+	type Header = generic::Header<BlockNumber, BlakeTwo256>;
+	type Event = Event;
+	type BlockHashCount = BlockHashCount;
+	type Version = Version;
+	type PalletInfo = PalletInfo;
+	type AccountData = pallet_balances::AccountData<Balance>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
+	type SS58Prefix = SS58Prefix;
+	type OnSetCode = ();
 }
 
 impl pallet_randomness_collective_flip::Config for Runtime {}
 
 impl pallet_utility::Config for Runtime {
-    type Event = Event;
-    type Call = Call;
-    type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+	type Event = Event;
+	type Call = Call;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
-    // One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
-    pub const DepositBase: Balance = deposit(1, 88);
-    // Additional storage item size of 32 bytes.
-    pub const DepositFactor: Balance = deposit(0, 32);
-    pub const MaxSignatories: u16 = 100;
+	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+	pub const DepositBase: Balance = deposit(1, 88);
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = deposit(0, 32);
+	pub const MaxSignatories: u16 = 100;
 }
 
 impl pallet_multisig::Config for Runtime {
-    type Event = Event;
-    type Call = Call;
-    type Currency = Balances;
-    type DepositBase = DepositBase;
-    type DepositFactor = DepositFactor;
-    type MaxSignatories = MaxSignatories;
-    type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+	type Event = Event;
+	type Call = Call;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositFactor = DepositFactor;
+	type MaxSignatories = MaxSignatories;
+	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
-    // One storage item; key size 32, value size 8; .
-    pub const ProxyDepositBase: Balance = deposit(1, 8);
-    // Additional storage item size of 33 bytes.
-    pub const ProxyDepositFactor: Balance = deposit(0, 33);
-    pub const MaxProxies: u16 = 32;
-    pub const AnnouncementDepositBase: Balance = deposit(1, 8);
-    pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
-    pub const MaxPending: u16 = 32;
+	// One storage item; key size 32, value size 8; .
+	pub const ProxyDepositBase: Balance = deposit(1, 8);
+	// Additional storage item size of 33 bytes.
+	pub const ProxyDepositFactor: Balance = deposit(0, 33);
+	pub const MaxProxies: u16 = 32;
+	pub const AnnouncementDepositBase: Balance = deposit(1, 8);
+	pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
+	pub const MaxPending: u16 = 32;
 }
 
 /// The type used to represent the kinds of proxying allowed.
@@ -568,15 +568,14 @@ parameter_types! {
 
 sp_npos_elections::generate_solution_type!(
 	#[compact]
-	pub struct NposCompactSolution16::<
+	pub struct NposSolution16::<
 		VoterIndex = u32,
 		TargetIndex = u16,
 		Accuracy = sp_runtime::PerU16,
 	>(16)
 );
 
-pub const MAX_NOMINATIONS: u32 =
-	<NposCompactSolution16 as sp_npos_elections::CompactSolution>::LIMIT as u32;
+pub const MAX_NOMINATIONS: u32 = <NposSolution16 as sp_npos_elections::NposSolution>::LIMIT as u32;
 
 /// The numbers configured here should always be more than the the maximum limits of staking pallet
 /// to ensure election snapshot will not run out of memory.
@@ -613,7 +612,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type RewardHandler = (); // nothing to do upon rewards
 	type DataProvider = Staking;
 	type OnChainAccuracy = Perbill;
-	type CompactSolution = NposCompactSolution16;
+	type Solution = NposSolution16;
 	type Fallback = Fallback;
 	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Runtime>;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
@@ -884,7 +883,7 @@ impl pallet_contracts::Config for Runtime {
 	/// and make sure they are stable. Dispatchables exposed to contracts are not allowed to
 	/// change because that would break already deployed contracts. The `Call` structure itself
 	/// is not allowed to change the indices of existing pallets, too.
-	type CallFilter = DenyAll;
+	type CallFilter = Nothing;
     type RentPayment = ();
     type SignedClaimHandicap = SignedClaimHandicap;
     type TombstoneDeposit = TombstoneDeposit;
@@ -1774,5 +1773,15 @@ mod tests {
 		}
 
 		is_submit_signed_transaction::<Runtime>();
+	}
+
+	#[test]
+	fn call_size() {
+		assert!(
+			core::mem::size_of::<Call>() <= 200,
+			"size of Call is more than 200 bytes: some calls have too big arguments, use Box to reduce the
+			size of Call.
+			If the limit is too strong, maybe consider increase the limit to 300.",
+		);
 	}
 }
