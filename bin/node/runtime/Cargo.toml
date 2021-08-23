@@ -121,7 +121,6 @@ std = [
 	"pallet-im-online/std",
 	"pallet-indices/std",
 	"sp-inherents/std",
-	# "pallet-lottery/std",
 	"pallet-membership/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
@@ -158,7 +157,6 @@ std = [
 	"pallet-society/std",
 	"pallet-recovery/std",
 	"pallet-vesting/std",
-	# "pallet-nicks/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
