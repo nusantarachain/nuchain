@@ -904,7 +904,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Memastikan bahwa akun memiliki akses pada organisasi.
-    /// bukan hanya akses, ini juga memastikan organisasi dalam posisi tidak suspended.
+    /// bukan hanya akses, ini juga memastikan organisasi dalam posisi aktif (tidak suspended).
     pub fn ensure_access_active(
         origin: &T::AccountId,
         org: &Organization<T>,
