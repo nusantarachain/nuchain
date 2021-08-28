@@ -52,6 +52,10 @@ pub enum Subcommand {
 	#[cfg(feature = "try-runtime")]
 	TryRuntime(try_runtime_cli::TryRuntimeCmd),
 
+	/// Try some command against runtime state. Note: `try-runtime` feature must be enabled.
+	#[cfg(not(feature = "try-runtime"))]
+	TryRuntime,
+
 	/// Verify a signature for a message, provided on STDIN, with a given (public or secret) key.
 	Verify(VerifyCmd),
 
