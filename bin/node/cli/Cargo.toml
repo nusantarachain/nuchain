@@ -1,6 +1,6 @@
 [package]
 name = "nuchain-node"
-version = "0.2.3"
+version = "0.2.5"
 authors = ["Nusantara Chain <nusantarachain@gmail.com>"]
 description = "Blockchain for Indonesia Society 5.0"
 build = "build.rs"
@@ -109,6 +109,7 @@ sp-trie = { version = "4.0.0-dev", default-features = false, path = "../../../pr
 
 [dev-dependencies]
 sc-keystore = { version = "4.0.0-dev", path = "../../../client/keystore" }
+sc-client-db = { version = "0.10.0-dev", path = "../../../client/db" }
 sc-consensus = { version = "0.10.0-dev", path = "../../../client/consensus/common" }
 sc-consensus-babe = { version = "0.10.0-dev", path = "../../../client/consensus/babe" }
 sc-consensus-epochs = { version = "0.10.0-dev", path = "../../../client/consensus/epochs" }
