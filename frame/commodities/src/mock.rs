@@ -1,7 +1,7 @@
 // Creating mock runtime here
 
 use crate::{self as pallet_nft, Config, Module};
-use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+use frame_support::{parameter_types, weights::Weight};
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{

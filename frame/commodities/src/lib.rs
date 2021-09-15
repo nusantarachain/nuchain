@@ -33,18 +33,29 @@
 //! * [`transfer`](./enum.Call.html#variant.transfer) - Transfer ownership of
 //!   a commodity to another account. May only be called by current commodity
 //!   owner.
+//! 
+
+// @TODO(robin):
+// Please take notes that commodities in this pallet is controlled by assets admin only, 
+// not regular account, this is useful for exclusive single instance managed assets only.
+// But for public NFTs this is not possible.
+// Seems we needs to make this controlled by public,
+// so everyone allowed to mint their own unique assets (NFTs).
+// 
+// or please use standard ERC-721 instead,
+// check this out for reference: https://github.com/shawntabrizi/substrate-erc721
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::FullCodec;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
+    dispatch, ensure,
     traits::{EnsureOrigin, Get},
     Hashable,
 };
 use frame_system::ensure_signed;
 use sp_runtime::traits::{Hash, Member};
-use sp_std::{cmp::Eq, fmt::Debug, vec::Vec};
+use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod nft;
 pub use crate::nft::UniqueAssets;
@@ -165,7 +176,7 @@ pub mod pallet {
         }
 
         /// Destroy the specified commodity.
-        ///q
+        ///
         /// The dispatch origin for this call must be the commodity owner.
         ///
         /// - `commodity_id`: The hash (calculated by the runtime system's hashing algorithm)
@@ -225,6 +236,7 @@ pub mod pallet {
 }
 
 pub use pallet::*;
+use sp_std::vec;
 
 impl<T: Config<I>, I: 'static> UniqueAssets<T::AccountId> for Pallet<T, I> {
     type AssetId = CommodityId<T>;

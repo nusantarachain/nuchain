@@ -1074,7 +1074,6 @@ impl pallet_certificate::Config for Runtime {
 }
 
 // parameter_types! {
-
 // }
 
 impl pallet_did::Config for Runtime {
@@ -1093,6 +1092,12 @@ impl pallet_product_registry::Config for Runtime {
 impl pallet_product_tracking::Config for Runtime {
     type Event = Event;
 }
+
+// // COMMODITIES / NFTs
+// parameter_types! {
+//     pub const MaxCommodities: u128 = 5;
+//     pub const MaxCommoditiesPerUser: u64 = 2;
+// }
 
 construct_runtime!(
     pub enum Runtime where

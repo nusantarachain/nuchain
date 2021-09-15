@@ -89,6 +89,8 @@ pallet-certificate = { version = "0.0.1", default-features = false, path = "../.
 pallet-organization = { version = "0.0.1", default-features = false, path = "../../../frame/organization" }
 pallet-product-registry = { default-features = false, path = "../../../frame/product-registry" }
 pallet-product-tracking = { default-features = false, path = "../../../frame/product-tracking" }
+pallet-commodities = { version = "0.0.1", default-features = false, path = "../../../frame/commodities" }
+
 
 [build-dependencies]
 substrate-wasm-builder = { version = "4.0.0", path = "../../../utils/wasm-builder" }

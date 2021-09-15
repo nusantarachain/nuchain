@@ -4356,7 +4356,7 @@ dependencies = [
 
 [[package]]
 name = "nuchain-node"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "assert_cmd",
  "async-std",
@@ -4454,6 +4454,7 @@ dependencies = [
  "pallet-bounties",
  "pallet-certificate",
  "pallet-collective",
+ "pallet-commodities",
  "pallet-contracts",
  "pallet-contracts-primitives",
  "pallet-contracts-rpc-runtime-api",
@@ -4851,6 +4852,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-commodities"
+version = "0.0.1"
+dependencies = [
+ "frame-support 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frame-system 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-scale-codec",
+ "serde",
+ "sp-core 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-io 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-runtime 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-std 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "pallet-contracts"
 version = "2.0.1"
 dependencies = [
@@ -5161,20 +5176,6 @@ dependencies = [
  "sp-io 3.0.0",
  "sp-runtime 3.0.0",
  "sp-std 3.0.0",
-]
-
-[[package]]
-name = "pallet-nft"
-version = "1.0.0"
-dependencies = [
- "frame-support 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "frame-system 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-scale-codec",
- "serde",
- "sp-core 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-io 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-runtime 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sp-std 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

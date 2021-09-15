@@ -122,7 +122,7 @@ members = [
 	"frame/did",
 	"frame/product-registry",	# -- supply chain
 	"frame/product-tracking",	# -- supply chain
-	"frame/nft",
+	"frame/commodities", # -- commodities / NFTs
 	"primitives/allocator",
 	"primitives/api",
 	"primitives/api/proc-macro",
