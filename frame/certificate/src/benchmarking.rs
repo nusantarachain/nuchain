@@ -27,7 +27,7 @@ use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
 use frame_system::{EventRecord, RawOrigin};
 use sp_core::crypto::UncheckedFrom;
-use sp_runtime::traits::Bounded;
+use sp_runtime::traits::{Bounded, One};
 use sp_std::vec;
 
 use crate::Module as Certificate;
@@ -48,7 +48,7 @@ const EMAIL: &[u8] = b"info@some.org";
 
 fn setup_org<T: Config>(caller: &T::AccountId) -> T::AccountId
 where
-    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>
 {
     // assert_ok!(Organization::<T>::create(
     //     RawOrigin::Signed(caller.clone()).into(),
@@ -74,6 +74,8 @@ where
             website: WEBSITE.to_vec(),
             email: EMAIL.to_vec(),
             suspended: false,
+            block: T::BlockNumber::one(),
+            timestamp: <T as pallet_organization::Config>::Time::now(),
             props: None,
         },
     );
@@ -148,6 +150,8 @@ benchmarks! {
             time: now,
             expired: None,
             revoked: false,
+            block: T::BlockNumber::one(),
+            signer_name: None,
             props: None,
         };
         IssuedCert::<T>::insert(&issued_id, proof);

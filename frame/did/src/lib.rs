@@ -176,7 +176,7 @@ pub mod pallet {
         }
 
         /// Transfers ownership of an identity.
-        #[pallet::weight(0)]
+        #[pallet::weight(T::WeightInfo::change_owner())]
         pub fn change_owner(
             origin: OriginFor<T>,
             identity: T::AccountId,
@@ -191,7 +191,7 @@ pub mod pallet {
         }
 
         /// Revokes an identity's delegate by setting its expiration to the current block number.
-        #[pallet::weight(0)]
+        #[pallet::weight(T::WeightInfo::revoke_delegate())]
         pub fn revoke_delegate(
             origin: OriginFor<T>,
             identity: T::AccountId,
@@ -211,7 +211,7 @@ pub mod pallet {
 
         /// Creates a new attribute as part of an identity.
         /// Sets its expiration period.
-        #[pallet::weight(0)]
+        #[pallet::weight(T::WeightInfo::add_attribute())]
         pub fn add_attribute(
             origin: OriginFor<T>,
             identity: T::AccountId,
@@ -229,7 +229,7 @@ pub mod pallet {
 
         /// Revokes an attribute/property from an identity.
         /// Sets its expiration period to the actual block number.
-        #[pallet::weight(0)]
+        #[pallet::weight(T::WeightInfo::revoke_attribute())]
         pub fn revoke_attribute(
             origin: OriginFor<T>,
             identity: T::AccountId,
@@ -248,7 +248,7 @@ pub mod pallet {
         }
 
         /// Removes an attribute from an identity. This attribute/property becomes unavailable.
-        #[pallet::weight(0)]
+        #[pallet::weight(T::WeightInfo::delete_attribute())]
         pub fn delete_attribute(
             origin: OriginFor<T>,
             identity: T::AccountId,
@@ -273,7 +273,7 @@ pub mod pallet {
         }
 
         /// Executes off-chain signed transaction.
-        #[pallet::weight(0)]
+        #[pallet::weight(20_000_000)]
         pub fn execute(
             origin: OriginFor<T>,
             transaction: AttributeTransaction<T::Signature, T::AccountId>,

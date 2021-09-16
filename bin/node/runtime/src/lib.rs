@@ -1514,6 +1514,7 @@ impl_runtime_apis! {
             // add_benchmark!(params, batches, pallet_nicks, Nicks);
             add_benchmark!(params, batches, pallet_organization, Organization);
             add_benchmark!(params, batches, pallet_certificate, Certificate);
+            add_benchmark!(params, batches, pallet_did, Did);
             // add_benchmark!(params, batches, pallet_product_registry, ProductRegistry);
             // add_benchmark!(params, batches, pallet_product_tracking, ProductTracking);
 

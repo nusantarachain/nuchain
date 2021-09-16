@@ -25,6 +25,7 @@ use sp_runtime::traits::Bounded;
 use sp_std::vec;
 
 use crate::{Module as Organization, OrgIdIndex, OrganizationIndexOf, Organizations};
+use crate::pallet::BalanceOf;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
     let events = frame_system::Module::<T>::events();

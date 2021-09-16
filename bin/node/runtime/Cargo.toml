@@ -159,6 +159,8 @@ std = [
 	"pallet-society/std",
 	"pallet-recovery/std",
 	"pallet-vesting/std",
+	"pallet-did/std",
+	"pallet-commodities/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
@@ -195,7 +197,8 @@ runtime-benchmarks = [
 	"hex-literal",
 	# "pallet-nicks/runtime-benchmarks",
 	"pallet-organization/runtime-benchmarks",
-	"pallet-certificate/runtime-benchmarks"
+	"pallet-certificate/runtime-benchmarks",
+	"pallet-did/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
