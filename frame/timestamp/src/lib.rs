@@ -287,6 +287,8 @@ impl<T: Config> UnixTime for Pallet<T> {
 		let now = Self::now();
 		sp_std::if_std! {
 			if now == T::Moment::zero() {
+
+				#[cfg(feature = "std")]
 				debug::error!(
 					"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0"
 				);

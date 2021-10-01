@@ -11,7 +11,8 @@ Mengapa blockchain?
 * Hampir semua aplikasi internet yang ada saat ini berjalan secara terpusat (centralized), salah satu semangat Web 3.0 adalah aplikasi terdistribusi. Blockchain yang secara alamiahnya adalah sistem terdistribusi bisa dijadikan fondasi untuk menuju era aplikasi internet terdistribusi.
 * Keamanan, sistem blockchain diamankan menggunakan kriptografi di lapisan paling dasarnya, memberikan jaminan keamanan tinggi.
 * Blockchain merupakan *trustless system* sangat bisa diandalkan untuk membangun aplikasi yang membutuhkan jaminan legitimasi tanpa perlu mempercayai satu sama lain.
-* Nuchain bukan didesain untuk menjadi *crypto currency*, tetapi sebagai platform aplikasi terdistibusi (DApps) yang nantinya akan menjadi ekosistem baru di era teknologi digital yang membutuhkan keterbukaan, kejelasan, legitimasi, dan *good governance*.
+
+Nuchain bukan didesain untuk menjadi *crypto currency*, tetapi sebagai platform aplikasi terdistibusi (DApps) yang nantinya akan menjadi ekosistem baru di era teknologi digital yang membutuhkan keterbukaan, kejelasan, legitimasi, dan *good governance*.
 
 ## Roadmap
 
@@ -133,11 +134,11 @@ source ~/.cargo/env
 Nuchain menggunakan [WebAssembly](https://webassembly.org/) sebagai core on-chain runtime-nya dan sebagai VM untuk kontrak pintar (smart contract)-nya, sehingga diperlukan Wasm toolchain untuk Rust:
 
 ```bash
-rustup default nightly-2021-01-29
-rustup target add wasm32-unknown-unknown --toolchain nightly-2021-01-29
+rustup default nightly-2021-03-15
+rustup target add wasm32-unknown-unknown --toolchain nightly-2021-03-15
 ```
 
-**CATATAN**: Pada contoh di atas menggunakan Rust versi nightly build 2020-10-05 karena telah teruji bisa melakukan kompilasi dengan lancar, namun ini hanya sebagai contoh apabila pada kemudian hari ada perubahan di Rust nightly yang membuat kode Nuchain tidak lagi bisa dikompilasi (tidak kompatibel). Kamu bebas apabila mau menggunakan latest nightly.
+**CATATAN**: Pada contoh di atas menggunakan Rust versi nightly build 2021-03-15 karena telah teruji bisa melakukan kompilasi dengan lancar, namun ini hanya sebagai contoh apabila pada kemudian hari ada perubahan di Rust nightly yang membuat kode Nuchain tidak lagi bisa dikompilasi (tidak kompatibel). Kamu bebas apabila mau menggunakan latest nightly.
 
 ```bash
 git clone https://github.com/nusantarachain/nuchain.git
@@ -187,7 +188,7 @@ Tertarik dengan proyek ini? Anda bisa ikut kontribusi dengan beberapa cara:
 
 ## Dokumentasi
 
-Untuk dokumentasi lebih lengkap baca [Nuchain Wiki](https://github.com/nusantarachain/nuchain/wiki).
+Untuk dokumentasi lebih lengkapnya kunjungi [https://nuchain.network](https://nuchain.network/).
 
 ## Komunitas
 

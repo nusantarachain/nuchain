@@ -5,7 +5,8 @@ GIT_REV=$(shell git rev-parse --short HEAD)
 OS:=$(shell uname | sed -e 's/\(.*\)/\L\1/')
 BIN_NAME=nuchain-$(NODE_VERSION)-$(GIT_REV)-$(OS)
 WASM_RUNTIME_OUT=nuchain-runtime-$(GIT_REV).compact.wasm
-DISTRO=$(shell lsb_release -id | head -1 | cut -f2)-$(shell lsb_release -r | head -1 | cut -f2)-$(shell lsb_release -c | head -1 | cut -f2)
+DISTRO=$(cat /etc/os-release | grep '^VERSION_ID=' | cut -d '"' -f 2)
+RUNTIME_SPEC_VER=$(shell grep -o 'spec_version: [0-9]\+' bin/node/runtime/src/lib.rs | grep -o '[0-9]\+')
 
 check:
 	cargo check --release
@@ -20,7 +21,13 @@ build:
 build-wasm-runtime:
 	@@echo Building WASM runtime...
 	@@cargo build --release -p nuchain-runtime
-	du -h target/release/wbuild/nuchain-runtime/nuchain_runtime.compact.wasm
+	@@du -h target/release/wbuild/nuchain-runtime/nuchain_runtime.compact.wasm
+	@@cd target/release/wbuild/nuchain-runtime && \
+		cp nuchain_runtime.compact.wasm nuchain_runtime-$(RUNTIME_SPEC_VER).compact.wasm
+
+build-benchmark:
+	@@echo Building binary for benchmark...
+	cargo build -p nuchain-node --release --features="runtime-benchmarks"
 
 deb:
 	@@echo Packaging for $(DISTRO)
@@ -45,6 +52,7 @@ package:
 	test \
 	build \
 	build-wasm-runtime \
+	build-benchmark \
 	package \
 	deb
 

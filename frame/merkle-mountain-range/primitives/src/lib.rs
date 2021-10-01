@@ -377,7 +377,7 @@ sp_api::decl_runtime_apis! {
 		/// proof is verified against given MMR root hash.
 		///
 		/// The leaf data is expected to be encoded in it's compact form.
-		fn verify_proof_stateless(root: Hash, leaf: Vec<u8>, proof: Proof<Hash>)
+		fn verify_proof_stateless(root: Hash, leaf: Leaf, proof: Proof<Hash>)
 			-> Result<(), Error>;
 	}
 }

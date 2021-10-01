@@ -1,0 +1,14 @@
+{
+    "Organization": {
+        "id": "AccountId",
+        "name": "Vec<u8>",
+        "description": "Vec<u8>",
+        "admin": "AccountId",
+        "website": "Vec<u8>",
+        "email": "Vec<u8>",
+        "suspended": "bool",
+        "block": "BlockNumber",
+        "timestamp": "Moment",
+        "props": "Option<Vec<Property>>"
+    }
+}

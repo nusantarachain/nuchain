@@ -1107,6 +1107,17 @@ impl<T: Config> Module<T> {
 		Account::<T>::get(who).consumers != 0
 	}
 
+	/// True if the account has no outstanding consumer references or more than one provider.
+	pub fn can_dec_provider(who: &T::AccountId) -> bool {
+		let a = Account::<T>::get(who);
+		a.consumers == 0 || a.providers > 1
+	}
+
+	/// True if the account has at least one provider reference.
+	pub fn can_inc_consumer(who: &T::AccountId) -> bool {
+		Account::<T>::get(who).providers > 0
+	}
+
 	/// Deposits an event into this block's event record.
 	pub fn deposit_event(event: impl Into<T::Event>) {
 		Self::deposit_event_indexed(&[], event.into());

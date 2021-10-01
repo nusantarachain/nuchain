@@ -1,0 +1,35 @@
+[package]
+authors = ["Nusantara Chain <nusantarachain@gmail.com>"]
+description = 'Nuchain Product Registry'
+edition = '2018'
+homepage = 'https://nuchain.network'
+license = 'Apache-2.0'
+name = 'pallet-product-registry'
+repository = 'https://github.com/nusantarachain/nuchain/'
+version = '3.0.0'
+
+[dependencies]
+codec = {package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
+frame-support = {version = "3.0.0", default-features = false, path = "../support"}
+frame-system = {version = "3.0.0", default-features = false, path = "../system"}
+pallet-organization = {default-features = false, path = "../organization"}
+pallet-timestamp = {version = "3.0.0", default-features = false, path = "../timestamp"}
+serde = {version = "1.0.101", optional = true}
+
+[dev-dependencies]
+pallet-balances = {version = "3.0.0", path = "../balances"}
+pallet-did = {default-features = false, path = "../did"}
+sp-core = {version = "3.0.0", default-features = false, path = "../../primitives/core"}
+sp-io = {version = "3.0.0", default-features = false, path = "../../primitives/io"}
+sp-keyring = {version = "3.0.0", path = "../../primitives/keyring"}
+sp-runtime = {version = "3.0.0", default-features = false, path = "../../primitives/runtime"}
+
+[features]
+default = ["std"]
+std = [
+  "serde",
+  "codec/std", # "sp-io/std",  # "sp-runtime/std",
+  "frame-support/std",
+  "frame-system/std",
+  "pallet-timestamp/std",
+]

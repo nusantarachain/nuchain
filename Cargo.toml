@@ -72,9 +72,9 @@ members = [
 	"frame/democracy",
 	"frame/try-runtime",
 	"frame/elections",
-	"frame/example",
-	"frame/example-offchain-worker",
-	"frame/example-parallel",
+	# "frame/example",
+	# "frame/example-offchain-worker",
+	# "frame/example-parallel",
 	"frame/executive",
 	"frame/grandpa",
 	"frame/identity",
@@ -117,6 +117,12 @@ members = [
 	"frame/tips",
 	"frame/utility",
 	"frame/vesting",
+	"frame/certificate",
+	"frame/organization",
+	"frame/did",
+	"frame/product-registry",	# -- supply chain
+	"frame/product-tracking",	# -- supply chain
+	"frame/commodities", # -- commodities / NFTs
 	"primitives/allocator",
 	"primitives/api",
 	"primitives/api/proc-macro",
