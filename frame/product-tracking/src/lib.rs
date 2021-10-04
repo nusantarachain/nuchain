@@ -33,6 +33,7 @@ use frame_system::{self, ensure_signed, offchain::SendTransactionTypes};
 use pallet_did::Did;
 use pallet_product_registry::{self as product_registry};
 use product_registry::ProductId;
+// use scale_info::TypeInfo;
 
 #[cfg(test)]
 mod mock;

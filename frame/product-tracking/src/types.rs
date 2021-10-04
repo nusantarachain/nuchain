@@ -2,6 +2,7 @@ use codec::{Decode, Encode};
 // use fixed::types::I16F16;
 use frame_support::{sp_runtime::RuntimeDebug, sp_std::prelude::*, types::Property};
 use pallet_product_registry::ProductId;
+use scale_info::TypeInfo;
 
 // Custom types
 pub type Identifier = Vec<u8>;
@@ -13,7 +14,7 @@ pub type DeviceId = Identifier;
 
 pub type TrackingStatus = Vec<u8>;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Track<AccountId, Moment> {
     pub id: TrackingId,
     pub owner: AccountId,
@@ -33,7 +34,7 @@ impl<AccountId, Moment> Track<AccountId, Moment> {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum TrackingEventType {
     TrackingRegistration,
     TrackingUpdateStatus,
@@ -41,7 +42,7 @@ pub enum TrackingEventType {
     TrackingDeliver,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct TrackingEvent<Moment> {
     pub event_type: TrackingEventType,
     pub tracking_id: TrackingId,
@@ -52,13 +53,13 @@ pub struct TrackingEvent<Moment> {
     pub props: Option<Vec<Property>>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct ReadPoint {
     pub latitude: Decimal,
     pub longitude: Decimal,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum ReadingType {
     Humidity,
     Pressure,
@@ -68,7 +69,7 @@ pub enum ReadingType {
     Vibration,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct Reading<Moment> {
     pub device_id: DeviceId,
     pub reading_type: ReadingType,

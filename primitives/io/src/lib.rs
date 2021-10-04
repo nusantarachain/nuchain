@@ -73,6 +73,7 @@ mod batch_verifier;
 #[cfg(feature = "std")]
 use batch_verifier::BatchVerifier;
 
+#[cfg(feature = "std")]
 const LOG_TARGET: &str = "runtime::io";
 
 /// Error verifying ECDSA signature
@@ -1481,21 +1482,21 @@ mod allocator_impl {
 #[panic_handler]
 #[no_mangle]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
+	let message = sp_std::alloc::format!("{}", info);
+	logging::log(LogLevel::Error, "runtime", message.as_bytes());
 	unsafe {
-		let message = sp_std::alloc::format!("{}", info);
-		logging::log(LogLevel::Error, "runtime", message.as_bytes());
-		core::arch::wasm32::unreachable();
-	}
+        core::arch::wasm32::unreachable();
+    }
 }
 
 /// A default OOM handler for WASM environment.
 #[cfg(all(not(feature = "disable_oom"), not(feature = "std")))]
 #[alloc_error_handler]
 pub fn oom(_: core::alloc::Layout) -> ! {
+	logging::log(LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
 	unsafe {
-		logging::log(LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
-		core::arch::wasm32::unreachable();
-	}
+        core::arch::wasm32::unreachable();
+    }
 }
 
 /// Type alias for Externalities implementation used in tests.

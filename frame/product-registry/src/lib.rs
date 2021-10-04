@@ -44,6 +44,7 @@ use codec::{Decode, Encode};
 use core::result::Result;
 use frame_support::{ensure, sp_runtime::RuntimeDebug, sp_std::prelude::*, types::Property};
 use frame_system::{self, ensure_signed};
+use scale_info::TypeInfo;
 
 #[cfg(test)]
 mod mock;
@@ -73,11 +74,21 @@ pub mod pallet {
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config + pallet_timestamp::Config + pallet_organization::Config
+    {
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        // type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
+    }
+
     // Product contains master data (aka class-level) about a trade item.
     // This data is typically registered once by the product's manufacturer / supplier,
     // to be shared with other network participants, and remains largely static.
     // It can also be used for instance-level (lot) master data.
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
     pub struct Product<AccountId, Moment> {
         // The product ID would typically be a GS1 GTIN (Global Trade Item Number),
         // or ASIN (Amazon Standard Identification Number), or similar,
@@ -94,15 +105,6 @@ pub mod pallet {
         pub registered: Moment,
     }
 
-    #[pallet::config]
-    pub trait Config:
-        frame_system::Config + pallet_timestamp::Config + pallet_organization::Config
-    {
-        /// The overarching event type.
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
-        // type CreateRoleOrigin: EnsureOrigin<Self::Origin>;
-    }
 
     /// Get product by ID.
     #[pallet::storage]

@@ -49,6 +49,7 @@ use frame_system::ensure_signed;
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::Hash;
 use sp_std::prelude::*;
+use scale_info::TypeInfo;
 
 use enumflags2::{bitflags, BitFlags};
 
@@ -121,7 +122,8 @@ pub mod pallet {
     >>::NegativeImbalance;
     type Moment<T> = <<T as Config>::Time as Time>::Moment;
 
-    #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+    #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+    #[scale_info(skip_type_params(T))]
     pub struct Organization<T: Config> {
         /// Organization ID
         pub id: T::AccountId,
@@ -212,7 +214,7 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance")]
+    // #[pallet::metadata(T::AccountId = "AccountId", T::Balance = "Balance")]
     pub enum Event<T: Config> {
         /// New organization registered.
         ///
@@ -241,7 +243,7 @@ pub mod pallet {
     /// Pair organization hash -> Organization data
     #[pallet::storage]
     #[pallet::getter(fn organization)]
-    pub type Organizations<T: Config> =
+    pub(super) type Organizations<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Organization<T>>;
 
     /// Link organization index -> organization hash.
@@ -262,7 +264,7 @@ pub mod pallet {
 
     #[bitflags(default = Active)]
     #[repr(u64)]
-    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+    #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
     pub enum FlagDataBit {
         Active = 0b0000000000000000000000000000000000000000000000000000000000000001,
         Verified = 0b0000000000000000000000000000000000000000000000000000000000000010,
@@ -294,6 +296,18 @@ pub mod pallet {
             ))
         }
     }
+
+    impl TypeInfo for FlagDataBits {
+        type Identity = Self;
+
+        fn type_info() -> scale_info::Type {
+            scale_info::Type::builder()
+                .path(scale_info::Path::new("BitFlags", module_path!()))
+                .type_params(vec![scale_info::TypeParameter::new("T", Some(scale_info::meta_type::<FlagDataBit>()))])
+			    .composite(scale_info::build::Fields::unnamed().field(|f| f.ty::<u64>().type_name("FlagDataBit")))
+        }
+    }
+
     impl EncodeLike for FlagDataBits {}
     impl core::ops::Deref for FlagDataBits {
         type Target = BitFlags<FlagDataBit>;

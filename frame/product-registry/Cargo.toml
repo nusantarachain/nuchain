@@ -10,6 +10,7 @@ version = '4.0.0-dev'
 
 [dependencies]
 codec = {package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"]}
+scale-info = { version = "1.0", default-features = false, features = ["derive"] }
 frame-support = {version = "4.0.0-dev", default-features = false, path = "../support"}
 frame-system = {version = "4.0.0-dev", default-features = false, path = "../system"}
 pallet-organization = {default-features = false, path = "../organization"}

@@ -23,6 +23,7 @@ pub use pallet::*;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_std::prelude::*;
+use scale_info::TypeInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -66,7 +67,7 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
 
         type Public: IdentifyAccount<AccountId = Self::AccountId>;
-        type Signature: Verify<Signer = Self::Public> + Member + Decode + Encode;
+        type Signature: Verify<Signer = Self::Public> + Member + Decode + Encode + TypeInfo;
         type Time: Time;
     }
 

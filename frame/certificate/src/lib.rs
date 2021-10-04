@@ -48,6 +48,7 @@ pub use pallet::*;
 use sp_runtime::traits::Hash;
 use sp_runtime::RuntimeDebug;
 use sp_std::{fmt::Debug, prelude::*, vec};
+use scale_info::TypeInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -92,7 +93,7 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
     }
 
-    #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+    #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
     pub struct CertDetail<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
         /// Certificate name
         pub name: Vec<u8>,
@@ -145,11 +146,11 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(
-        T::AccountId = "AccountId",
-        T::Balance = "Balance",
-        T::AccountId = "T::AccountId"
-    )]
+    // #[pallet::metadata(
+    //     T::AccountId = "AccountId",
+    //     T::Balance = "Balance",
+    //     T::AccountId = "T::AccountId"
+    // )]
     pub enum Event<T: Config> {
         /// Some certificate added.
         ///
@@ -177,7 +178,8 @@ pub mod pallet {
 
     type Moment<T> = <<T as pallet::Config>::Time as Time>::Moment;
 
-    #[derive(Decode, Encode, Clone, Eq, PartialEq, RuntimeDebug)]
+    #[derive(Decode, Encode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+    #[scale_info(skip_type_params(T))]
     pub struct CertProof<T: Config> {
         /// ID of certificate
         pub cert_id: CertId,
