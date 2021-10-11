@@ -27,6 +27,9 @@ mod benchmarking;
 // pub mod types;
 pub mod weights;
 
+#[cfg(test)]
+mod tests;
+
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::DispatchError,
@@ -39,9 +42,6 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, prelude::*};
 pub use weights::WeightInfo;
-
-
-// use crate::types::{AssetMetadata, ERC20Details, ERC721Details, TokenBalance};
 
 pub use pallet::*;
 
@@ -232,12 +232,12 @@ pub mod pallet {
         /// The origin must be Signed and the sender must have sufficient funds free.
         ///
         /// Parameters:
-        /// - `name` - The name of assets.
-        /// - `symbol` - The symbol of assets.
+        /// - `name` - The name of asset.
+        /// - `symbol` - The symbol of asset.
         /// - `asset_id` - ID of asset to build.
         /// - `admin` - admin of this asset.
         /// - `eligible_mint_accounts` - List of account that eligible to mint,
-        ///                              if empty then will set eligible_mint_only to false.
+        ///                              if empty then will set `eligible_mint_only` to false.
         #[pallet::weight(1_000_000)]
         pub(super) fn build(
             origin: OriginFor<T>,
@@ -250,7 +250,14 @@ pub mod pallet {
             let owner = ensure_signed(origin)?;
             let admin = T::Lookup::lookup(admin)?;
 
-            // @TODO(robin): validate name and symbol params here
+            ensure!(
+                name.len() <= T::StringLimit::get() as usize,
+                Error::<T>::BadMetadata
+            );
+            ensure!(
+                symbol.len() <= T::StringLimit::get() as usize,
+                Error::<T>::BadMetadata
+            );
 
             ensure!(!Asset::<T>::contains_key(asset_id), Error::<T>::InUse);
 
@@ -1193,3 +1200,5 @@ impl<T: Config> Pallet<T> {
         d.accounts = d.accounts.saturating_sub(1);
     }
 }
+
+
