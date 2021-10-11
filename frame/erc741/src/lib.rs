@@ -192,7 +192,7 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    /// Details of an collectible item.
+    /// Details of a collectible item.
     pub(super) type Collectible<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -232,7 +232,10 @@ pub mod pallet {
         /// The origin must be Signed and the sender must have sufficient funds free.
         ///
         /// Parameters:
+        /// - `name` - The name of assets.
+        /// - `symbol` - The symbol of assets.
         /// - `asset_id` - ID of asset to build.
+        /// - `admin` - admin of this asset.
         /// - `eligible_mint_accounts` - List of account that eligible to mint,
         ///                              if empty then will set eligible_mint_only to false.
         #[pallet::weight(1_000_000)]
@@ -246,6 +249,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let owner = ensure_signed(origin)?;
             let admin = T::Lookup::lookup(admin)?;
+
+            // @TODO(robin): validate name and symbol params here
 
             ensure!(!Asset::<T>::contains_key(asset_id), Error::<T>::InUse);
 
@@ -360,7 +365,7 @@ pub mod pallet {
         ///
         /// The origin must conform to `ForceOrigin`.
         ///
-        /// Unlike `create`, no funds are reserved.
+        /// Unlike `mint_asset`, no funds are reserved.
         ///
         /// - `id`: The identifier of the new asset. This must not be currently in use to identify
         /// an existing asset.
