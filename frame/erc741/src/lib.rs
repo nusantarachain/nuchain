@@ -38,7 +38,7 @@ use frame_support::{
 };
 use sp_runtime::{
     traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
-    RuntimeDebug, SaturatedConversion
+    RuntimeDebug, SaturatedConversion,
 };
 use sp_std::{fmt::Debug, prelude::*};
 pub use weights::WeightInfo;
@@ -118,15 +118,29 @@ pub mod pallet {
         /// Some assets were issued. \[asset_id, owner, total_supply\]
         Issued(T::AssetId, T::TokenId, T::AccountId, T::Balance),
         /// Some assets were transferred. \[asset_id, from, to, amount\]
-        Transferred(T::AssetId, T::TokenId, T::AccountId, T::AccountId, T::Balance),
+        Transferred(
+            T::AssetId,
+            T::TokenId,
+            T::AccountId,
+            T::AccountId,
+            T::Balance,
+        ),
         /// Some assets were destroyed. \[asset_id, owner, balance\]
         Burned(T::AssetId, T::TokenId, T::AccountId, T::Balance),
         /// The management team changed \[asset_id, admin, freezer, eligible_count\]
         TeamChanged(T::AssetId, T::AccountId, T::AccountId, u32),
+        /// The asset's owner changed \[asset_id, owner\]
+        AssetOwnerChanged(T::AssetId, T::AccountId),
         /// The owner changed \[asset_id, token_id, owner\]
         OwnerChanged(T::AssetId, T::TokenId, T::AccountId),
         /// Some assets was transferred by an admin. \[asset_id, from, to, amount\]
-        ForceTransferred(T::AssetId, T::TokenId, T::AccountId, T::AccountId, T::Balance),
+        ForceTransferred(
+            T::AssetId,
+            T::TokenId,
+            T::AccountId,
+            T::AccountId,
+            T::Balance,
+        ),
         /// Some account `who` was frozen. \[asset_id, who\]
         Frozen(T::AssetId, T::TokenId, T::AccountId),
         /// Some account `who` was thawed. \[asset_id, who\]
@@ -261,8 +275,11 @@ pub mod pallet {
 
             ensure!(!Asset::<T>::contains_key(asset_id), Error::<T>::InUse);
 
-            let deposit = T::AssetDepositBase::get()
-                .saturating_mul((eligible_mint_accounts.len() as u32).into());
+            let deposit = T::MetadataDepositPerByte::get()
+                .saturating_mul(((name.len() + symbol.len()) as u32).into())
+                .saturating_add(T::MetadataDepositBase::get())
+                .saturating_add((eligible_mint_accounts.len() as u32).into());
+
             T::Currency::reserve(&owner, deposit)?;
 
             Asset::<T>::insert(
@@ -673,19 +690,15 @@ pub mod pallet {
 
                 let acc_key = &(asset_id, token_id);
 
-                Account::<T>::try_mutate(
-                    acc_key,
-                    &dest,
-                    |a| -> DispatchResultWithPostInfo {
-                        let new_balance = a.balance.saturating_add(amount);
-                        ensure!(new_balance >= details.min_balance, Error::<T>::BalanceLow);
-                        if a.balance.is_zero() {
-                            a.is_zombie = Self::new_account(&dest, details)?;
-                        }
-                        a.balance = new_balance;
-                        Ok(().into())
-                    },
-                )?;
+                Account::<T>::try_mutate(acc_key, &dest, |a| -> DispatchResultWithPostInfo {
+                    let new_balance = a.balance.saturating_add(amount);
+                    ensure!(new_balance >= details.min_balance, Error::<T>::BalanceLow);
+                    if a.balance.is_zero() {
+                        a.is_zombie = Self::new_account(&dest, details)?;
+                    }
+                    a.balance = new_balance;
+                    Ok(().into())
+                })?;
 
                 match origin_account.balance.is_zero() {
                     false => {
@@ -776,7 +789,9 @@ pub mod pallet {
                     }
                 }
 
-                Self::deposit_event(Event::ForceTransferred(asset_id, token_id, source, dest, amount));
+                Self::deposit_event(Event::ForceTransferred(
+                    asset_id, token_id, source, dest, amount,
+                ));
                 Ok(().into())
             })
         }
@@ -921,6 +936,48 @@ pub mod pallet {
         pub(super) fn transfer_asset_ownership(
             origin: OriginFor<T>,
             #[pallet::compact] asset_id: T::AssetId,
+            owner: <T::Lookup as StaticLookup>::Source,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+            let owner = T::Lookup::lookup(owner)?;
+
+            Asset::<T>::try_mutate(asset_id, |maybe_details| {
+                let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(&origin == &details.owner, Error::<T>::NoPermission);
+
+                if details.owner == owner {
+                    return Ok(().into());
+                }
+
+                // Move the deposit to the new owner.
+                T::Currency::repatriate_reserved(
+                    &details.owner,
+                    &owner,
+                    details.deposit,
+                    Reserved,
+                )?;
+
+                details.owner = owner.clone();
+
+                Self::deposit_event(Event::AssetOwnerChanged(asset_id, owner));
+                Ok(().into())
+            })
+        }
+
+        /// Change the Owner of an asset's sub-token.
+        ///
+        /// Origin must be Signed and the sender should be the Owner of the asset `id`.
+        ///
+        /// - `id`: The identifier of the asset to be frozen.
+        /// - `owner`: The new Owner of this asset.
+        ///
+        /// Emits `OwnerChanged`.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(T::WeightInfo::transfer_ownership())]
+        pub(super) fn transfer_token_ownership(
+            origin: OriginFor<T>,
+            #[pallet::compact] asset_id: T::AssetId,
             #[pallet::compact] token_id: T::TokenId,
             owner: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
@@ -987,7 +1044,12 @@ pub mod pallet {
                 details.admin = admin.clone();
                 details.freezer = freezer.clone();
 
-                Self::deposit_event(Event::TeamChanged(asset_id, admin, freezer, eligible_mint_accounts.len().saturated_into::<u32>()));
+                Self::deposit_event(Event::TeamChanged(
+                    asset_id,
+                    admin,
+                    freezer,
+                    eligible_mint_accounts.len().saturated_into::<u32>(),
+                ));
                 Ok(().into())
             })
         }
@@ -1133,6 +1195,14 @@ impl<T: Config> Pallet<T> {
         Account::<T>::get(&(asset_id, token_id), who).balance
     }
 
+    /// Check is account is owner
+    #[cfg(test)]
+    pub fn is_owner(who: &T::AccountId, asset_id: T::AssetId) -> bool {
+        Asset::<T>::get(asset_id)
+            .map(|a| &a.owner == who)
+            .unwrap_or(false)
+    }
+
     /// Get the total supply of an asset `id`.
     pub fn total_asset_supply(asset_id: T::AssetId) -> T::Balance {
         Asset::<T>::get(asset_id)
@@ -1141,7 +1211,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Get the total supply of an asset `id`.
-    pub fn total_token_supply(asset_id: T::AssetId ,token_id: T::TokenId) -> T::Balance {
+    pub fn total_token_supply(asset_id: T::AssetId, token_id: T::TokenId) -> T::Balance {
         Collectible::<T>::get(asset_id, token_id)
             .map(|x| x.supply)
             .unwrap_or_else(Zero::zero)
@@ -1200,5 +1270,3 @@ impl<T: Config> Pallet<T> {
         d.accounts = d.accounts.saturating_sub(1);
     }
 }
-
-

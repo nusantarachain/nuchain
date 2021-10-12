@@ -116,6 +116,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 #[test]
 fn basic_build_should_work() {
     new_test_ext().execute_with(|| {
+        Balances::make_free_balance_be(&1, 10);
         assert_ok!(Assets::build(
             Origin::signed(1),
             b"Test1".to_vec(),
@@ -155,11 +156,10 @@ fn invalid_name_and_symbol() {
     });
 }
 
-
 const ASSET_ID: u32 = 1;
 const TOKEN_ID: u32 = 1;
 
-fn with_asset<F: FnOnce() -> ()>(cb: F){
+fn with_asset<F: FnOnce() -> ()>(cb: F) {
     new_test_ext().execute_with(|| {
         Balances::make_free_balance_be(&1, 100);
         Assets::build(
@@ -168,8 +168,33 @@ fn with_asset<F: FnOnce() -> ()>(cb: F){
             b"NFT".to_vec(),
             ASSET_ID,
             1,
-            Vec::new()
-        ).expect("Cannot create asset");
+            Vec::new(),
+        )
+        .expect("Cannot create asset");
+        cb()
+    });
+}
+
+fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
+    new_test_ext().execute_with(|| {
+        Balances::make_free_balance_be(&1, 100);
+        Assets::build(
+            Origin::signed(1),
+            b"Test1".to_vec(),
+            b"NFT".to_vec(),
+            ASSET_ID,
+            1,
+            Vec::new(),
+        )
+        .expect("Cannot create asset");
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(1),
+            ASSET_ID,
+            TOKEN_ID,
+            1,
+            10,
+            1
+        ));
         cb()
     });
 }
@@ -177,11 +202,121 @@ fn with_asset<F: FnOnce() -> ()>(cb: F){
 #[test]
 fn basic_minting_should_work() {
     with_asset(|| {
-        assert_ok!(Assets::mint_asset(Origin::signed(1), ASSET_ID, TOKEN_ID, 1, 10, 1));
-        assert_ok!(Assets::mint_token(Origin::signed(1), ASSET_ID, TOKEN_ID, 1, 100));
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(1),
+            ASSET_ID,
+            TOKEN_ID,
+            1,
+            10,
+            1
+        ));
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            ASSET_ID,
+            TOKEN_ID,
+            1,
+            100
+        ));
         assert_eq!(Assets::balance(ASSET_ID, TOKEN_ID, 1), 100);
-        // assert_ok!(Assets::mint(Origin::signed(1), 0, 2, 100));
-        // assert_eq!(Assets::balance(0, 2), 100);
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            ASSET_ID,
+            TOKEN_ID,
+            2,
+            100
+        ));
+        assert_eq!(Assets::balance(ASSET_ID, TOKEN_ID, 2), 100);
+    });
+}
+
+#[test]
+fn basic_transfer_token_should_work() {
+    with_minted_asset(|| {
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            ASSET_ID,
+            TOKEN_ID,
+            1,
+            20
+        ));
+        assert_ok!(Assets::transfer(
+            Origin::signed(1),
+            ASSET_ID,
+            TOKEN_ID,
+            2,
+            15
+        ));
+        assert_eq!(Assets::balance(ASSET_ID, TOKEN_ID, 2), 15);
+        assert_eq!(Assets::balance(ASSET_ID, TOKEN_ID, 1), 5);
+    });
+}
+
+#[test]
+fn transfer_asset_ownership() {
+    with_minted_asset(|| {
+        Balances::make_free_balance_be(&2, 1);
+        assert_eq!(Assets::is_owner(&1, ASSET_ID), true);
+        assert_eq!(Balances::reserved_balance(&1), 20);
+        assert_ok!(Assets::transfer_asset_ownership(
+            Origin::signed(1),
+            ASSET_ID,
+            2
+        ));
+        assert_eq!(Assets::is_owner(&1, ASSET_ID), false);
+        assert_eq!(Balances::reserved_balance(&1), 11);
+        assert_eq!(Assets::is_owner(&2, ASSET_ID), true);
+        assert_eq!(Balances::reserved_balance(&2), 9);
+    });
+}
+
+#[test]
+fn eligible_minting_should_work() {
+    new_test_ext().execute_with(|| {
+        Balances::make_free_balance_be(&1, 25); // owner
+        Balances::make_free_balance_be(&2, 10); // not eligible
+        Balances::make_free_balance_be(&3, 11); // eligible
+        Balances::make_free_balance_be(&4, 11); // eligible
+        Balances::make_free_balance_be(&5, 10); // not eligible
+        assert_ok!(Assets::build(
+            Origin::signed(1),
+            b"Test1".to_vec(),
+            b"NFT".to_vec(),
+            ASSET_ID,
+            1,
+            vec![3, 4], // eligible mint users
+        ));
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(1),
+            ASSET_ID,
+            TOKEN_ID,
+            1,
+            10,
+            1
+        ));
+        assert_noop!(
+            Assets::mint_asset(Origin::signed(2), ASSET_ID, TOKEN_ID + 1, 2, 10, 1),
+            Error::<Test>::NoPermission
+        );
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(3),
+            ASSET_ID,
+            TOKEN_ID + 2,
+            2,
+            10,
+            1
+        ));
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(4),
+            ASSET_ID,
+            TOKEN_ID + 3,
+            2,
+            10,
+            1
+        ));
+        assert_noop!(
+            Assets::mint_asset(Origin::signed(5), ASSET_ID, TOKEN_ID + 4, 2, 10, 1),
+            Error::<Test>::NoPermission
+        );
     });
 }
 
