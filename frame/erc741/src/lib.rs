@@ -47,6 +47,9 @@ pub use pallet::*;
 
 include! {"types.rs"}
 
+/// global max holding limit per token per aset per account
+const MAX_TOKEN_PER_ACCOUNT: u32 = 100;
+
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -194,6 +197,8 @@ pub mod pallet {
         BadState,
         /// Invalid metadata given.
         BadMetadata,
+        /// max limit token ownership per account reached
+        MaxLimitPerAccount,
     }
 
     #[pallet::storage]
@@ -227,6 +232,19 @@ pub mod pallet {
         TokenBalance<T::Balance>,
         ValueQuery,
     >;
+
+    #[pallet::storage]
+    /// The token holding per account.
+    pub(super) type AccountToToken<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AssetId,
+        Blake2_128Concat,
+        T::AccountId,
+        Vec<T::TokenId>,
+        ValueQuery,
+    >;
+
     #[pallet::storage]
     /// Metadata of an asset.
     pub(super) type Metadata<T: Config> = StorageDoubleMap<
@@ -260,6 +278,7 @@ pub mod pallet {
             #[pallet::compact] asset_id: T::AssetId,
             admin: <T::Lookup as StaticLookup>::Source,
             eligible_mint_accounts: Vec<T::AccountId>,
+            max_token_per_account: u32,
         ) -> DispatchResultWithPostInfo {
             let owner = ensure_signed(origin)?;
             let admin = T::Lookup::lookup(admin)?;
@@ -270,6 +289,10 @@ pub mod pallet {
             );
             ensure!(
                 symbol.len() <= T::StringLimit::get() as usize,
+                Error::<T>::BadMetadata
+            );
+            ensure!(
+                max_token_per_account <= MAX_TOKEN_PER_ACCOUNT,
                 Error::<T>::BadMetadata
             );
 
@@ -299,6 +322,7 @@ pub mod pallet {
                     // zombies: Zero::zero(),
                     accounts: Zero::zero(),
                     is_frozen: false,
+                    max_token_per_account,
                 },
             );
 
@@ -329,7 +353,7 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::create())]
-        pub(super) fn mint_asset(
+        pub(super) fn mint_token(
             origin: OriginFor<T>,
             #[pallet::compact] asset_id: T::AssetId,
             #[pallet::compact] token_id: T::TokenId,
@@ -356,6 +380,20 @@ pub mod pallet {
                 );
             }
 
+            let owned_token_count = AccountToToken::<T>::get(asset_id, &owner).len() as u32;
+
+            if details.max_token_per_account > Zero::zero() {
+                ensure!(
+                    owned_token_count < details.max_token_per_account,
+                    Error::<T>::MaxLimitPerAccount
+                );
+            }
+
+            ensure!(
+                owned_token_count < MAX_TOKEN_PER_ACCOUNT,
+                Error::<T>::MaxLimitPerAccount
+            );
+
             let deposit = T::AssetDepositPerZombie::get()
                 .saturating_mul(max_zombies.into())
                 .saturating_add(T::AssetDepositBase::get());
@@ -379,6 +417,18 @@ pub mod pallet {
                     is_frozen: false,
                 },
             );
+
+            AccountToToken::<T>::try_mutate_exists::<_, _, _, Error<T>, _>(
+                asset_id,
+                &owner,
+                |maybe_att| {
+                    let mut att = maybe_att.take().unwrap_or_else(|| Vec::new());
+                    att.push(token_id);
+                    *maybe_att = Some(att);
+                    Ok(())
+                },
+            )?;
+
             Self::deposit_event(Event::Created(asset_id, token_id, owner, admin));
             Ok(().into())
         }
@@ -405,7 +455,7 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::force_create())]
-        pub(super) fn force_mint_asset(
+        pub(super) fn force_mint_token(
             origin: OriginFor<T>,
             #[pallet::compact] asset_id: T::AssetId,
             #[pallet::compact] token_id: T::TokenId,
@@ -457,7 +507,7 @@ pub mod pallet {
         ///
         /// Weight: `O(z)` where `z` is the number of zombie accounts.
         #[pallet::weight(T::WeightInfo::destroy(*zombies_witness))]
-        pub(super) fn destroy_asset(
+        pub(super) fn destroy_token(
             origin: OriginFor<T>,
             #[pallet::compact] asset_id: T::AssetId,
             #[pallet::compact] token_id: T::TokenId,
@@ -495,7 +545,7 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::force_destroy(*zombies_witness))]
-        pub(super) fn force_destroy_asset(
+        pub(super) fn force_destroy_token(
             origin: OriginFor<T>,
             #[pallet::compact] asset_id: T::AssetId,
             #[pallet::compact] token_id: T::TokenId,
@@ -535,7 +585,7 @@ pub mod pallet {
         /// Weight: `O(1)`
         /// Modes: Pre-existing balance of `beneficiary`; Account pre-existence of `beneficiary`.
         #[pallet::weight(T::WeightInfo::mint())]
-        pub(super) fn mint_token(
+        pub(super) fn mint_sub_token(
             origin: OriginFor<T>,
             #[pallet::compact] asset_id: T::AssetId,
             #[pallet::compact] token_id: T::TokenId,

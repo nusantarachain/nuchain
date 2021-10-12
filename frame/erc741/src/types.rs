@@ -46,6 +46,9 @@ pub struct ERC721Details<
 	accounts: u32,
 	/// Whether the asset is frozen for permissionless transfers.
 	is_frozen: bool,
+
+    /// Max limit holding token per account.
+    max_token_per_account: u32
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]

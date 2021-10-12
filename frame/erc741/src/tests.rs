@@ -123,7 +123,8 @@ fn basic_build_should_work() {
             b"NFT".to_vec(),
             1,
             1,
-            Vec::new()
+            Vec::new(),
+            5
         ));
     });
 }
@@ -138,7 +139,8 @@ fn invalid_name_and_symbol() {
                 b"NFT".to_vec(),
                 1,
                 1,
-                Vec::new()
+                Vec::new(),
+                5
             ),
             Error::<Test>::BadMetadata
         );
@@ -149,7 +151,8 @@ fn invalid_name_and_symbol() {
                 b"123456789012345678901234567890123456789012345678901".to_vec(),
                 1,
                 1,
-                Vec::new()
+                Vec::new(),
+                5
             ),
             Error::<Test>::BadMetadata
         );
@@ -159,7 +162,7 @@ fn invalid_name_and_symbol() {
 const ASSET_ID: u32 = 1;
 const TOKEN_ID: u32 = 1;
 
-fn with_asset<F: FnOnce() -> ()>(cb: F) {
+fn with_base_token<F: FnOnce() -> ()>(cb: F) {
     new_test_ext().execute_with(|| {
         Balances::make_free_balance_be(&1, 100);
         Assets::build(
@@ -169,13 +172,14 @@ fn with_asset<F: FnOnce() -> ()>(cb: F) {
             ASSET_ID,
             1,
             Vec::new(),
+            5,
         )
         .expect("Cannot create asset");
         cb()
     });
 }
 
-fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
+fn with_minted_token<F: FnOnce() -> ()>(cb: F) {
     new_test_ext().execute_with(|| {
         Balances::make_free_balance_be(&1, 100);
         Assets::build(
@@ -185,9 +189,10 @@ fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
             ASSET_ID,
             1,
             Vec::new(),
+            5,
         )
         .expect("Cannot create asset");
-        assert_ok!(Assets::mint_asset(
+        assert_ok!(Assets::mint_token(
             Origin::signed(1),
             ASSET_ID,
             TOKEN_ID,
@@ -201,8 +206,8 @@ fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
 
 #[test]
 fn basic_minting_should_work() {
-    with_asset(|| {
-        assert_ok!(Assets::mint_asset(
+    with_base_token(|| {
+        assert_ok!(Assets::mint_token(
             Origin::signed(1),
             ASSET_ID,
             TOKEN_ID,
@@ -210,7 +215,7 @@ fn basic_minting_should_work() {
             10,
             1
         ));
-        assert_ok!(Assets::mint_token(
+        assert_ok!(Assets::mint_sub_token(
             Origin::signed(1),
             ASSET_ID,
             TOKEN_ID,
@@ -218,7 +223,7 @@ fn basic_minting_should_work() {
             100
         ));
         assert_eq!(Assets::balance(ASSET_ID, TOKEN_ID, 1), 100);
-        assert_ok!(Assets::mint_token(
+        assert_ok!(Assets::mint_sub_token(
             Origin::signed(1),
             ASSET_ID,
             TOKEN_ID,
@@ -226,13 +231,32 @@ fn basic_minting_should_work() {
             100
         ));
         assert_eq!(Assets::balance(ASSET_ID, TOKEN_ID, 2), 100);
+
+        // check token holdings
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            ASSET_ID,
+            TOKEN_ID + 1,
+            1,
+            10,
+            1
+        ));
+
+        assert_eq!(
+            AccountToToken::<Test>::get(ASSET_ID, &1),
+            vec![TOKEN_ID, TOKEN_ID + 1]
+        );
+        assert_eq!(
+            AccountToToken::<Test>::get(ASSET_ID, &2),
+            Vec::<<Test as Config>::TokenId>::new()
+        );
     });
 }
 
 #[test]
 fn basic_transfer_token_should_work() {
-    with_minted_asset(|| {
-        assert_ok!(Assets::mint_token(
+    with_minted_token(|| {
+        assert_ok!(Assets::mint_sub_token(
             Origin::signed(1),
             ASSET_ID,
             TOKEN_ID,
@@ -253,7 +277,7 @@ fn basic_transfer_token_should_work() {
 
 #[test]
 fn transfer_asset_ownership() {
-    with_minted_asset(|| {
+    with_minted_token(|| {
         Balances::make_free_balance_be(&2, 1);
         assert_eq!(Assets::is_owner(&1, ASSET_ID), true);
         assert_eq!(Balances::reserved_balance(&1), 20);
@@ -284,8 +308,9 @@ fn eligible_minting_should_work() {
             ASSET_ID,
             1,
             vec![3, 4], // eligible mint users
+            5
         ));
-        assert_ok!(Assets::mint_asset(
+        assert_ok!(Assets::mint_token(
             Origin::signed(1),
             ASSET_ID,
             TOKEN_ID,
@@ -294,10 +319,10 @@ fn eligible_minting_should_work() {
             1
         ));
         assert_noop!(
-            Assets::mint_asset(Origin::signed(2), ASSET_ID, TOKEN_ID + 1, 2, 10, 1),
+            Assets::mint_token(Origin::signed(2), ASSET_ID, TOKEN_ID + 1, 2, 10, 1),
             Error::<Test>::NoPermission
         );
-        assert_ok!(Assets::mint_asset(
+        assert_ok!(Assets::mint_token(
             Origin::signed(3),
             ASSET_ID,
             TOKEN_ID + 2,
@@ -305,7 +330,7 @@ fn eligible_minting_should_work() {
             10,
             1
         ));
-        assert_ok!(Assets::mint_asset(
+        assert_ok!(Assets::mint_token(
             Origin::signed(4),
             ASSET_ID,
             TOKEN_ID + 3,
@@ -314,7 +339,7 @@ fn eligible_minting_should_work() {
             1
         ));
         assert_noop!(
-            Assets::mint_asset(Origin::signed(5), ASSET_ID, TOKEN_ID + 4, 2, 10, 1),
+            Assets::mint_token(Origin::signed(5), ASSET_ID, TOKEN_ID + 4, 2, 10, 1),
             Error::<Test>::NoPermission
         );
     });
