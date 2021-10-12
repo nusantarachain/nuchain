@@ -323,7 +323,7 @@ fn transfer_base_token_ownership() {
 }
 
 #[test]
-fn eligible_minting_should_work() {
+fn eligible_minting_mechanism_should_work() {
     new_test_ext().execute_with(|| {
         Balances::make_free_balance_be(&1, 25); // owner
         Balances::make_free_balance_be(&2, 10); // not eligible

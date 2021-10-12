@@ -33,15 +33,15 @@
 //! * [`transfer`](./enum.Call.html#variant.transfer) - Transfer ownership of
 //!   a commodity to another account. May only be called by current commodity
 //!   owner.
-//! 
+//!
 
 // @TODO(robin):
-// Please take notes that commodities in this pallet is controlled by assets admin only, 
+// Please take notes that commodities in this pallet is controlled by assets admin only,
 // not regular account, this is useful for exclusive single instance managed assets only.
 // But for public NFTs this is not possible.
 // Seems we needs to make this controlled by public,
 // so everyone allowed to mint their own unique assets (NFTs).
-// 
+//
 // or please use standard ERC-721 instead,
 // check this out for reference: https://github.com/shawntabrizi/substrate-erc721
 
@@ -325,10 +325,10 @@ impl<T: Config<I>, I: 'static> UniqueAssets<T::AccountId> for Pallet<T, I> {
         });
         CommoditiesForAccount::<T, I>::mutate(owner, |commodities| {
             if let Some(commodities) = commodities {
-                let pos = commodities
-                    .binary_search(&burn_commodity)
-                    .expect("We already checked that we have the correct owner; qed");
-                commodities.remove(pos);
+                if let Ok(pos) = commodities.binary_search(&burn_commodity) {
+                    // .expect("We already checked that we have the correct owner; qed");
+                    commodities.remove(pos);
+                }
             }
         });
         AccountForCommodity::<T, I>::remove(&commodity_id);

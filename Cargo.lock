@@ -5018,6 +5018,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-erc741"
+version = "3.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support 3.0.0",
+ "frame-system 3.0.0",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-core 3.0.0",
+ "sp-io 3.0.0",
+ "sp-runtime 3.0.0",
+ "sp-std 3.0.0",
+]
+
+[[package]]
 name = "pallet-grandpa"
 version = "3.0.0"
 dependencies = [

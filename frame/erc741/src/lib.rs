@@ -234,7 +234,7 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    /// Total token holder per account.
+    /// Total token held per account.
     pub(super) type OwnedTokenCount<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
