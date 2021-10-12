@@ -28,6 +28,7 @@ use sp_runtime::{
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+type TokenId = <Test as Config>::TokenId;
 
 frame_support::construct_runtime!(
     pub enum Test where
@@ -243,18 +244,18 @@ fn basic_minting_should_work() {
         ));
 
         assert_eq!(
-            AccountToToken::<Test>::get(ASSET_ID, &1),
-            vec![TOKEN_ID, TOKEN_ID + 1]
+            OwnedTokenCount::<Test>::get(ASSET_ID, &1),
+            2
         );
         assert_eq!(
-            AccountToToken::<Test>::get(ASSET_ID, &2),
-            Vec::<<Test as Config>::TokenId>::new()
+            OwnedTokenCount::<Test>::get(ASSET_ID, &2),
+            0
         );
     });
 }
 
 #[test]
-fn basic_transfer_token_should_work() {
+fn basic_transfer_should_work() {
     with_minted_token(|| {
         assert_ok!(Assets::mint_sub_token(
             Origin::signed(1),
@@ -276,12 +277,40 @@ fn basic_transfer_token_should_work() {
 }
 
 #[test]
-fn transfer_asset_ownership() {
+fn basic_transfer_sub_token_ownership_should_work() {
+    with_minted_token(|| {
+        assert_ok!(Assets::mint_sub_token(
+            Origin::signed(1),
+            ASSET_ID,
+            TOKEN_ID,
+            1,
+            20
+        ));
+        Balances::make_free_balance_be(&2, 1);
+        assert_ok!(Assets::transfer_sub_token_ownership(
+            Origin::signed(1),
+            ASSET_ID,
+            TOKEN_ID,
+            2
+        ));
+        assert_eq!(
+            OwnedTokenCount::<Test>::get(ASSET_ID, &1),
+            0
+        );
+        assert_eq!(
+            OwnedTokenCount::<Test>::get(ASSET_ID, &2),
+            1
+        );
+    });
+}
+
+#[test]
+fn transfer_base_token_ownership() {
     with_minted_token(|| {
         Balances::make_free_balance_be(&2, 1);
         assert_eq!(Assets::is_owner(&1, ASSET_ID), true);
         assert_eq!(Balances::reserved_balance(&1), 20);
-        assert_ok!(Assets::transfer_asset_ownership(
+        assert_ok!(Assets::transfer_base_token_ownership(
             Origin::signed(1),
             ASSET_ID,
             2
@@ -419,6 +448,22 @@ fn eligible_minting_should_work() {
 //         assert_ok!(Assets::destroy(Origin::signed(1), 0, 100));
 //     });
 // }
+
+#[test]
+fn destroy_token_should_work() {
+    with_minted_token(|| {
+        assert_ok!(
+            Assets::destroy_token(Origin::signed(1), ASSET_ID, TOKEN_ID, 100)
+        );
+        // assert_ok!(Assets::burn(Origin::signed(1), 0, 1, 100));
+        // assert_ok!(Assets::destroy(Origin::signed(1), 0, 100));
+
+        assert_eq!(
+            OwnedTokenCount::<Test>::get(ASSET_ID, &1),
+            0
+        );
+    });
+}
 
 // #[test]
 // fn destroy_with_bad_witness_should_not_work() {

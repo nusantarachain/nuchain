@@ -234,14 +234,14 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    /// The token holding per account.
-    pub(super) type AccountToToken<T: Config> = StorageDoubleMap<
+    /// Total token holder per account.
+    pub(super) type OwnedTokenCount<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AssetId,
         Blake2_128Concat,
         T::AccountId,
-        Vec<T::TokenId>,
+        u32,
         ValueQuery,
     >;
 
@@ -380,7 +380,7 @@ pub mod pallet {
                 );
             }
 
-            let owned_token_count = AccountToToken::<T>::get(asset_id, &owner).len() as u32;
+            let owned_token_count = OwnedTokenCount::<T>::get(asset_id, &owner);
 
             if details.max_token_per_account > Zero::zero() {
                 ensure!(
@@ -418,16 +418,9 @@ pub mod pallet {
                 },
             );
 
-            AccountToToken::<T>::try_mutate_exists::<_, _, _, Error<T>, _>(
-                asset_id,
-                &owner,
-                |maybe_att| {
-                    let mut att = maybe_att.take().unwrap_or_else(|| Vec::new());
-                    att.push(token_id);
-                    *maybe_att = Some(att);
-                    Ok(())
-                },
-            )?;
+            OwnedTokenCount::<T>::mutate(asset_id, &owner, |count| {
+                *count = count.saturating_add(1);
+            });
 
             Self::deposit_event(Event::Created(asset_id, token_id, owner, admin));
             Ok(().into())
@@ -439,7 +432,7 @@ pub mod pallet {
         ///
         /// The origin must conform to `ForceOrigin`.
         ///
-        /// Unlike `mint_asset`, no funds are reserved.
+        /// Unlike `mint_asset`, no funds are reserved and no max holding per account limit are checked.
         ///
         /// - `id`: The identifier of the new asset. This must not be currently in use to identify
         /// an existing asset.
@@ -472,8 +465,6 @@ pub mod pallet {
             );
             ensure!(!min_balance.is_zero(), Error::<T>::MinBalanceZero);
 
-            // let details = Asset::<T>::get(asset_id);
-
             Collectible::<T>::insert(
                 asset_id,
                 token_id,
@@ -492,6 +483,11 @@ pub mod pallet {
                     is_frozen: false,
                 },
             );
+
+            OwnedTokenCount::<T>::mutate(asset_id, &owner, |count| {
+                *count = count.saturating_add(1);
+            });
+
             Self::deposit_event(Event::ForceCreated(asset_id, token_id, owner));
             Ok(().into())
         }
@@ -528,7 +524,13 @@ pub mod pallet {
                 );
 
                 *maybe_details = None;
+
                 Account::<T>::remove_prefix((&asset_id, &token_id));
+
+                OwnedTokenCount::<T>::mutate(asset_id, &details.owner, |count| {
+                    *count = count.saturating_sub(1);
+                });
+
                 Self::deposit_event(Event::Destroyed(asset_id, token_id));
                 Ok(().into())
             })
@@ -972,7 +974,7 @@ pub mod pallet {
             })
         }
 
-        /// Change the Owner of an asset.
+        /// Change the Owner of an base token..
         ///
         /// Origin must be Signed and the sender should be the Owner of the asset `id`.
         ///
@@ -983,7 +985,7 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::transfer_ownership())]
-        pub(super) fn transfer_asset_ownership(
+        pub(super) fn transfer_base_token_ownership(
             origin: OriginFor<T>,
             #[pallet::compact] asset_id: T::AssetId,
             owner: <T::Lookup as StaticLookup>::Source,
@@ -1025,7 +1027,7 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::transfer_ownership())]
-        pub(super) fn transfer_token_ownership(
+        pub(super) fn transfer_sub_token_ownership(
             origin: OriginFor<T>,
             #[pallet::compact] asset_id: T::AssetId,
             #[pallet::compact] token_id: T::TokenId,
@@ -1049,9 +1051,18 @@ pub mod pallet {
                     Reserved,
                 )?;
 
+                OwnedTokenCount::<T>::mutate(asset_id, &details.owner, |count| {
+                    *count = count.saturating_sub(1);
+                });
+
                 details.owner = owner.clone();
 
+                OwnedTokenCount::<T>::mutate(asset_id, &owner, |count| {
+                    *count = count.saturating_add(1);
+                });
+
                 Self::deposit_event(Event::OwnerChanged(asset_id, token_id, owner));
+
                 Ok(().into())
             })
         }
