@@ -48,7 +48,7 @@ pub use pallet::*;
 include! {"types.rs"}
 
 /// global max holding limit per token per aset per account
-const MAX_TOKEN_PER_ACCOUNT: u32 = 100;
+const MAX_TOKEN_PER_ACCOUNT: u32 = 1_000_000;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
