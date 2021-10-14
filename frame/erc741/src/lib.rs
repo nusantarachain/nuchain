@@ -53,6 +53,8 @@ const MAX_TOKEN_PER_ACCOUNT: u32 = 1_000_000;
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+// type AllowedMintAccount<T> = (<T as frame_system::Config>::AccountId, u32);
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -73,10 +75,10 @@ pub mod pallet {
         type Balance: Member + Parameter + AtLeast32BitUnsigned + Default + Copy;
 
         /// The arithmetic type of asset identifier.
-        type AssetId: Member + Parameter + Default + Copy + HasCompact;
+        type CollectionId: Member + Parameter + Default + Copy + HasCompact;
 
         /// The arithmetic type of token identifier.
-        type TokenId: Member + Parameter + Default + Copy + HasCompact;
+        type AssetId: Member + Parameter + Default + Copy + HasCompact;
 
         /// The currency mechanism.
         type Currency: ReservableCurrency<Self::AccountId>;
@@ -113,53 +115,64 @@ pub mod pallet {
     #[pallet::metadata(
         T::AccountId = "AccountId",
         T::Balance = "Balance",
-        T::TokenId = "TokenId"
+        T::AssetId = "AssetId"
     )]
     pub enum Event<T: Config> {
-        /// Some asset class was created. \[asset_id, token_id, creator, owner\]
-        Created(T::AssetId, T::TokenId, T::AccountId, T::AccountId),
-        /// Some assets were issued. \[asset_id, owner, total_supply\]
-        Issued(T::AssetId, T::TokenId, T::AccountId, T::Balance),
-        /// Some assets were transferred. \[asset_id, from, to, amount\]
+        /// Some collection was created. \[collection_id, owner\]
+        CollectionCreated(T::CollectionId, T::AccountId),
+        /// Some asset class was created. \[collection_id, asset_id, owner\]
+        AssetMinted(T::CollectionId, T::AssetId, T::AccountId),
+        /// Some asset class was created. \[collection_id, asset_id, creator, owner\]
+        TokenMinted(T::CollectionId, T::AssetId, T::AccountId, T::AccountId),
+        /// Some assets were issued. \[collection_id, owner, total_supply\]
+        Issued(T::CollectionId, T::AssetId, T::AccountId, T::Balance),
+        /// Some assets were transferred. \[collection_id, from, to, amount\]
         Transferred(
+            T::CollectionId,
             T::AssetId,
-            T::TokenId,
             T::AccountId,
             T::AccountId,
             T::Balance,
         ),
-        /// Some assets were destroyed. \[asset_id, owner, balance\]
-        Burned(T::AssetId, T::TokenId, T::AccountId, T::Balance),
-        /// The management team changed \[asset_id, admin, freezer, eligible_count\]
-        TeamChanged(T::AssetId, T::AccountId, T::AccountId, u32),
-        /// The asset's owner changed \[asset_id, owner\]
-        AssetOwnerChanged(T::AssetId, T::AccountId),
-        /// The owner changed \[asset_id, token_id, owner\]
-        OwnerChanged(T::AssetId, T::TokenId, T::AccountId),
-        /// Some assets was transferred by an admin. \[asset_id, from, to, amount\]
+        /// Some assets were destroyed. \[collection_id, owner, balance\]
+        Burned(T::CollectionId, T::AssetId, T::AccountId, T::Balance),
+        /// The management team changed \[collection_id, admin, freezer\]
+        TeamChanged(T::CollectionId, T::AccountId, T::AccountId),
+        /// The asset's owner changed \[collection_id, owner\]
+        CollectionOwnerChanged(T::CollectionId, T::AccountId),
+        /// The owner changed \[collection_id, asset_id, owner\]
+        AssetOwnerChanged(T::CollectionId, T::AssetId, T::AccountId),
+        /// Some assets was transferred by an admin. \[collection_id, from, to, amount\]
         ForceTransferred(
+            T::CollectionId,
             T::AssetId,
-            T::TokenId,
             T::AccountId,
             T::AccountId,
             T::Balance,
         ),
-        /// Some account `who` was frozen. \[asset_id, who\]
-        Frozen(T::AssetId, T::TokenId, T::AccountId),
-        /// Some account `who` was thawed. \[asset_id, who\]
-        Thawed(T::AssetId, T::TokenId, T::AccountId),
-        /// Some asset `asset_id` was frozen. \[asset_id\]
-        AssetFrozen(T::AssetId, T::TokenId),
-        /// Some asset `asset_id` was thawed. \[asset_id\]
-        AssetThawed(T::AssetId, T::TokenId),
+        /// Some account `who` was frozen. \[collection_id, who\]
+        Frozen(T::CollectionId, T::AssetId, T::AccountId),
+        /// Some account `who` was thawed. \[collection_id, who\]
+        Thawed(T::CollectionId, T::AssetId, T::AccountId),
+        /// Some asset `collection_id` was frozen. \[collection_id\]
+        CollectionFrozen(T::CollectionId),
+        /// Some asset `collection_id` was thawed. \[collection_id\]
+        CollectionThawed(T::CollectionId),
         /// An asset class was destroyed.
-        Destroyed(T::AssetId, T::TokenId),
-        /// Some asset class was force-created. \[asset_id, token_id, owner\]
-        ForceCreated(T::AssetId, T::TokenId, T::AccountId),
-        /// The maximum amount of zombies allowed has changed. \[asset_id, max_zombies\]
-        MaxZombiesChanged(T::AssetId, T::TokenId, u32),
-        /// New metadata has been set for an asset. \[asset_id, token_id, name, symbol, decimals\]
-        MetadataSet(T::AssetId, T::TokenId, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>),
+        Destroyed(T::CollectionId, T::AssetId),
+        /// Some asset class was force-created. \[collection_id, asset_id, owner\]
+        ForceCreated(T::CollectionId, T::AssetId, T::AccountId),
+        /// The maximum amount of zombies allowed has changed. \[collection_id, max_zombies\]
+        MaxZombiesChanged(T::CollectionId, T::AssetId, u32),
+        /// New metadata has been set for an asset. \[collection_id, asset_id, name, symbol, decimals\]
+        MetadataSet(
+            T::CollectionId,
+            T::AssetId,
+            Vec<u8>,
+            Vec<u8>,
+            Vec<u8>,
+            Vec<u8>,
+        ),
     }
 
     #[deprecated(note = "use `Event` instead")]
@@ -176,7 +189,7 @@ pub mod pallet {
         /// Balance should be non-zero.
         BalanceZero,
         /// The signing account has no permission to do the operation.
-        NoPermission,
+        Unauthorized,
         /// The given asset ID is unknown.
         Unknown,
         /// The origin account is frozen.
@@ -202,23 +215,24 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    /// Details of an asset.
-    pub(super) type Asset<T: Config> = StorageMap<
+    /// Collection for base token metadata and set of rules.
+    pub(super) type Collection<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        T::AssetId,
-        ERC721Details<T::Balance, T::AccountId, BalanceOf<T>>,
+        T::CollectionId,
+        CollectionMetadata<T::Balance, T::AccountId, BalanceOf<T>>,
     >;
 
     #[pallet::storage]
-    /// Details of a collectible item.
-    pub(super) type Collectible<T: Config> = StorageDoubleMap<
+    /// Token holder account
+    pub(super) type AccountAsset<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AssetId,
+        T::CollectionId,
         Blake2_128Concat,
-        T::TokenId,
-        ERC20Details<T::Balance, T::AccountId, T::AssetId, BalanceOf<T>>,
+        T::AssetId,
+        // TokenMetadata<T::Balance, T::AccountId, T::CollectionId, BalanceOf<T>>,
+        T::AccountId,
     >;
 
     #[pallet::storage]
@@ -226,7 +240,7 @@ pub mod pallet {
     pub(super) type Account<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        (T::AssetId, T::TokenId),
+        (T::CollectionId, T::AssetId),
         Blake2_128Concat,
         T::AccountId,
         TokenBalance<T::Balance>,
@@ -235,10 +249,10 @@ pub mod pallet {
 
     #[pallet::storage]
     /// Total token held per account.
-    pub(super) type OwnedTokenCount<T: Config> = StorageDoubleMap<
+    pub(super) type OwnedAssetCount<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AssetId,
+        T::CollectionId,
         Blake2_128Concat,
         T::AccountId,
         u32,
@@ -246,13 +260,24 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
+    pub(super) type MintAllowed<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::CollectionId,
+        Blake2_128Concat,
+        T::AccountId,
+        u32,
+        OptionQuery,
+    >;
+
+    #[pallet::storage]
     /// Metadata of an asset.
     pub(super) type Metadata<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::AssetId,
+        T::CollectionId,
         Blake2_128Concat,
-        T::TokenId,
+        T::AssetId,
         AssetMetadata<BalanceOf<T>>,
         ValueQuery,
     >;
@@ -266,65 +291,71 @@ pub mod pallet {
         /// Parameters:
         /// - `name` - The name of asset.
         /// - `symbol` - The symbol of asset.
-        /// - `asset_id` - ID of asset to build.
+        /// - `collection_id` - ID of asset to build.
         /// - `admin` - admin of this asset.
-        /// - `eligible_mint_accounts` - List of account that eligible to mint,
-        ///                              if empty then will set `eligible_mint_only` to false.
-        #[pallet::weight(1_000_000)]
-        pub(super) fn build(
+        /// - `allowed_mint_accounts` - List of account that allowed to mint,
+        ///                              if empty then will set `allowed_mint_only` to false.
+        #[pallet::weight(10_000_000)]
+        pub(super) fn create_collection(
             origin: OriginFor<T>,
-            name: Vec<u8>,
-            symbol: Vec<u8>,
-            #[pallet::compact] asset_id: T::AssetId,
-            admin: <T::Lookup as StaticLookup>::Source,
-            eligible_mint_accounts: Vec<T::AccountId>,
-            max_token_per_account: u32,
+            #[pallet::compact] collection_id: T::CollectionId,
+            meta: NewCollectionParam<T::Balance, T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let owner = ensure_signed(origin)?;
-            let admin = T::Lookup::lookup(admin)?;
+            // let admin = T::Lookup::lookup(admin)?;
 
             ensure!(
-                name.len() <= T::StringLimit::get() as usize,
+                meta.name.len() <= T::StringLimit::get() as usize,
                 Error::<T>::BadMetadata
             );
             ensure!(
-                symbol.len() <= T::StringLimit::get() as usize,
+                meta.symbol.len() <= T::StringLimit::get() as usize,
                 Error::<T>::BadMetadata
             );
             ensure!(
-                max_token_per_account <= MAX_TOKEN_PER_ACCOUNT,
+                meta.max_asset_per_account <= MAX_TOKEN_PER_ACCOUNT,
                 Error::<T>::BadMetadata
             );
 
-            ensure!(!Asset::<T>::contains_key(asset_id), Error::<T>::InUse);
+            ensure!(
+                !Collection::<T>::contains_key(collection_id),
+                Error::<T>::InUse
+            );
 
             let deposit = T::MetadataDepositPerByte::get()
-                .saturating_mul(((name.len() + symbol.len()) as u32).into())
+                .saturating_mul(((meta.name.len() + meta.symbol.len()) as u32).into())
                 .saturating_add(T::MetadataDepositBase::get())
-                .saturating_add((eligible_mint_accounts.len() as u32).into());
+                .saturating_add((meta.allowed_mint_accounts.len() as u32).into());
 
             T::Currency::reserve(&owner, deposit)?;
 
-            Asset::<T>::insert(
-                asset_id,
-                ERC721Details {
-                    name: name.clone(),
-                    symbol: symbol.clone(),
-                    owner: owner.clone(),
-                    eligible_mint_only: eligible_mint_accounts.len() > 0,
-                    eligible_mint_accounts,
-                    admin: admin.clone(),
-                    freezer: admin.clone(),
-                    supply: Zero::zero(),
+            Collection::<T>::insert(
+                collection_id,
+                CollectionMetadata {
+                    name: meta.name.clone(),
+                    symbol: meta.symbol.clone(),
+                    owner: meta.owner.clone(),
+                    max_asset_count: meta.max_asset_count,
+                    has_token: meta.has_token,
+                    max_token_supply: meta.max_token_supply,
+                    public_mintable: meta.public_mintable,
+                    max_asset_per_account: meta.max_asset_per_account,
+                    asset_count: Zero::zero(),
+                    token_supply: Zero::zero(),
                     deposit,
-                    // max_zombies,
-                    // min_balance,
-                    // zombies: Zero::zero(),
+                    min_balance: meta.min_balance,
                     accounts: Zero::zero(),
                     is_frozen: false,
-                    max_token_per_account,
+                    max_zombies: meta.max_zombies,
+                    zombies: 0,
                 },
             );
+
+            for allowed in meta.allowed_mint_accounts {
+                MintAllowed::<T>::insert(collection_id, allowed.account, allowed.amount);
+            }
+
+            Self::deposit_event(Event::CollectionCreated(collection_id, owner));
 
             Ok(().into())
         }
@@ -353,144 +384,153 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::create())]
-        pub(super) fn mint_token(
+        pub(super) fn mint_asset(
             origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
-            admin: <T::Lookup as StaticLookup>::Source,
-            max_zombies: u32,
-            min_balance: T::Balance,
+            // max_zombies: u32,
+            // min_balance: T::Balance,
         ) -> DispatchResultWithPostInfo {
-            let owner = ensure_signed(origin)?;
-            let admin = T::Lookup::lookup(admin)?;
+            let who = ensure_signed(origin)?;
 
             ensure!(
-                !Collectible::<T>::contains_key(asset_id, token_id),
+                !AccountAsset::<T>::contains_key(collection_id, asset_id),
                 Error::<T>::InUse
             );
-            ensure!(!min_balance.is_zero(), Error::<T>::MinBalanceZero);
+            // ensure!(!min_balance.is_zero(), Error::<T>::MinBalanceZero);
 
-            let details = Asset::<T>::get(asset_id).ok_or(Error::<T>::NotFound)?;
+            // let col_meta = Collection::<T>::get(collection_id).ok_or(Error::<T>::NotFound)?;
 
-            // check is user eligible to mint this token's asset
-            if details.eligible_mint_only && owner != details.owner {
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+
+                // check is user allowed to mint this token's asset
+                if meta.public_mintable && who != meta.owner {
+                    ensure!(
+                        MintAllowed::<T>::get(collection_id, &who)
+                            .map(|a| a > 0)
+                            .unwrap_or(false),
+                        Error::<T>::Unauthorized
+                    );
+                } else if (who != meta.owner) {
+                    return Err(Error::<T>::Unauthorized.into());
+                }
+
+                let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &who);
+
+                if meta.max_asset_per_account > Zero::zero() {
+                    ensure!(
+                        owned_asset_count < meta.max_asset_per_account,
+                        Error::<T>::MaxLimitPerAccount
+                    );
+                }
+
                 ensure!(
-                    details.eligible_mint_accounts.contains(&owner),
-                    Error::<T>::NoPermission
-                );
-            }
-
-            let owned_token_count = OwnedTokenCount::<T>::get(asset_id, &owner);
-
-            if details.max_token_per_account > Zero::zero() {
-                ensure!(
-                    owned_token_count < details.max_token_per_account,
+                    owned_asset_count < MAX_TOKEN_PER_ACCOUNT,
                     Error::<T>::MaxLimitPerAccount
                 );
-            }
 
-            ensure!(
-                owned_token_count < MAX_TOKEN_PER_ACCOUNT,
-                Error::<T>::MaxLimitPerAccount
-            );
+                meta.asset_count = meta
+                    .asset_count
+                    .checked_add(1)
+                    .ok_or(Error::<T>::Overflow)?;
 
-            let deposit = T::AssetDepositPerZombie::get()
-                .saturating_mul(max_zombies.into())
-                .saturating_add(T::AssetDepositBase::get());
-            T::Currency::reserve(&owner, deposit)?;
+                AccountAsset::<T>::insert(collection_id, asset_id, who.clone());
 
-            Collectible::<T>::insert(
-                asset_id,
-                token_id,
-                ERC20Details {
-                    asset_id: asset_id.clone(),
-                    owner: owner.clone(),
-                    // issuer: admin.clone(),
-                    // admin: admin.clone(),
-                    // freezer: admin.clone(),
-                    supply: Zero::zero(),
-                    deposit,
-                    max_zombies,
-                    min_balance,
-                    zombies: Zero::zero(),
-                    accounts: Zero::zero(),
-                    is_frozen: false,
-                },
-            );
+                OwnedAssetCount::<T>::mutate(collection_id, &who, |count| {
+                    *count = count.saturating_add(1);
+                });
 
-            OwnedTokenCount::<T>::mutate(asset_id, &owner, |count| {
-                *count = count.saturating_add(1);
-            });
+                Self::deposit_event(Event::AssetMinted(collection_id, asset_id, who));
+                Ok(().into())
+            })
 
-            Self::deposit_event(Event::Created(asset_id, token_id, owner, admin));
-            Ok(().into())
+            // let deposit = T::AssetDepositPerZombie::get()
+            //     .saturating_mul(max_zombies.into())
+            //     .saturating_add(T::AssetDepositBase::get());
+            // T::Currency::reserve(&who, deposit)?;
+
+            // Collectible::<T>::insert(
+            //     collection_id,
+            //     asset_id,
+            //     // TokenMetadata {
+            //     //     owner: who.clone(),
+            //     //     supply: Zero::zero(),
+            //     //     deposit,
+            //     //     max_zombies,
+            //     //     min_balance,
+            //     //     zombies: Zero::zero(),
+            //     //     accounts: Zero::zero(),
+            //     //     is_frozen: false,
+            //     // },
+            // );
         }
 
-        /// Mint asset for base token from a privileged origin.
-        ///
-        /// This new asset class has no assets initially.
-        ///
-        /// The origin must conform to `ForceOrigin`.
-        ///
-        /// Unlike `mint_asset`, no funds are reserved and no max holding per account limit are checked.
-        ///
-        /// - `id`: The identifier of the new asset. This must not be currently in use to identify
-        /// an existing asset.
-        /// - `owner`: The owner of this class of assets. The owner has full superuser permissions
-        /// over this asset, but may later change and configure the permissions using `transfer_ownership`
-        /// and `set_team`.
-        /// - `max_zombies`: The total number of accounts which may hold assets in this class yet
-        /// have no existential deposit.
-        /// - `min_balance`: The minimum balance of this new asset that any single account must
-        /// have. If an account's balance is reduced below this, then it collapses to zero.
-        ///
-        /// Emits `ForceCreated` event when successful.
-        ///
-        /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::force_create())]
-        pub(super) fn force_mint_token(
-            origin: OriginFor<T>,
-            #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
-            owner: <T::Lookup as StaticLookup>::Source,
-            #[pallet::compact] max_zombies: u32,
-            #[pallet::compact] min_balance: T::Balance,
-        ) -> DispatchResultWithPostInfo {
-            T::ForceOrigin::ensure_origin(origin)?;
-            let owner = T::Lookup::lookup(owner)?;
+        // /// Mint asset for base token from a privileged origin.
+        // ///
+        // /// This new asset class has no assets initially.
+        // ///
+        // /// The origin must conform to `ForceOrigin`.
+        // ///
+        // /// Unlike `mint_asset`, no funds are reserved and no max holding per account limit are checked.
+        // ///
+        // /// - `id`: The identifier of the new asset. This must not be currently in use to identify
+        // /// an existing asset.
+        // /// - `owner`: The owner of this class of assets. The owner has full superuser permissions
+        // /// over this asset, but may later change and configure the permissions using `transfer_ownership`
+        // /// and `set_team`.
+        // /// - `max_zombies`: The total number of accounts which may hold assets in this class yet
+        // /// have no existential deposit.
+        // /// - `min_balance`: The minimum balance of this new asset that any single account must
+        // /// have. If an account's balance is reduced below this, then it collapses to zero.
+        // ///
+        // /// Emits `ForceCreated` event when successful.
+        // ///
+        // /// Weight: `O(1)`
+        // #[pallet::weight(T::WeightInfo::force_create())]
+        // pub(super) fn force_mint_token(
+        //     origin: OriginFor<T>,
+        //     #[pallet::compact] collection_id: T::CollectionId,
+        //     #[pallet::compact] asset_id: T::AssetId,
+        //     owner: <T::Lookup as StaticLookup>::Source,
+        //     #[pallet::compact] max_zombies: u32,
+        //     #[pallet::compact] min_balance: T::Balance,
+        // ) -> DispatchResultWithPostInfo {
+        //     T::ForceOrigin::ensure_origin(origin)?;
+        //     let owner = T::Lookup::lookup(owner)?;
 
-            ensure!(
-                !Collectible::<T>::contains_key(asset_id, token_id),
-                Error::<T>::InUse
-            );
-            ensure!(!min_balance.is_zero(), Error::<T>::MinBalanceZero);
+        //     ensure!(
+        //         !Collectible::<T>::contains_key(collection_id, asset_id),
+        //         Error::<T>::InUse
+        //     );
+        //     ensure!(!min_balance.is_zero(), Error::<T>::MinBalanceZero);
 
-            Collectible::<T>::insert(
-                asset_id,
-                token_id,
-                ERC20Details {
-                    asset_id: asset_id.clone(),
-                    owner: owner.clone(),
-                    // issuer: owner.clone(),
-                    // admin: owner.clone(),
-                    // freezer: owner.clone(),
-                    supply: Zero::zero(),
-                    deposit: Zero::zero(),
-                    max_zombies,
-                    min_balance,
-                    zombies: Zero::zero(),
-                    accounts: Zero::zero(),
-                    is_frozen: false,
-                },
-            );
+        //     Collectible::<T>::insert(
+        //         collection_id,
+        //         asset_id,
+        //         ERC20Details {
+        //             collection_id: collection_id.clone(),
+        //             owner: owner.clone(),
+        //             // issuer: owner.clone(),
+        //             // admin: owner.clone(),
+        //             // freezer: owner.clone(),
+        //             supply: Zero::zero(),
+        //             deposit: Zero::zero(),
+        //             max_zombies,
+        //             min_balance,
+        //             zombies: Zero::zero(),
+        //             accounts: Zero::zero(),
+        //             is_frozen: false,
+        //         },
+        //     );
 
-            OwnedTokenCount::<T>::mutate(asset_id, &owner, |count| {
-                *count = count.saturating_add(1);
-            });
+        //     OwnedAssetCount::<T>::mutate(collection_id, &owner, |count| {
+        //         *count = count.saturating_add(1);
+        //     });
 
-            Self::deposit_event(Event::ForceCreated(asset_id, token_id, owner));
-            Ok(().into())
-        }
+        //     Self::deposit_event(Event::ForceCreated(collection_id, asset_id, owner));
+        //     Ok(().into())
+        // }
 
         /// Destroy an asset's token owned by sender.
         ///
@@ -502,83 +542,115 @@ pub mod pallet {
         /// Emits `Destroyed` event when successful.
         ///
         /// Weight: `O(z)` where `z` is the number of zombie accounts.
-        #[pallet::weight(T::WeightInfo::destroy(*zombies_witness))]
-        pub(super) fn destroy_token(
+        #[pallet::weight(T::WeightInfo::destroy(0))]
+        pub(super) fn destroy_asset(
             origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
-            #[pallet::compact] zombies_witness: u32,
+            // #[pallet::compact] zombies_witness: u32,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            Collectible::<T>::try_mutate_exists(asset_id, token_id, |maybe_details| {
-                let details = maybe_details.take().ok_or(Error::<T>::Unknown)?;
-                ensure!(details.owner == origin, Error::<T>::NoPermission);
-                ensure!(details.accounts == details.zombies, Error::<T>::RefsLeft);
-                ensure!(details.zombies <= zombies_witness, Error::<T>::BadWitness);
+            // Collectible::<T>::try_mutate_exists(collection_id, asset_id, |maybe_details| {
+            //     let details = maybe_details.take().ok_or(Error::<T>::Unknown)?;
+            //     ensure!(details.owner == origin, Error::<T>::Unauthorized);
+            //     ensure!(details.accounts == details.zombies, Error::<T>::RefsLeft);
+            //     ensure!(details.zombies <= zombies_witness, Error::<T>::BadWitness);
 
-                let metadata = Metadata::<T>::take(&asset_id, &token_id);
-                T::Currency::unreserve(
-                    &details.owner,
-                    details.deposit.saturating_add(metadata.deposit),
+            //     let metadata = Metadata::<T>::take(&collection_id, &asset_id);
+            //     T::Currency::unreserve(
+            //         &details.owner,
+            //         details.deposit.saturating_add(metadata.deposit),
+            //     );
+
+            //     *maybe_details = None;
+
+            //     Account::<T>::remove_prefix((&collection_id, &asset_id));
+
+            //     OwnedAssetCount::<T>::mutate(collection_id, &details.owner, |count| {
+            //         *count = count.saturating_sub(1);
+            //     });
+
+            //     MintAllowed::<T>::remove(&collection_id, &details.owner);
+
+            //     Self::deposit_event(Event::Destroyed(collection_id, asset_id));
+            //     Ok(().into())
+            // })
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+
+                ensure!(
+                    // AccountAsset::<T>::get(collection_id, asset_id) == origin
+                    Self::is_token_owner(&origin, collection_id, asset_id),
+                    Error::<T>::Unauthorized
                 );
 
-                *maybe_details = None;
+                meta.asset_count = meta.asset_count.saturating_sub(1);
 
-                Account::<T>::remove_prefix((&asset_id, &token_id));
+                AccountAsset::<T>::remove(collection_id, asset_id);
 
-                OwnedTokenCount::<T>::mutate(asset_id, &details.owner, |count| {
+                OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
                     *count = count.saturating_sub(1);
                 });
 
-                Self::deposit_event(Event::Destroyed(asset_id, token_id));
+                Self::deposit_event(Event::Destroyed(collection_id, asset_id));
+
                 Ok(().into())
             })
         }
 
-        /// Destroy an asset's token owned by sender.
-        ///
-        /// The origin must conform to `ForceOrigin`.
-        ///
-        /// - `id`: The identifier of the asset to be destroyed. This must identify an existing
-        /// asset.
-        ///
-        /// Emits `Destroyed` event when successful.
-        ///
-        /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::force_destroy(*zombies_witness))]
-        pub(super) fn force_destroy_token(
-            origin: OriginFor<T>,
-            #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
-            #[pallet::compact] zombies_witness: u32,
-        ) -> DispatchResultWithPostInfo {
-            T::ForceOrigin::ensure_origin(origin)?;
+        // /// Destroy an asset's token owned by sender.
+        // ///
+        // /// The origin must conform to `ForceOrigin`.
+        // ///
+        // /// - `id`: The identifier of the asset to be destroyed. This must identify an existing
+        // /// asset.
+        // ///
+        // /// Emits `Destroyed` event when successful.
+        // ///
+        // /// Weight: `O(1)`
+        // #[pallet::weight(T::WeightInfo::force_destroy(*zombies_witness))]
+        // pub(super) fn force_destroy_token(
+        //     origin: OriginFor<T>,
+        //     #[pallet::compact] collection_id: T::CollectionId,
+        //     #[pallet::compact] asset_id: T::AssetId,
+        //     #[pallet::compact] zombies_witness: u32,
+        // ) -> DispatchResultWithPostInfo {
+        //     T::ForceOrigin::ensure_origin(origin)?;
 
-            Collectible::<T>::try_mutate_exists(asset_id, token_id, |maybe_details| {
-                let details = maybe_details.take().ok_or(Error::<T>::Unknown)?;
-                ensure!(details.accounts == details.zombies, Error::<T>::RefsLeft);
-                ensure!(details.zombies <= zombies_witness, Error::<T>::BadWitness);
+        //     Collectible::<T>::try_mutate_exists(collection_id, asset_id, |maybe_details| {
+        //         let details = maybe_details.take().ok_or(Error::<T>::Unknown)?;
+        //         ensure!(details.accounts == details.zombies, Error::<T>::RefsLeft);
+        //         ensure!(details.zombies <= zombies_witness, Error::<T>::BadWitness);
 
-                let metadata = Metadata::<T>::take(asset_id, &token_id);
-                T::Currency::unreserve(
-                    &details.owner,
-                    details.deposit.saturating_add(metadata.deposit),
-                );
+        //         let metadata = Metadata::<T>::take(collection_id, &asset_id);
+        //         T::Currency::unreserve(
+        //             &details.owner,
+        //             details.deposit.saturating_add(metadata.deposit),
+        //         );
 
-                *maybe_details = None;
-                Account::<T>::remove_prefix(&(asset_id, token_id));
-                Self::deposit_event(Event::Destroyed(asset_id, token_id));
-                Ok(().into())
-            })
-        }
+        //         *maybe_details = None;
 
-        /// Mint sub-token from asset.
+        //         Account::<T>::remove_prefix(&(collection_id, asset_id));
+
+        //         OwnedAssetCount::<T>::mutate(collection_id, &details.owner, |count| {
+        //             *count = count.saturating_sub(1);
+        //         });
+
+        //         MintAllowed::<T>::remove(&collection_id, &details.owner);
+
+        //         Self::deposit_event(Event::Destroyed(collection_id, asset_id));
+        //         Ok(().into())
+        //     })
+        // }
+
+        /// Mint sub-token.
         ///
         /// The origin must be Signed.
         ///
-        /// - `asset_id`: The identifier of the asset to have some sub-token minted.
-        /// - `token_id`: The identifier of the token to have some amount minted.
+        /// - `collection_id`: The identifier of the asset to have some sub-token minted.
+        /// - `asset_id`: The identifier of the token to have some amount minted.
         /// - `beneficiary`: The account to be credited with the minted assets.
         /// - `amount`: The amount of the asset to be minted.
         ///
@@ -587,49 +659,69 @@ pub mod pallet {
         /// Weight: `O(1)`
         /// Modes: Pre-existing balance of `beneficiary`; Account pre-existence of `beneficiary`.
         #[pallet::weight(T::WeightInfo::mint())]
-        pub(super) fn mint_sub_token(
+        pub(super) fn mint_token(
             origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
             beneficiary: <T::Lookup as StaticLookup>::Source,
             #[pallet::compact] amount: T::Balance,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
             let beneficiary = T::Lookup::lookup(beneficiary)?;
 
-            Collectible::<T>::try_mutate(asset_id, token_id, |maybe_details| {
-                let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
+            // let asset = Collection::<T>::get(collection_id).ok_or(Error::<T>::NotFound)?;
 
-                // only owner of token that able to mint sub-token
-                ensure!(&origin == &details.owner, Error::<T>::NoPermission);
+            // Collectible::<T>::try_mutate(collection_id, asset_id, |maybe_meta| {
+            //     let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
-                // // check user's eligibility to mint
-                // if details.eligible_mint_only {
-                //     ensure!(
-                //         details.eligible_mint_accounts.contains(&origin),
-                //         Error::<T>::NoPermission
-                //     );
-                // }
+            //     // only owner of token that able to mint sub-token
+            //     ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
 
-                details.supply = details
-                    .supply
-                    .checked_add(&amount)
+            //     meta.supply = meta
+            //         .supply
+            //         .checked_add(&amount)
+            //         .ok_or(Error::<T>::Overflow)?;
+
+            //     Account::<T>::try_mutate(
+            //         (collection_id, asset_id),
+            //         &beneficiary,
+            //         |t| -> DispatchResultWithPostInfo {
+            //             let new_balance = t.balance.saturating_add(amount);
+            //             ensure!(new_balance >= meta.min_balance, Error::<T>::BalanceLow);
+            //             if t.balance.is_zero() {
+            //                 t.is_zombie = Self::new_account(&beneficiary, meta)?;
+            //             }
+            //             t.balance = new_balance;
+            //             Ok(().into())
+            //         },
+            //     )?;
+            //     Self::deposit_event(Event::Issued(collection_id, asset_id, beneficiary, amount));
+            //     Ok(().into())
+            // })
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+
+                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
+
+                meta.token_supply = amount
+                    .checked_add(&meta.token_supply.into())
                     .ok_or(Error::<T>::Overflow)?;
 
                 Account::<T>::try_mutate(
-                    (asset_id, token_id),
+                    (collection_id, asset_id),
                     &beneficiary,
                     |t| -> DispatchResultWithPostInfo {
                         let new_balance = t.balance.saturating_add(amount);
-                        ensure!(new_balance >= details.min_balance, Error::<T>::BalanceLow);
+                        ensure!(new_balance >= meta.min_balance, Error::<T>::BalanceLow);
                         if t.balance.is_zero() {
-                            t.is_zombie = Self::new_account(&beneficiary, details)?;
+                            t.is_zombie = Self::new_account(&beneficiary, meta)?;
                         }
                         t.balance = new_balance;
                         Ok(().into())
                     },
                 )?;
-                Self::deposit_event(Event::Issued(asset_id, token_id, beneficiary, amount));
+                Self::deposit_event(Event::Issued(collection_id, asset_id, beneficiary, amount));
                 Ok(().into())
             })
         }
@@ -652,28 +744,57 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::burn())]
         pub(super) fn burn_token(
             origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
             who: <T::Lookup as StaticLookup>::Source,
             #[pallet::compact] amount: T::Balance,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
             let who = T::Lookup::lookup(who)?;
 
-            Collectible::<T>::try_mutate(asset_id, token_id, |maybe_details| {
-                let d = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &d.owner, Error::<T>::NoPermission);
+            // Collectible::<T>::try_mutate(collection_id, asset_id, |maybe_meta| {
+            //     let d = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+            //     ensure!(&origin == &d.owner, Error::<T>::Unauthorized);
+
+            //     let burned = Account::<T>::try_mutate_exists(
+            //         (collection_id, asset_id),
+            //         &who,
+            //         |maybe_account| -> Result<T::Balance, DispatchError> {
+            //             let mut account = maybe_account.take().ok_or(Error::<T>::BalanceZero)?;
+            //             let mut burned = amount.min(account.balance);
+            //             account.balance -= burned;
+            //             *maybe_account = if account.balance < d.min_balance {
+            //                 burned += account.balance;
+            //                 Self::dead_account(&who, d, account.is_zombie);
+            //                 None
+            //             } else {
+            //                 Some(account)
+            //             };
+            //             Ok(burned)
+            //         },
+            //     )?;
+
+            //     d.supply = d.supply.saturating_sub(burned);
+
+            //     Self::deposit_event(Event::Burned(collection_id, asset_id, who, burned));
+            //     Ok(().into())
+            // })
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+
+                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
 
                 let burned = Account::<T>::try_mutate_exists(
-                    (asset_id, token_id),
+                    (collection_id, asset_id),
                     &who,
                     |maybe_account| -> Result<T::Balance, DispatchError> {
                         let mut account = maybe_account.take().ok_or(Error::<T>::BalanceZero)?;
                         let mut burned = amount.min(account.balance);
-                        account.balance -= burned;
-                        *maybe_account = if account.balance < d.min_balance {
-                            burned += account.balance;
-                            Self::dead_account(&who, d, account.is_zombie);
+                        account.balance = account.balance.saturating_sub(burned);
+                        *maybe_account = if account.balance < meta.min_balance {
+                            burned = burned.saturating_add(account.balance);
+                            Self::dead_account(&who, meta, account.is_zombie);
                             None
                         } else {
                             Some(account)
@@ -682,9 +803,10 @@ pub mod pallet {
                     },
                 )?;
 
-                d.supply = d.supply.saturating_sub(burned);
+                meta.token_supply = meta.token_supply.saturating_sub(burned.into());
 
-                Self::deposit_event(Event::Burned(asset_id, token_id, who, burned));
+                Self::deposit_event(Event::Burned(collection_id, asset_id, who, burned));
+
                 Ok(().into())
             })
         }
@@ -708,17 +830,17 @@ pub mod pallet {
         /// Modes: Pre-existence of `target`; Post-existence of sender; Prior & post zombie-status
         /// of sender; Account pre-existence of `target`.
         #[pallet::weight(T::WeightInfo::transfer())]
-        pub(super) fn transfer(
+        pub(super) fn transfer_token(
             origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
             target: <T::Lookup as StaticLookup>::Source,
             #[pallet::compact] amount: T::Balance,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
             ensure!(!amount.is_zero(), Error::<T>::AmountZero);
 
-            let mut origin_account = Account::<T>::get((asset_id, token_id), &origin);
+            let mut origin_account = Account::<T>::get((collection_id, asset_id), &origin);
             ensure!(!origin_account.is_frozen, Error::<T>::Frozen);
             origin_account.balance = origin_account
                 .balance
@@ -726,27 +848,28 @@ pub mod pallet {
                 .ok_or(Error::<T>::BalanceLow)?;
 
             let dest = T::Lookup::lookup(target)?;
-            Collectible::<T>::try_mutate(asset_id, token_id, |maybe_details| {
-                let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(!details.is_frozen, Error::<T>::Frozen);
+            // Collectible::<T>::try_mutate(collection_id, asset_id, |maybe_meta| {
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(!meta.is_frozen, Error::<T>::Frozen);
 
                 if dest == origin {
                     return Ok(().into());
                 }
 
                 let mut amount = amount;
-                if origin_account.balance < details.min_balance {
-                    amount += origin_account.balance;
+                if origin_account.balance < meta.min_balance {
+                    amount = origin_account.balance.saturating_add(amount);
                     origin_account.balance = Zero::zero();
                 }
 
-                let acc_key = &(asset_id, token_id);
+                let acc_key = &(collection_id, asset_id);
 
                 Account::<T>::try_mutate(acc_key, &dest, |a| -> DispatchResultWithPostInfo {
                     let new_balance = a.balance.saturating_add(amount);
-                    ensure!(new_balance >= details.min_balance, Error::<T>::BalanceLow);
+                    ensure!(new_balance >= meta.min_balance, Error::<T>::BalanceLow);
                     if a.balance.is_zero() {
-                        a.is_zombie = Self::new_account(&dest, details)?;
+                        a.is_zombie = Self::new_account(&dest, meta)?;
                     }
                     a.balance = new_balance;
                     Ok(().into())
@@ -754,16 +877,22 @@ pub mod pallet {
 
                 match origin_account.balance.is_zero() {
                     false => {
-                        Self::dezombify(&origin, details, &mut origin_account.is_zombie);
+                        Self::dezombify(&origin, meta, &mut origin_account.is_zombie);
                         Account::<T>::insert(acc_key, &origin, &origin_account)
                     }
                     true => {
-                        Self::dead_account(&origin, details, origin_account.is_zombie);
+                        Self::dead_account(&origin, meta, origin_account.is_zombie);
                         Account::<T>::remove(acc_key, &origin);
                     }
                 }
 
-                Self::deposit_event(Event::Transferred(asset_id, token_id, origin, dest, amount));
+                Self::deposit_event(Event::Transferred(
+                    collection_id,
+                    asset_id,
+                    origin,
+                    dest,
+                    amount,
+                ));
                 Ok(().into())
             })
         }
@@ -788,10 +917,10 @@ pub mod pallet {
         /// Modes: Pre-existence of `dest`; Post-existence of `source`; Prior & post zombie-status
         /// of `source`; Account pre-existence of `dest`.
         #[pallet::weight(T::WeightInfo::force_transfer())]
-        pub(super) fn force_transfer(
+        pub(super) fn force_transfer_token(
             origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
             source: <T::Lookup as StaticLookup>::Source,
             dest: <T::Lookup as StaticLookup>::Source,
             #[pallet::compact] amount: T::Balance,
@@ -799,7 +928,7 @@ pub mod pallet {
             let origin = ensure_signed(origin)?;
 
             let source = T::Lookup::lookup(source)?;
-            let mut source_account = Account::<T>::get(&(asset_id, token_id), &source);
+            let mut source_account = Account::<T>::get(&(collection_id, asset_id), &source);
             let mut amount = amount.min(source_account.balance);
             ensure!(!amount.is_zero(), Error::<T>::AmountZero);
 
@@ -808,17 +937,17 @@ pub mod pallet {
                 return Ok(().into());
             }
 
-            Collectible::<T>::try_mutate(asset_id, token_id, |maybe_details| {
+            Collection::<T>::try_mutate(collection_id, |maybe_details| {
                 let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &details.owner, Error::<T>::NoPermission);
+                ensure!(&origin == &details.owner, Error::<T>::Unauthorized);
 
                 source_account.balance -= amount;
                 if source_account.balance < details.min_balance {
-                    amount += source_account.balance;
+                    amount = source_account.balance.saturating_add(amount);
                     source_account.balance = Zero::zero();
                 }
 
-                let acc_key = &(asset_id, token_id);
+                let acc_key = &(collection_id, asset_id);
 
                 Account::<T>::try_mutate(acc_key, &dest, |a| -> DispatchResultWithPostInfo {
                     let new_balance = a.balance.saturating_add(amount);
@@ -842,7 +971,11 @@ pub mod pallet {
                 }
 
                 Self::deposit_event(Event::ForceTransferred(
-                    asset_id, token_id, source, dest, amount,
+                    collection_id,
+                    asset_id,
+                    source,
+                    dest,
+                    amount,
                 ));
                 Ok(().into())
             })
@@ -861,24 +994,26 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::freeze())]
         pub(super) fn freeze(
             origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
             who: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            let d = Collectible::<T>::get(asset_id, token_id).ok_or(Error::<T>::Unknown)?;
-            // ensure!(&origin == &d.freezer, Error::<T>::NoPermission);
-            ensure!(&origin == &d.owner, Error::<T>::NoPermission);
+            let holder =
+                AccountAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
+
+            // ensure!(&origin == &d.freezer, Error::<T>::Unauthorized);
+            ensure!(&origin == &holder, Error::<T>::Unauthorized);
             let who = T::Lookup::lookup(who)?;
             ensure!(
-                Account::<T>::contains_key(&(asset_id, token_id), &who),
+                Account::<T>::contains_key(&(collection_id, asset_id), &who),
                 Error::<T>::BalanceZero
             );
 
-            Account::<T>::mutate(&(asset_id, token_id), &who, |a| a.is_frozen = true);
+            Account::<T>::mutate(&(collection_id, asset_id), &who, |a| a.is_frozen = true);
 
-            Self::deposit_event(Event::<T>::Frozen(asset_id, token_id, who));
+            Self::deposit_event(Event::<T>::Frozen(collection_id, asset_id, who));
             Ok(().into())
         }
 
@@ -895,24 +1030,25 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::thaw())]
         pub(super) fn thaw(
             origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
             who: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            let details = Collectible::<T>::get(asset_id, token_id).ok_or(Error::<T>::Unknown)?;
-            // ensure!(&origin == &details.admin, Error::<T>::NoPermission);
-            ensure!(&origin == &details.owner, Error::<T>::NoPermission);
+            let owner =
+                AccountAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
+            // ensure!(&origin == &details.admin, Error::<T>::Unauthorized);
+            ensure!(&origin == &owner, Error::<T>::Unauthorized);
             let who = T::Lookup::lookup(who)?;
             ensure!(
-                Account::<T>::contains_key(&(asset_id, token_id), &who),
+                Account::<T>::contains_key(&(collection_id, asset_id), &who),
                 Error::<T>::BalanceZero
             );
 
-            Account::<T>::mutate(&(asset_id, token_id), &who, |a| a.is_frozen = false);
+            Account::<T>::mutate(&(collection_id, asset_id), &who, |a| a.is_frozen = false);
 
-            Self::deposit_event(Event::<T>::Thawed(asset_id, token_id, who));
+            Self::deposit_event(Event::<T>::Thawed(collection_id, asset_id, who));
             Ok(().into())
         }
 
@@ -926,21 +1062,21 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::freeze_asset())]
-        pub(super) fn freeze_asset(
+        pub(super) fn freeze_collection(
             origin: OriginFor<T>,
-            #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
+            #[pallet::compact] collection_id: T::CollectionId,
+            // #[pallet::compact] asset_id: T::AssetId,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            Collectible::<T>::try_mutate(asset_id, token_id, |maybe_details| {
-                let d = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                // ensure!(&origin == &d.freezer, Error::<T>::NoPermission);
-                ensure!(&origin == &d.owner, Error::<T>::NoPermission);
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let d = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                // ensure!(&origin == &d.freezer, Error::<T>::Unauthorized);
+                ensure!(&origin == &d.owner, Error::<T>::Unauthorized);
 
                 d.is_frozen = true;
 
-                Self::deposit_event(Event::<T>::AssetFrozen(asset_id, token_id));
+                Self::deposit_event(Event::<T>::CollectionFrozen(collection_id));
                 Ok(().into())
             })
         }
@@ -957,24 +1093,24 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::thaw_asset())]
         pub(super) fn thaw_asset(
             origin: OriginFor<T>,
-            #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
+            #[pallet::compact] collection_id: T::CollectionId,
+            // #[pallet::compact] asset_id: T::AssetId,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            Collectible::<T>::try_mutate(asset_id, token_id, |maybe_details| {
-                let d = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                // ensure!(&origin == &d.admin, Error::<T>::NoPermission);
-                ensure!(&origin == &d.owner, Error::<T>::NoPermission);
+            Collection::<T>::try_mutate(collection_id, |mybe_meta| {
+                let d = mybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                // ensure!(&origin == &d.admin, Error::<T>::Unauthorized);
+                ensure!(&origin == &d.owner, Error::<T>::Unauthorized);
 
                 d.is_frozen = false;
 
-                Self::deposit_event(Event::<T>::AssetThawed(asset_id, token_id));
+                Self::deposit_event(Event::<T>::CollectionThawed(collection_id));
                 Ok(().into())
             })
         }
 
-        /// Change the Owner of an base token..
+        /// Change the Owner of collection.
         ///
         /// Origin must be Signed and the sender should be the Owner of the asset `id`.
         ///
@@ -985,17 +1121,17 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::transfer_ownership())]
-        pub(super) fn transfer_base_token_ownership(
+        pub(super) fn transfer_collection_ownership(
             origin: OriginFor<T>,
-            #[pallet::compact] asset_id: T::AssetId,
+            #[pallet::compact] collection_id: T::CollectionId,
             owner: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
             let owner = T::Lookup::lookup(owner)?;
 
-            Asset::<T>::try_mutate(asset_id, |maybe_details| {
+            Collection::<T>::try_mutate(collection_id, |maybe_details| {
                 let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &details.owner, Error::<T>::NoPermission);
+                ensure!(&origin == &details.owner, Error::<T>::Unauthorized);
 
                 if details.owner == owner {
                     return Ok(().into());
@@ -1011,12 +1147,12 @@ pub mod pallet {
 
                 details.owner = owner.clone();
 
-                Self::deposit_event(Event::AssetOwnerChanged(asset_id, owner));
+                Self::deposit_event(Event::CollectionOwnerChanged(collection_id, owner));
                 Ok(().into())
             })
         }
 
-        /// Change the Owner of an asset's sub-token.
+        /// Change the Owner of asset.
         ///
         /// Origin must be Signed and the sender should be the Owner of the asset `id`.
         ///
@@ -1027,42 +1163,43 @@ pub mod pallet {
         ///
         /// Weight: `O(1)`
         #[pallet::weight(T::WeightInfo::transfer_ownership())]
-        pub(super) fn transfer_sub_token_ownership(
+        pub(super) fn transfer_asset_ownership(
             origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
-            owner: <T::Lookup as StaticLookup>::Source,
+            new_owner: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
-            let owner = T::Lookup::lookup(owner)?;
+            let new_owner = T::Lookup::lookup(new_owner)?;
 
-            Collectible::<T>::try_mutate(asset_id, token_id, |maybe_details| {
-                let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &details.owner, Error::<T>::NoPermission);
-                if details.owner == owner {
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
+
+                if meta.owner == new_owner {
                     return Ok(().into());
                 }
 
+                let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &new_owner);
+
+                if meta.max_asset_per_account > Zero::zero() {
+                    ensure!(
+                        owned_asset_count < meta.max_asset_per_account,
+                        Error::<T>::MaxLimitPerAccount
+                    );
+                }
+
+                ensure!(
+                    owned_asset_count < MAX_TOKEN_PER_ACCOUNT,
+                    Error::<T>::MaxLimitPerAccount
+                );
+
                 // Move the deposit to the new owner.
-                T::Currency::repatriate_reserved(
-                    &details.owner,
-                    &owner,
-                    details.deposit,
-                    Reserved,
-                )?;
+                T::Currency::repatriate_reserved(&meta.owner, &new_owner, meta.deposit, Reserved)?;
 
-                OwnedTokenCount::<T>::mutate(asset_id, &details.owner, |count| {
-                    *count = count.saturating_sub(1);
-                });
+                meta.owner = new_owner.clone();
 
-                details.owner = owner.clone();
-
-                OwnedTokenCount::<T>::mutate(asset_id, &owner, |count| {
-                    *count = count.saturating_add(1);
-                });
-
-                Self::deposit_event(Event::OwnerChanged(asset_id, token_id, owner));
-
+                Self::deposit_event(Event::AssetOwnerChanged(collection_id, asset_id, new_owner));
                 Ok(().into())
             })
         }
@@ -1082,9 +1219,9 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::set_team())]
         pub(super) fn set_team(
             origin: OriginFor<T>,
-            #[pallet::compact] asset_id: T::AssetId,
+            #[pallet::compact] collection_id: T::CollectionId,
             // issuer: <T::Lookup as StaticLookup>::Source,
-            eligible_mint_accounts: Vec<T::AccountId>,
+            // allowed_mint_accounts: Vec<T::AccountId>,
             admin: <T::Lookup as StaticLookup>::Source,
             freezer: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
@@ -1093,72 +1230,67 @@ pub mod pallet {
             let admin = T::Lookup::lookup(admin)?;
             let freezer = T::Lookup::lookup(freezer)?;
 
-            Asset::<T>::try_mutate(asset_id, |maybe_details| {
+            Collection::<T>::try_mutate(collection_id, |maybe_details| {
                 let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &details.owner, Error::<T>::NoPermission);
+                ensure!(&origin == &details.owner, Error::<T>::Unauthorized);
 
                 // @TODO(robin): adjust deposit here
                 // ....
 
                 // details.issuer = issuer.clone();
-                details.eligible_mint_accounts = eligible_mint_accounts.clone();
-                details.admin = admin.clone();
-                details.freezer = freezer.clone();
+                // details.allowed_mint_accounts = allowed_mint_accounts.clone();
+                // details.admin = admin.clone();
+                // details.freezer = freezer.clone();
 
-                Self::deposit_event(Event::TeamChanged(
-                    asset_id,
-                    admin,
-                    freezer,
-                    eligible_mint_accounts.len().saturated_into::<u32>(),
-                ));
+                Self::deposit_event(Event::TeamChanged(collection_id, admin, freezer));
                 Ok(().into())
             })
         }
 
-        /// Set the maximum number of zombie accounts for an asset.
-        ///
-        /// Origin must be Signed and the sender should be the Owner of the asset `id`.
-        ///
-        /// Funds of sender are reserved according to the formula:
-        /// `AssetDepositBase + AssetDepositPerZombie * max_zombies` taking into account
-        /// any already reserved funds.
-        ///
-        /// - `id`: The identifier of the asset to update zombie count.
-        /// - `max_zombies`: The new number of zombies allowed for this asset.
-        ///
-        /// Emits `MaxZombiesChanged`.
-        ///
-        /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::set_max_zombies())]
-        pub(super) fn set_max_zombies(
-            origin: OriginFor<T>,
-            #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
-            #[pallet::compact] max_zombies: u32,
-        ) -> DispatchResultWithPostInfo {
-            let origin = ensure_signed(origin)?;
+        // /// Set the maximum number of zombie accounts for an tokens.
+        // ///
+        // /// Origin must be Signed and the sender should be the Owner of the asset `id`.
+        // ///
+        // /// Funds of sender are reserved according to the formula:
+        // /// `AssetDepositBase + AssetDepositPerZombie * max_zombies` taking into account
+        // /// any already reserved funds.
+        // ///
+        // /// - `id`: The identifier of the asset to update zombie count.
+        // /// - `max_zombies`: The new number of zombies allowed for this asset.
+        // ///
+        // /// Emits `MaxZombiesChanged`.
+        // ///
+        // /// Weight: `O(1)`
+        // #[pallet::weight(T::WeightInfo::set_max_zombies())]
+        // pub(super) fn set_max_zombies(
+        //     origin: OriginFor<T>,
+        //     #[pallet::compact] collection_id: T::CollectionId,
+        //     #[pallet::compact] asset_id: T::AssetId,
+        //     #[pallet::compact] max_zombies: u32,
+        // ) -> DispatchResultWithPostInfo {
+        //     let origin = ensure_signed(origin)?;
 
-            Collectible::<T>::try_mutate(asset_id, token_id, |maybe_details| {
-                let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &details.owner, Error::<T>::NoPermission);
-                ensure!(max_zombies >= details.zombies, Error::<T>::TooManyZombies);
+        //     Collectible::<T>::try_mutate(collection_id, asset_id, |maybe_details| {
+        //         let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
+        //         ensure!(&origin == &details.owner, Error::<T>::Unauthorized);
+        //         ensure!(max_zombies >= details.zombies, Error::<T>::TooManyZombies);
 
-                let new_deposit = T::AssetDepositPerZombie::get()
-                    .saturating_mul(max_zombies.into())
-                    .saturating_add(T::AssetDepositBase::get());
+        //         let new_deposit = T::AssetDepositPerZombie::get()
+        //             .saturating_mul(max_zombies.into())
+        //             .saturating_add(T::AssetDepositBase::get());
 
-                if new_deposit > details.deposit {
-                    T::Currency::reserve(&origin, new_deposit - details.deposit)?;
-                } else {
-                    T::Currency::unreserve(&origin, details.deposit - new_deposit);
-                }
+        //         if new_deposit > details.deposit {
+        //             T::Currency::reserve(&origin, new_deposit - details.deposit)?;
+        //         } else {
+        //             T::Currency::unreserve(&origin, details.deposit - new_deposit);
+        //         }
 
-                details.max_zombies = max_zombies;
+        //         details.max_zombies = max_zombies;
 
-                Self::deposit_event(Event::MaxZombiesChanged(asset_id, token_id, max_zombies));
-                Ok(().into())
-            })
-        }
+        //         Self::deposit_event(Event::MaxZombiesChanged(collection_id, asset_id, max_zombies));
+        //         Ok(().into())
+        //     })
+        // }
 
         /// Set the metadata for an asset.
         ///
@@ -1172,7 +1304,7 @@ pub mod pallet {
         /// `MetadataDepositBase + MetadataDepositPerByte * (name.len + symbol.len)` taking into
         /// account any already reserved funds.
         ///
-        /// - `asset_id`: The identifier of the asset to update.
+        /// - `collection_id`: The identifier of the asset to update.
         /// - `name`: The user friendly name of this asset. Limited in length by `StringLimit`.
         /// - `symbol`: The exchange symbol for this asset. Limited in length by `StringLimit`.
         /// - `decimals`: The number of decimals this asset uses to represent one unit.
@@ -1183,8 +1315,8 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::set_metadata(name.len() as u32, symbol.len() as u32))]
         pub(super) fn set_metadata(
             origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            #[pallet::compact] token_id: T::TokenId,
             name: Vec<u8>,
             symbol: Vec<u8>,
             token_uri: Vec<u8>,
@@ -1202,10 +1334,11 @@ pub mod pallet {
                 Error::<T>::BadMetadata
             );
 
-            let d = Collectible::<T>::get(asset_id, token_id).ok_or(Error::<T>::Unknown)?;
-            ensure!(&origin == &d.owner, Error::<T>::NoPermission);
+            let owner =
+                AccountAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
+            ensure!(&origin == &owner, Error::<T>::Unauthorized);
 
-            Metadata::<T>::try_mutate_exists(asset_id, token_id, |metadata| {
+            Metadata::<T>::try_mutate_exists(collection_id, asset_id, |metadata| {
                 let bytes_used = name.len() + symbol.len();
                 let old_deposit = match metadata {
                     Some(m) => m.deposit,
@@ -1239,7 +1372,12 @@ pub mod pallet {
                 }
 
                 Self::deposit_event(Event::MetadataSet(
-                    asset_id, token_id, name, symbol, token_uri, base_uri,
+                    collection_id,
+                    asset_id,
+                    name,
+                    symbol,
+                    token_uri,
+                    base_uri,
                 ));
                 Ok(().into())
             })
@@ -1252,42 +1390,57 @@ impl<T: Config> Pallet<T> {
     // Public immutables
 
     /// Get the asset `id` balance of `who`.
-    pub fn balance(asset_id: T::AssetId, token_id: T::TokenId, who: T::AccountId) -> T::Balance {
-        Account::<T>::get(&(asset_id, token_id), who).balance
+    pub fn balance(
+        collection_id: T::CollectionId,
+        asset_id: T::AssetId,
+        who: T::AccountId,
+    ) -> T::Balance {
+        Account::<T>::get(&(collection_id, asset_id), who).balance
     }
 
-    /// Check is account is owner
+    /// Check is account owned the collection
     #[cfg(test)]
-    pub fn is_owner(who: &T::AccountId, asset_id: T::AssetId) -> bool {
-        Asset::<T>::get(asset_id)
+    pub fn is_collection_owner(who: &T::AccountId, collection_id: T::CollectionId) -> bool {
+        Collection::<T>::get(collection_id)
             .map(|a| &a.owner == who)
             .unwrap_or(false)
     }
 
+    /// Check is account is owner
+    pub fn is_token_owner(
+        who: &T::AccountId,
+        collection_id: T::CollectionId,
+        asset_id: T::AssetId,
+    ) -> bool {
+        AccountAsset::<T>::get(collection_id, asset_id)
+            .map(|a| &a == who)
+            .unwrap_or(false)
+    }
+
     /// Get the total supply of an asset `id`.
-    pub fn total_asset_supply(asset_id: T::AssetId) -> T::Balance {
-        Asset::<T>::get(asset_id)
-            .map(|x| x.supply)
+    pub fn total_asset_count(collection_id: T::CollectionId) -> u32 {
+        Collection::<T>::get(collection_id)
+            .map(|x| x.asset_count)
             .unwrap_or_else(Zero::zero)
     }
 
     /// Get the total supply of an asset `id`.
-    pub fn total_token_supply(asset_id: T::AssetId, token_id: T::TokenId) -> T::Balance {
-        Collectible::<T>::get(asset_id, token_id)
-            .map(|x| x.supply)
+    pub fn total_token_supply(collection_id: T::CollectionId) -> T::Balance {
+        Collection::<T>::get(collection_id)
+            .map(|x| x.token_supply)
             .unwrap_or_else(Zero::zero)
     }
 
     /// Check the number of zombies allow yet for an asset.
-    pub fn zombie_allowance(asset_id: T::AssetId, token_id: T::TokenId) -> u32 {
-        Collectible::<T>::get(asset_id, token_id)
+    pub fn zombie_allowance(collection_id: T::CollectionId) -> u32 {
+        Collection::<T>::get(collection_id)
             .map(|x| x.max_zombies - x.zombies)
             .unwrap_or_else(Zero::zero)
     }
 
     fn new_account(
         who: &T::AccountId,
-        d: &mut ERC20Details<T::Balance, T::AccountId, T::AssetId, BalanceOf<T>>,
+        d: &mut CollectionMetadata<T::Balance, T::AccountId, BalanceOf<T>>,
     ) -> Result<bool, DispatchError> {
         let accounts = d.accounts.checked_add(1).ok_or(Error::<T>::Overflow)?;
         let r = Ok(if frame_system::Module::<T>::account_exists(who) {
@@ -1306,7 +1459,7 @@ impl<T: Config> Pallet<T> {
     /// If `who`` exists in system and it's a zombie, dezombify it.
     fn dezombify(
         who: &T::AccountId,
-        d: &mut ERC20Details<T::Balance, T::AccountId, T::AssetId, BalanceOf<T>>,
+        d: &mut CollectionMetadata<T::Balance, T::AccountId, BalanceOf<T>>,
         is_zombie: &mut bool,
     ) {
         if *is_zombie && frame_system::Module::<T>::account_exists(who) {
@@ -1320,7 +1473,7 @@ impl<T: Config> Pallet<T> {
 
     fn dead_account(
         who: &T::AccountId,
-        d: &mut ERC20Details<T::Balance, T::AccountId, T::AssetId, BalanceOf<T>>,
+        d: &mut CollectionMetadata<T::Balance, T::AccountId, BalanceOf<T>>,
         is_zombie: bool,
     ) {
         if is_zombie {
