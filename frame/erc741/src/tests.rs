@@ -187,7 +187,7 @@ fn invalid_name_and_symbol() {
 const COLLECTION_ID: u32 = 1;
 const ASSET_ID: u32 = 1;
 
-fn with_base_token<F: FnOnce() -> ()>(cb: F) {
+fn with_collection<F: FnOnce() -> ()>(cb: F) {
     new_test_ext().execute_with(|| {
         Balances::make_free_balance_be(&1, 100);
         Assets::create_collection(
@@ -244,12 +244,14 @@ fn with_minted_token<F: FnOnce() -> ()>(cb: F) {
 
 #[test]
 fn basic_minting_should_work() {
-    with_base_token(|| {
+    with_collection(|| {
+        assert_eq!(AssetCount::<Test>::get(), 0);
         assert_ok!(Assets::mint_asset(
             Origin::signed(1),
             COLLECTION_ID,
             ASSET_ID,
         ));
+        assert_eq!(AssetCount::<Test>::get(), 1);
         assert_ok!(Assets::mint_token(
             Origin::signed(1),
             COLLECTION_ID,
@@ -257,6 +259,7 @@ fn basic_minting_should_work() {
             1,
             100
         ));
+
         assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 100);
         assert_ok!(Assets::mint_token(
             Origin::signed(1),
@@ -273,6 +276,8 @@ fn basic_minting_should_work() {
             COLLECTION_ID,
             ASSET_ID + 1,
         ));
+
+        assert_eq!(AssetCount::<Test>::get(), 2);
 
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 2);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &2), 0);
@@ -328,14 +333,14 @@ fn transfer_collection_ownership() {
     with_minted_token(|| {
         Balances::make_free_balance_be(&2, 1);
         assert_eq!(Assets::is_collection_owner(&1, COLLECTION_ID), true);
-        assert_eq!(Balances::reserved_balance(&1), 20);
+        assert_eq!(Balances::reserved_balance(&1), 9);
         assert_ok!(Assets::transfer_collection_ownership(
             Origin::signed(1),
             COLLECTION_ID,
             2
         ));
         assert_eq!(Assets::is_collection_owner(&1, COLLECTION_ID), false);
-        assert_eq!(Balances::reserved_balance(&1), 11);
+        assert_eq!(Balances::reserved_balance(&1), 0);
         assert_eq!(Assets::is_collection_owner(&2, COLLECTION_ID), true);
         assert_eq!(Balances::reserved_balance(&2), 9);
     });
@@ -349,16 +354,6 @@ fn allowed_minting_mechanism_should_work() {
         Balances::make_free_balance_be(&3, 11); // allowed
         Balances::make_free_balance_be(&4, 11); // allowed
         Balances::make_free_balance_be(&5, 10); // not allowed
-
-        // assert_ok!(Assets::build(
-        //     Origin::signed(1),
-        //     b"Test1".to_vec(),
-        //     b"NFT".to_vec(),
-        //     COLLECTION_ID,
-        //     1,
-        //     vec![(3, 1), (4, 1)], // allowed mint users
-        //     5
-        // ));
 
         assert_ok!(Assets::create_collection(
             Origin::signed(1),
@@ -504,18 +499,35 @@ fn allowed_minting_mechanism_should_work() {
 // }
 
 #[test]
-fn destroy_token_should_work() {
+fn destroy_asset_should_work() {
     with_minted_token(|| {
+        assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), true);
+
         assert_ok!(Assets::destroy_asset(
             Origin::signed(1),
             COLLECTION_ID,
             ASSET_ID,
-            // 100
         ));
-        // assert_ok!(Assets::burn(Origin::signed(1), 0, 1, 100));
-        // assert_ok!(Assets::destroy(Origin::signed(1), 0, 100));
 
+        assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), false);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 0);
+        assert_eq!(AssetCount::<Test>::get(), 0);
+    });
+}
+
+#[test]
+fn non_owner_cannot_destroy_asset() {
+    with_minted_token(|| {
+        assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), true);
+
+        assert_noop!(
+            Assets::destroy_asset(Origin::signed(2), COLLECTION_ID, ASSET_ID,),
+            Error::<Test>::Unauthorized
+        );
+
+        assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), true);
+        assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 1);
+        assert_eq!(AssetCount::<Test>::get(), 1);
     });
 }
 

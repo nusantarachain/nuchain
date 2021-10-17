@@ -38,7 +38,7 @@ use frame_support::{
 };
 use sp_runtime::{
     traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
-    RuntimeDebug, SaturatedConversion,
+    RuntimeDebug,
 };
 use sp_std::{fmt::Debug, prelude::*};
 pub use weights::WeightInfo;
@@ -248,7 +248,11 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    /// Total token held per account.
+    /// Total asset.
+    pub(super) type AssetCount<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    #[pallet::storage]
+    /// Total asset held per account.
     pub(super) type OwnedAssetCount<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -412,7 +416,7 @@ pub mod pallet {
                             .unwrap_or(false),
                         Error::<T>::Unauthorized
                     );
-                } else if (who != meta.owner) {
+                } else if who != meta.owner {
                     return Err(Error::<T>::Unauthorized.into());
                 }
 
@@ -436,6 +440,10 @@ pub mod pallet {
                     .ok_or(Error::<T>::Overflow)?;
 
                 AccountAsset::<T>::insert(collection_id, asset_id, who.clone());
+
+                AssetCount::<T>::mutate(|count| {
+                    *count = count.saturating_add(1);
+                });
 
                 OwnedAssetCount::<T>::mutate(collection_id, &who, |count| {
                     *count = count.saturating_add(1);
@@ -551,38 +559,12 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            // Collectible::<T>::try_mutate_exists(collection_id, asset_id, |maybe_details| {
-            //     let details = maybe_details.take().ok_or(Error::<T>::Unknown)?;
-            //     ensure!(details.owner == origin, Error::<T>::Unauthorized);
-            //     ensure!(details.accounts == details.zombies, Error::<T>::RefsLeft);
-            //     ensure!(details.zombies <= zombies_witness, Error::<T>::BadWitness);
-
-            //     let metadata = Metadata::<T>::take(&collection_id, &asset_id);
-            //     T::Currency::unreserve(
-            //         &details.owner,
-            //         details.deposit.saturating_add(metadata.deposit),
-            //     );
-
-            //     *maybe_details = None;
-
-            //     Account::<T>::remove_prefix((&collection_id, &asset_id));
-
-            //     OwnedAssetCount::<T>::mutate(collection_id, &details.owner, |count| {
-            //         *count = count.saturating_sub(1);
-            //     });
-
-            //     MintAllowed::<T>::remove(&collection_id, &details.owner);
-
-            //     Self::deposit_event(Event::Destroyed(collection_id, asset_id));
-            //     Ok(().into())
-            // })
-
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
                 ensure!(
                     // AccountAsset::<T>::get(collection_id, asset_id) == origin
-                    Self::is_token_owner(&origin, collection_id, asset_id),
+                    Self::is_asset_owner(&origin, collection_id, asset_id),
                     Error::<T>::Unauthorized
                 );
 
@@ -591,6 +573,10 @@ pub mod pallet {
                 AccountAsset::<T>::remove(collection_id, asset_id);
 
                 OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
+                    *count = count.saturating_sub(1);
+                });
+
+                AssetCount::<T>::mutate(|count| {
                     *count = count.saturating_sub(1);
                 });
 
@@ -1124,30 +1110,25 @@ pub mod pallet {
         pub(super) fn transfer_collection_ownership(
             origin: OriginFor<T>,
             #[pallet::compact] collection_id: T::CollectionId,
-            owner: <T::Lookup as StaticLookup>::Source,
+            new_owner: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
-            let owner = T::Lookup::lookup(owner)?;
+            let new_owner = T::Lookup::lookup(new_owner)?;
 
-            Collection::<T>::try_mutate(collection_id, |maybe_details| {
-                let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &details.owner, Error::<T>::Unauthorized);
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
 
-                if details.owner == owner {
+                if meta.owner == new_owner {
                     return Ok(().into());
                 }
 
                 // Move the deposit to the new owner.
-                T::Currency::repatriate_reserved(
-                    &details.owner,
-                    &owner,
-                    details.deposit,
-                    Reserved,
-                )?;
+                T::Currency::repatriate_reserved(&meta.owner, &new_owner, meta.deposit, Reserved)?;
 
-                details.owner = owner.clone();
+                meta.owner = new_owner.clone();
 
-                Self::deposit_event(Event::CollectionOwnerChanged(collection_id, owner));
+                Self::deposit_event(Event::CollectionOwnerChanged(collection_id, new_owner));
                 Ok(().into())
             })
         }
@@ -1197,7 +1178,15 @@ pub mod pallet {
                 // Move the deposit to the new owner.
                 T::Currency::repatriate_reserved(&meta.owner, &new_owner, meta.deposit, Reserved)?;
 
+                OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
+                    *count = count.saturating_sub(1);
+                });
+
                 meta.owner = new_owner.clone();
+
+                OwnedAssetCount::<T>::mutate(collection_id, &new_owner, |count| {
+                    *count = count.saturating_add(1);
+                });
 
                 Self::deposit_event(Event::AssetOwnerChanged(collection_id, asset_id, new_owner));
                 Ok(().into())
@@ -1406,8 +1395,8 @@ impl<T: Config> Pallet<T> {
             .unwrap_or(false)
     }
 
-    /// Check is account is owner
-    pub fn is_token_owner(
+    /// Check is account is owner of the asset
+    pub fn is_asset_owner(
         who: &T::AccountId,
         collection_id: T::CollectionId,
         asset_id: T::AssetId,
