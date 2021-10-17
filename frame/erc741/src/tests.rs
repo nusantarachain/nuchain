@@ -135,6 +135,7 @@ fn basic_build_should_work() {
                 max_zombies: 5
             }
         ));
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
     });
 }
 
@@ -212,7 +213,7 @@ fn with_collection<F: FnOnce() -> ()>(cb: F) {
     });
 }
 
-fn with_minted_token<F: FnOnce() -> ()>(cb: F) {
+fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
     new_test_ext().execute_with(|| {
         Balances::make_free_balance_be(&1, 100);
         Assets::create_collection(
@@ -245,13 +246,13 @@ fn with_minted_token<F: FnOnce() -> ()>(cb: F) {
 #[test]
 fn basic_minting_should_work() {
     with_collection(|| {
-        assert_eq!(AssetCount::<Test>::get(), 0);
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
         assert_ok!(Assets::mint_asset(
             Origin::signed(1),
             COLLECTION_ID,
             ASSET_ID,
         ));
-        assert_eq!(AssetCount::<Test>::get(), 1);
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
         assert_ok!(Assets::mint_token(
             Origin::signed(1),
             COLLECTION_ID,
@@ -277,7 +278,7 @@ fn basic_minting_should_work() {
             ASSET_ID + 1,
         ));
 
-        assert_eq!(AssetCount::<Test>::get(), 2);
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 2);
 
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 2);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &2), 0);
@@ -285,30 +286,8 @@ fn basic_minting_should_work() {
 }
 
 #[test]
-fn basic_transfer_should_work() {
-    with_minted_token(|| {
-        assert_ok!(Assets::mint_token(
-            Origin::signed(1),
-            COLLECTION_ID,
-            ASSET_ID,
-            1,
-            20
-        ));
-        assert_ok!(Assets::transfer_token(
-            Origin::signed(1),
-            COLLECTION_ID,
-            ASSET_ID,
-            2,
-            15
-        ));
-        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 15);
-        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 5);
-    });
-}
-
-#[test]
 fn basic_transfer_asset_ownership_should_work() {
-    with_minted_token(|| {
+    with_minted_asset(|| {
         assert_ok!(Assets::mint_token(
             Origin::signed(1),
             COLLECTION_ID,
@@ -330,7 +309,7 @@ fn basic_transfer_asset_ownership_should_work() {
 
 #[test]
 fn transfer_collection_ownership() {
-    with_minted_token(|| {
+    with_minted_asset(|| {
         Balances::make_free_balance_be(&2, 1);
         assert_eq!(Assets::is_collection_owner(&1, COLLECTION_ID), true);
         assert_eq!(Balances::reserved_balance(&1), 9);
@@ -411,7 +390,7 @@ fn allowed_minting_mechanism_should_work() {
 // @TODO(Robin): code distribute royalties here
 // #[test]
 // fn distribute_royalties_work() {
-//     with_minted_token(|| {
+//     with_minted_asset(|| {
 //         assert_ok!(Assets::mint_token(
 //             Origin::signed(1),
 //             COLLECTION_ID,
@@ -500,7 +479,7 @@ fn allowed_minting_mechanism_should_work() {
 
 #[test]
 fn destroy_asset_should_work() {
-    with_minted_token(|| {
+    with_minted_asset(|| {
         assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), true);
 
         assert_ok!(Assets::destroy_asset(
@@ -511,13 +490,35 @@ fn destroy_asset_should_work() {
 
         assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), false);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 0);
-        assert_eq!(AssetCount::<Test>::get(), 0);
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
+    });
+}
+
+#[test]
+fn force_destroy_asset_should_work() {
+    with_minted_asset(|| {
+        assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), true);
+
+        assert_noop!(
+            Assets::force_destroy_asset(Origin::signed(2), COLLECTION_ID, ASSET_ID,),
+            DispatchError::BadOrigin
+        );
+
+        assert_ok!(Assets::force_destroy_asset(
+            Origin::root(),
+            COLLECTION_ID,
+            ASSET_ID,
+        ));
+
+        assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), false);
+        assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 0);
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
     });
 }
 
 #[test]
 fn non_owner_cannot_destroy_asset() {
-    with_minted_token(|| {
+    with_minted_asset(|| {
         assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), true);
 
         assert_noop!(
@@ -527,7 +528,87 @@ fn non_owner_cannot_destroy_asset() {
 
         assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), true);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 1);
-        assert_eq!(AssetCount::<Test>::get(), 1);
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
+    });
+}
+
+#[test]
+fn mint_token_should_works() {
+    with_minted_asset(|| {
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            20
+        ));
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 20);
+    });
+}
+
+#[test]
+fn basic_token_transfer_should_work() {
+    with_minted_asset(|| {
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            20
+        ));
+        assert_ok!(Assets::transfer_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            2,
+            15
+        ));
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 15);
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 5);
+    });
+}
+
+#[test]
+fn force_token_transfer_should_work() {
+    with_minted_asset(|| {
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            20
+        ));
+        assert_ok!(Assets::force_transfer_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            2,
+            15
+        ));
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 15);
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 5);
+    });
+}
+
+#[test]
+fn burn_token_should_works() {
+    with_minted_asset(|| {
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            20
+        ));
+        assert_ok!(Assets::burn_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            5
+        ));
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 15);
     });
 }
 

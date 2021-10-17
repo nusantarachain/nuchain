@@ -240,16 +240,12 @@ pub mod pallet {
     pub(super) type Account<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        (T::CollectionId, T::AssetId),
+        T::CollectionId,
         Blake2_128Concat,
-        T::AccountId,
+        (T::AssetId, T::AccountId),
         TokenBalance<T::Balance>,
         ValueQuery,
     >;
-
-    #[pallet::storage]
-    /// Total asset.
-    pub(super) type AssetCount<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     #[pallet::storage]
     /// Total asset held per account.
@@ -441,10 +437,6 @@ pub mod pallet {
 
                 AccountAsset::<T>::insert(collection_id, asset_id, who.clone());
 
-                AssetCount::<T>::mutate(|count| {
-                    *count = count.saturating_add(1);
-                });
-
                 OwnedAssetCount::<T>::mutate(collection_id, &who, |count| {
                     *count = count.saturating_add(1);
                 });
@@ -576,7 +568,39 @@ pub mod pallet {
                     *count = count.saturating_sub(1);
                 });
 
-                AssetCount::<T>::mutate(|count| {
+                Self::deposit_event(Event::Destroyed(collection_id, asset_id));
+
+                Ok(().into())
+            })
+        }
+
+        /// Destroy an asset's token owned by sender.
+        ///
+        /// The origin must conform to `ForceOrigin`.
+        ///
+        /// - `id`: The identifier of the asset to be destroyed. This must identify an existing
+        /// asset.
+        ///
+        /// Emits `Destroyed` event when successful.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(T::WeightInfo::force_destroy(0))]
+        pub(super) fn force_destroy_asset(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+            #[pallet::compact] asset_id: T::AssetId,
+            // #[pallet::compact] zombies_witness: u32,
+        ) -> DispatchResultWithPostInfo {
+            T::ForceOrigin::ensure_origin(origin)?;
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+
+                meta.asset_count = meta.asset_count.saturating_sub(1);
+
+                AccountAsset::<T>::remove(collection_id, asset_id);
+
+                OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
                     *count = count.saturating_sub(1);
                 });
 
@@ -586,56 +610,11 @@ pub mod pallet {
             })
         }
 
-        // /// Destroy an asset's token owned by sender.
-        // ///
-        // /// The origin must conform to `ForceOrigin`.
-        // ///
-        // /// - `id`: The identifier of the asset to be destroyed. This must identify an existing
-        // /// asset.
-        // ///
-        // /// Emits `Destroyed` event when successful.
-        // ///
-        // /// Weight: `O(1)`
-        // #[pallet::weight(T::WeightInfo::force_destroy(*zombies_witness))]
-        // pub(super) fn force_destroy_token(
-        //     origin: OriginFor<T>,
-        //     #[pallet::compact] collection_id: T::CollectionId,
-        //     #[pallet::compact] asset_id: T::AssetId,
-        //     #[pallet::compact] zombies_witness: u32,
-        // ) -> DispatchResultWithPostInfo {
-        //     T::ForceOrigin::ensure_origin(origin)?;
-
-        //     Collectible::<T>::try_mutate_exists(collection_id, asset_id, |maybe_details| {
-        //         let details = maybe_details.take().ok_or(Error::<T>::Unknown)?;
-        //         ensure!(details.accounts == details.zombies, Error::<T>::RefsLeft);
-        //         ensure!(details.zombies <= zombies_witness, Error::<T>::BadWitness);
-
-        //         let metadata = Metadata::<T>::take(collection_id, &asset_id);
-        //         T::Currency::unreserve(
-        //             &details.owner,
-        //             details.deposit.saturating_add(metadata.deposit),
-        //         );
-
-        //         *maybe_details = None;
-
-        //         Account::<T>::remove_prefix(&(collection_id, asset_id));
-
-        //         OwnedAssetCount::<T>::mutate(collection_id, &details.owner, |count| {
-        //             *count = count.saturating_sub(1);
-        //         });
-
-        //         MintAllowed::<T>::remove(&collection_id, &details.owner);
-
-        //         Self::deposit_event(Event::Destroyed(collection_id, asset_id));
-        //         Ok(().into())
-        //     })
-        // }
-
-        /// Mint sub-token.
+        /// Mint token.
         ///
         /// The origin must be Signed.
         ///
-        /// - `collection_id`: The identifier of the asset to have some sub-token minted.
+        /// - `collection_id`: The identifier of the asset to have some token minted.
         /// - `asset_id`: The identifier of the token to have some amount minted.
         /// - `beneficiary`: The account to be credited with the minted assets.
         /// - `amount`: The amount of the asset to be minted.
@@ -655,36 +634,6 @@ pub mod pallet {
             let origin = ensure_signed(origin)?;
             let beneficiary = T::Lookup::lookup(beneficiary)?;
 
-            // let asset = Collection::<T>::get(collection_id).ok_or(Error::<T>::NotFound)?;
-
-            // Collectible::<T>::try_mutate(collection_id, asset_id, |maybe_meta| {
-            //     let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-
-            //     // only owner of token that able to mint sub-token
-            //     ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
-
-            //     meta.supply = meta
-            //         .supply
-            //         .checked_add(&amount)
-            //         .ok_or(Error::<T>::Overflow)?;
-
-            //     Account::<T>::try_mutate(
-            //         (collection_id, asset_id),
-            //         &beneficiary,
-            //         |t| -> DispatchResultWithPostInfo {
-            //             let new_balance = t.balance.saturating_add(amount);
-            //             ensure!(new_balance >= meta.min_balance, Error::<T>::BalanceLow);
-            //             if t.balance.is_zero() {
-            //                 t.is_zombie = Self::new_account(&beneficiary, meta)?;
-            //             }
-            //             t.balance = new_balance;
-            //             Ok(().into())
-            //         },
-            //     )?;
-            //     Self::deposit_event(Event::Issued(collection_id, asset_id, beneficiary, amount));
-            //     Ok(().into())
-            // })
-
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
@@ -695,8 +644,8 @@ pub mod pallet {
                     .ok_or(Error::<T>::Overflow)?;
 
                 Account::<T>::try_mutate(
-                    (collection_id, asset_id),
-                    &beneficiary,
+                    collection_id,
+                    (asset_id, &beneficiary),
                     |t| -> DispatchResultWithPostInfo {
                         let new_balance = t.balance.saturating_add(amount);
                         ensure!(new_balance >= meta.min_balance, Error::<T>::BalanceLow);
@@ -738,42 +687,14 @@ pub mod pallet {
             let origin = ensure_signed(origin)?;
             let who = T::Lookup::lookup(who)?;
 
-            // Collectible::<T>::try_mutate(collection_id, asset_id, |maybe_meta| {
-            //     let d = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-            //     ensure!(&origin == &d.owner, Error::<T>::Unauthorized);
-
-            //     let burned = Account::<T>::try_mutate_exists(
-            //         (collection_id, asset_id),
-            //         &who,
-            //         |maybe_account| -> Result<T::Balance, DispatchError> {
-            //             let mut account = maybe_account.take().ok_or(Error::<T>::BalanceZero)?;
-            //             let mut burned = amount.min(account.balance);
-            //             account.balance -= burned;
-            //             *maybe_account = if account.balance < d.min_balance {
-            //                 burned += account.balance;
-            //                 Self::dead_account(&who, d, account.is_zombie);
-            //                 None
-            //             } else {
-            //                 Some(account)
-            //             };
-            //             Ok(burned)
-            //         },
-            //     )?;
-
-            //     d.supply = d.supply.saturating_sub(burned);
-
-            //     Self::deposit_event(Event::Burned(collection_id, asset_id, who, burned));
-            //     Ok(().into())
-            // })
-
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
                 ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
 
                 let burned = Account::<T>::try_mutate_exists(
-                    (collection_id, asset_id),
-                    &who,
+                    collection_id,
+                    (asset_id, &who),
                     |maybe_account| -> Result<T::Balance, DispatchError> {
                         let mut account = maybe_account.take().ok_or(Error::<T>::BalanceZero)?;
                         let mut burned = amount.min(account.balance);
@@ -826,7 +747,7 @@ pub mod pallet {
             let origin = ensure_signed(origin)?;
             ensure!(!amount.is_zero(), Error::<T>::AmountZero);
 
-            let mut origin_account = Account::<T>::get((collection_id, asset_id), &origin);
+            let mut origin_account = Account::<T>::get(collection_id, (asset_id, &origin));
             ensure!(!origin_account.is_frozen, Error::<T>::Frozen);
             origin_account.balance = origin_account
                 .balance
@@ -849,26 +770,32 @@ pub mod pallet {
                     origin_account.balance = Zero::zero();
                 }
 
-                let acc_key = &(collection_id, asset_id);
+                let acc_key = &collection_id; //&(collection_id, asset_id);
 
-                Account::<T>::try_mutate(acc_key, &dest, |a| -> DispatchResultWithPostInfo {
-                    let new_balance = a.balance.saturating_add(amount);
-                    ensure!(new_balance >= meta.min_balance, Error::<T>::BalanceLow);
-                    if a.balance.is_zero() {
-                        a.is_zombie = Self::new_account(&dest, meta)?;
-                    }
-                    a.balance = new_balance;
-                    Ok(().into())
-                })?;
+                Account::<T>::try_mutate(
+                    acc_key,
+                    (asset_id, &dest),
+                    |a| -> DispatchResultWithPostInfo {
+                        let new_balance = a.balance.saturating_add(amount);
+                        ensure!(new_balance >= meta.min_balance, Error::<T>::BalanceLow);
+                        if a.balance.is_zero() {
+                            a.is_zombie = Self::new_account(&dest, meta)?;
+                        }
+                        a.balance = new_balance;
+                        Ok(().into())
+                    },
+                )?;
+
+                let key_b = (asset_id, origin.clone());
 
                 match origin_account.balance.is_zero() {
                     false => {
                         Self::dezombify(&origin, meta, &mut origin_account.is_zombie);
-                        Account::<T>::insert(acc_key, &origin, &origin_account)
+                        Account::<T>::insert(acc_key, &key_b, &origin_account)
                     }
                     true => {
                         Self::dead_account(&origin, meta, origin_account.is_zombie);
-                        Account::<T>::remove(acc_key, &origin);
+                        Account::<T>::remove(acc_key, &key_b);
                     }
                 }
 
@@ -914,7 +841,7 @@ pub mod pallet {
             let origin = ensure_signed(origin)?;
 
             let source = T::Lookup::lookup(source)?;
-            let mut source_account = Account::<T>::get(&(collection_id, asset_id), &source);
+            let mut source_account = Account::<T>::get(&collection_id, (asset_id, &source));
             let mut amount = amount.min(source_account.balance);
             ensure!(!amount.is_zero(), Error::<T>::AmountZero);
 
@@ -933,26 +860,30 @@ pub mod pallet {
                     source_account.balance = Zero::zero();
                 }
 
-                let acc_key = &(collection_id, asset_id);
+                let acc_key = &collection_id;
 
-                Account::<T>::try_mutate(acc_key, &dest, |a| -> DispatchResultWithPostInfo {
-                    let new_balance = a.balance.saturating_add(amount);
-                    ensure!(new_balance >= details.min_balance, Error::<T>::BalanceLow);
-                    if a.balance.is_zero() {
-                        a.is_zombie = Self::new_account(&dest, details)?;
-                    }
-                    a.balance = new_balance;
-                    Ok(().into())
-                })?;
+                Account::<T>::try_mutate(
+                    acc_key,
+                    (asset_id, &dest),
+                    |a| -> DispatchResultWithPostInfo {
+                        let new_balance = a.balance.saturating_add(amount);
+                        ensure!(new_balance >= details.min_balance, Error::<T>::BalanceLow);
+                        if a.balance.is_zero() {
+                            a.is_zombie = Self::new_account(&dest, details)?;
+                        }
+                        a.balance = new_balance;
+                        Ok(().into())
+                    },
+                )?;
 
                 match source_account.balance.is_zero() {
                     false => {
                         Self::dezombify(&source, details, &mut source_account.is_zombie);
-                        Account::<T>::insert(acc_key, &source, &source_account)
+                        Account::<T>::insert(acc_key, (asset_id, &source), &source_account)
                     }
                     true => {
                         Self::dead_account(&source, details, source_account.is_zombie);
-                        Account::<T>::remove(acc_key, &source);
+                        Account::<T>::remove(acc_key, (asset_id, &source));
                     }
                 }
 
@@ -993,11 +924,11 @@ pub mod pallet {
             ensure!(&origin == &holder, Error::<T>::Unauthorized);
             let who = T::Lookup::lookup(who)?;
             ensure!(
-                Account::<T>::contains_key(&(collection_id, asset_id), &who),
+                Account::<T>::contains_key(&collection_id, (asset_id, &who)),
                 Error::<T>::BalanceZero
             );
 
-            Account::<T>::mutate(&(collection_id, asset_id), &who, |a| a.is_frozen = true);
+            Account::<T>::mutate(&collection_id, (asset_id, &who), |a| a.is_frozen = true);
 
             Self::deposit_event(Event::<T>::Frozen(collection_id, asset_id, who));
             Ok(().into())
@@ -1028,11 +959,11 @@ pub mod pallet {
             ensure!(&origin == &owner, Error::<T>::Unauthorized);
             let who = T::Lookup::lookup(who)?;
             ensure!(
-                Account::<T>::contains_key(&(collection_id, asset_id), &who),
+                Account::<T>::contains_key(&collection_id, (asset_id, &who)),
                 Error::<T>::BalanceZero
             );
 
-            Account::<T>::mutate(&(collection_id, asset_id), &who, |a| a.is_frozen = false);
+            Account::<T>::mutate(collection_id, (asset_id, &who), |a| a.is_frozen = false);
 
             Self::deposit_event(Event::<T>::Thawed(collection_id, asset_id, who));
             Ok(().into())
@@ -1384,7 +1315,7 @@ impl<T: Config> Pallet<T> {
         asset_id: T::AssetId,
         who: T::AccountId,
     ) -> T::Balance {
-        Account::<T>::get(&(collection_id, asset_id), who).balance
+        Account::<T>::get(&collection_id, (asset_id, &who)).balance
     }
 
     /// Check is account owned the collection
