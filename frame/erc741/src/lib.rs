@@ -466,71 +466,115 @@ pub mod pallet {
             // );
         }
 
-        // /// Mint asset for base token from a privileged origin.
-        // ///
-        // /// This new asset class has no assets initially.
-        // ///
-        // /// The origin must conform to `ForceOrigin`.
-        // ///
-        // /// Unlike `mint_asset`, no funds are reserved and no max holding per account limit are checked.
-        // ///
-        // /// - `id`: The identifier of the new asset. This must not be currently in use to identify
-        // /// an existing asset.
-        // /// - `owner`: The owner of this class of assets. The owner has full superuser permissions
-        // /// over this asset, but may later change and configure the permissions using `transfer_ownership`
-        // /// and `set_team`.
-        // /// - `max_zombies`: The total number of accounts which may hold assets in this class yet
-        // /// have no existential deposit.
-        // /// - `min_balance`: The minimum balance of this new asset that any single account must
-        // /// have. If an account's balance is reduced below this, then it collapses to zero.
-        // ///
-        // /// Emits `ForceCreated` event when successful.
-        // ///
-        // /// Weight: `O(1)`
-        // #[pallet::weight(T::WeightInfo::force_create())]
-        // pub(super) fn force_mint_token(
-        //     origin: OriginFor<T>,
-        //     #[pallet::compact] collection_id: T::CollectionId,
-        //     #[pallet::compact] asset_id: T::AssetId,
-        //     owner: <T::Lookup as StaticLookup>::Source,
-        //     #[pallet::compact] max_zombies: u32,
-        //     #[pallet::compact] min_balance: T::Balance,
-        // ) -> DispatchResultWithPostInfo {
-        //     T::ForceOrigin::ensure_origin(origin)?;
-        //     let owner = T::Lookup::lookup(owner)?;
+        /// Mint asset for base token from a privileged origin.
+        ///
+        /// This new asset class has no assets initially.
+        ///
+        /// The origin must conform to `ForceOrigin`.
+        ///
+        /// Unlike `mint_asset`, no funds are reserved and no max holding per account limit are checked.
+        ///
+        /// - `id`: The identifier of the new asset. This must not be currently in use to identify
+        /// an existing asset.
+        /// - `owner`: The owner of this class of assets. The owner has full superuser permissions
+        /// over this asset, but may later change and configure the permissions using `transfer_ownership`
+        /// and `set_team`.
+        /// - `max_zombies`: The total number of accounts which may hold assets in this class yet
+        /// have no existential deposit.
+        /// - `min_balance`: The minimum balance of this new asset that any single account must
+        /// have. If an account's balance is reduced below this, then it collapses to zero.
+        ///
+        /// Emits `ForceCreated` event when successful.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(T::WeightInfo::force_create())]
+        pub(super) fn force_mint_asset(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+            #[pallet::compact] asset_id: T::AssetId,
+            owner: <T::Lookup as StaticLookup>::Source,
+            // #[pallet::compact] max_zombies: u32,
+            // #[pallet::compact] min_balance: T::Balance,
+        ) -> DispatchResultWithPostInfo {
+            T::ForceOrigin::ensure_origin(origin)?;
+            let owner = T::Lookup::lookup(owner)?;
 
-        //     ensure!(
-        //         !Collectible::<T>::contains_key(collection_id, asset_id),
-        //         Error::<T>::InUse
-        //     );
-        //     ensure!(!min_balance.is_zero(), Error::<T>::MinBalanceZero);
+            ensure!(
+                !AccountAsset::<T>::contains_key(collection_id, asset_id),
+                Error::<T>::InUse
+            );
+            // ensure!(!min_balance.is_zero(), Error::<T>::MinBalanceZero);
 
-        //     Collectible::<T>::insert(
-        //         collection_id,
-        //         asset_id,
-        //         ERC20Details {
-        //             collection_id: collection_id.clone(),
-        //             owner: owner.clone(),
-        //             // issuer: owner.clone(),
-        //             // admin: owner.clone(),
-        //             // freezer: owner.clone(),
-        //             supply: Zero::zero(),
-        //             deposit: Zero::zero(),
-        //             max_zombies,
-        //             min_balance,
-        //             zombies: Zero::zero(),
-        //             accounts: Zero::zero(),
-        //             is_frozen: false,
-        //         },
-        //     );
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
-        //     OwnedAssetCount::<T>::mutate(collection_id, &owner, |count| {
-        //         *count = count.saturating_add(1);
-        //     });
+                // // check is user allowed to mint this token's asset
+                // if meta.public_mintable && who != meta.owner {
+                //     ensure!(
+                //         MintAllowed::<T>::get(collection_id, &who)
+                //             .map(|a| a > 0)
+                //             .unwrap_or(false),
+                //         Error::<T>::Unauthorized
+                //     );
+                // } else if who != meta.owner {
+                //     return Err(Error::<T>::Unauthorized.into());
+                // }
 
-        //     Self::deposit_event(Event::ForceCreated(collection_id, asset_id, owner));
-        //     Ok(().into())
-        // }
+                let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &owner);
+
+                if meta.max_asset_per_account > Zero::zero() {
+                    ensure!(
+                        owned_asset_count < meta.max_asset_per_account,
+                        Error::<T>::MaxLimitPerAccount
+                    );
+                }
+
+                ensure!(
+                    owned_asset_count < MAX_TOKEN_PER_ACCOUNT,
+                    Error::<T>::MaxLimitPerAccount
+                );
+
+                meta.asset_count = meta
+                    .asset_count
+                    .checked_add(1)
+                    .ok_or(Error::<T>::Overflow)?;
+
+                AccountAsset::<T>::insert(collection_id, asset_id, owner.clone());
+
+                OwnedAssetCount::<T>::mutate(collection_id, &owner, |count| {
+                    *count = count.saturating_add(1);
+                });
+
+                Self::deposit_event(Event::AssetMinted(collection_id, asset_id, owner));
+                Ok(().into())
+            })
+
+            // Collectible::<T>::insert(
+            //     collection_id,
+            //     asset_id,
+            //     ERC20Details {
+            //         collection_id: collection_id.clone(),
+            //         owner: owner.clone(),
+            //         // issuer: owner.clone(),
+            //         // admin: owner.clone(),
+            //         // freezer: owner.clone(),
+            //         supply: Zero::zero(),
+            //         deposit: Zero::zero(),
+            //         max_zombies,
+            //         min_balance,
+            //         zombies: Zero::zero(),
+            //         accounts: Zero::zero(),
+            //         is_frozen: false,
+            //     },
+            // );
+
+            // OwnedAssetCount::<T>::mutate(collection_id, &owner, |count| {
+            //     *count = count.saturating_add(1);
+            // });
+
+            // Self::deposit_event(Event::ForceCreated(collection_id, asset_id, owner));
+            // Ok(().into())
+        }
 
         /// Destroy an asset's token owned by sender.
         ///

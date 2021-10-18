@@ -286,6 +286,22 @@ fn basic_minting_should_work() {
 }
 
 #[test]
+fn force_minting_should_work() {
+    with_collection(|| {
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
+        assert_ok!(Assets::force_mint_asset(
+            Origin::root(),
+            COLLECTION_ID,
+            ASSET_ID,
+            1
+        ));
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
+        assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 1);
+        assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &2), 0);
+    });
+}
+
+#[test]
 fn basic_transfer_asset_ownership_should_work() {
     with_minted_asset(|| {
         assert_ok!(Assets::mint_token(
