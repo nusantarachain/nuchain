@@ -200,6 +200,8 @@ pub mod pallet {
         TooManyZombies,
         /// Attempt to destroy an asset class when non-zombie, reference-bearing accounts exist.
         RefsLeft,
+        /// Attempt to destroy collection when there is assets exists
+        HasAssetLeft,
         /// Invalid witness data given.
         BadWitness,
         /// Minimum balance should be non-zero.
@@ -358,6 +360,34 @@ pub mod pallet {
             Self::deposit_event(Event::CollectionCreated(collection_id, owner));
 
             Ok(().into())
+        }
+
+        /// Destroy whole collection
+        ///
+        /// The origin must be Signed and the sender must be the collection owner.
+        #[pallet::weight(10_000_000)]
+        pub(super) fn destroy_collection(
+            origin: OriginFor<T>,
+            collection_id: T::CollectionId,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            // ensure!(Collection::<T>::contains(collection_id), Error::<T>::NotFound);
+
+            Collection::<T>::try_mutate_exists(collection_id, |maybe_meta| {
+                // let meta = maybe_meta.as_mut().ok_or(Error::<T>::NotFound)?;
+
+                if let Some(ref meta) = maybe_meta {
+                    ensure!(meta.owner == who, Error::<T>::Unauthorized);
+                    ensure!(meta.asset_count == 0, Error::<T>::HasAssetLeft);
+                } else {
+                    return Err(Error::<T>::NotFound.into());
+                }
+
+                *maybe_meta = None;
+
+                Ok(().into())
+            })
         }
 
         /// Mint asset for the base token from public origin.

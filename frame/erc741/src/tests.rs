@@ -244,6 +244,15 @@ fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
 }
 
 #[test]
+fn basic_destroy_collection() {
+    with_collection(|| {
+        assert_eq!(Collection::<Test>::contains_key(COLLECTION_ID), true);
+        assert_ok!(Assets::destroy_collection(Origin::signed(1), COLLECTION_ID));
+        assert_eq!(Collection::<Test>::contains_key(COLLECTION_ID), false);
+    });
+}
+
+#[test]
 fn basic_minting_should_work() {
     with_collection(|| {
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
@@ -298,6 +307,24 @@ fn force_minting_should_work() {
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 1);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &2), 0);
+    });
+}
+
+#[test]
+fn cannot_destroy_collection_when_has_minted_assets() {
+    with_collection(|| {
+        assert_ok!(Assets::force_mint_asset(
+            Origin::root(),
+            COLLECTION_ID,
+            ASSET_ID,
+            1
+        ));
+        assert_noop!(
+            Assets::destroy_collection(Origin::signed(1), COLLECTION_ID),
+            Error::<Test>::HasAssetLeft
+        );
+        assert_eq!(Collection::<Test>::contains_key(COLLECTION_ID), true);
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
     });
 }
 
