@@ -390,6 +390,9 @@ pub mod pallet {
 
                 T::Currency::unreserve(&who, deposit);
 
+                // clean up mint allowed registry
+                MintAllowed::<T>::remove_prefix(collection_id);
+
                 Ok(().into())
             })
         }
@@ -422,8 +425,6 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            // max_zombies: u32,
-            // min_balance: T::Balance,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
@@ -431,9 +432,6 @@ pub mod pallet {
                 !AccountAsset::<T>::contains_key(collection_id, asset_id),
                 Error::<T>::InUse
             );
-            // ensure!(!min_balance.is_zero(), Error::<T>::MinBalanceZero);
-
-            // let col_meta = Collection::<T>::get(collection_id).ok_or(Error::<T>::NotFound)?;
 
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
@@ -478,26 +476,6 @@ pub mod pallet {
                 Self::deposit_event(Event::AssetMinted(collection_id, asset_id, who));
                 Ok(().into())
             })
-
-            // let deposit = T::AssetDepositPerZombie::get()
-            //     .saturating_mul(max_zombies.into())
-            //     .saturating_add(T::AssetDepositBase::get());
-            // T::Currency::reserve(&who, deposit)?;
-
-            // Collectible::<T>::insert(
-            //     collection_id,
-            //     asset_id,
-            //     // TokenMetadata {
-            //     //     owner: who.clone(),
-            //     //     supply: Zero::zero(),
-            //     //     deposit,
-            //     //     max_zombies,
-            //     //     min_balance,
-            //     //     zombies: Zero::zero(),
-            //     //     accounts: Zero::zero(),
-            //     //     is_frozen: false,
-            //     // },
-            // );
         }
 
         /// Mint asset for base token from a privileged origin.

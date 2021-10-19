@@ -245,15 +245,44 @@ fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
 
 #[test]
 fn basic_destroy_collection() {
-    with_collection(|| {
-        assert_eq!(Balances::free_balance(&1), 91);
-        assert_eq!(Balances::reserved_balance(&1), 9);
+    new_test_ext().execute_with(|| {
+        Balances::make_free_balance_be(&1, 100);
+        assert_ok!(Assets::create_collection(
+            Origin::signed(1),
+            COLLECTION_ID,
+            NewCollectionParam {
+                name: b"Test1".to_vec(),
+                symbol: b"NFT".to_vec(),
+                owner: 1,
+                max_asset_count: 1000,
+                has_token: true,
+                max_token_supply: 100,
+                min_balance: 1,
+                public_mintable: true,
+                allowed_mint_accounts: vec![
+                    AllowedMintAccount {
+                        account: 3,
+                        amount: 1
+                    },
+                    AllowedMintAccount {
+                        account: 4,
+                        amount: 1
+                    },
+                ],
+                max_asset_per_account: 0,
+                max_zombies: 5
+            }
+        ));
+        assert_eq!(MintAllowed::<Test>::get(COLLECTION_ID, 3), Some(1));
+        assert_eq!(Balances::free_balance(&1), 89);
+        assert_eq!(Balances::reserved_balance(&1), 11);
         assert_eq!(Collection::<Test>::contains_key(COLLECTION_ID), true);
         assert_ok!(Assets::destroy_collection(Origin::signed(1), COLLECTION_ID));
         assert_eq!(Collection::<Test>::contains_key(COLLECTION_ID), false);
         // deposit is turned back into owner
         assert_eq!(Balances::reserved_balance(&1), 0);
         assert_eq!(Balances::free_balance(&1), 100);
+        assert_eq!(MintAllowed::<Test>::get(COLLECTION_ID, 3), None);
     });
 }
 
