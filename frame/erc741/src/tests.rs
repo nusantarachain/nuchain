@@ -246,9 +246,14 @@ fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
 #[test]
 fn basic_destroy_collection() {
     with_collection(|| {
+        assert_eq!(Balances::free_balance(&1), 91);
+        assert_eq!(Balances::reserved_balance(&1), 9);
         assert_eq!(Collection::<Test>::contains_key(COLLECTION_ID), true);
         assert_ok!(Assets::destroy_collection(Origin::signed(1), COLLECTION_ID));
         assert_eq!(Collection::<Test>::contains_key(COLLECTION_ID), false);
+        // deposit is turned back into owner
+        assert_eq!(Balances::reserved_balance(&1), 0);
+        assert_eq!(Balances::free_balance(&1), 100);
     });
 }
 
@@ -311,7 +316,7 @@ fn force_minting_should_work() {
 }
 
 #[test]
-fn cannot_destroy_collection_when_has_minted_assets() {
+fn cannot_destroy_collection_when_has_assets() {
     with_collection(|| {
         assert_ok!(Assets::force_mint_asset(
             Origin::root(),

@@ -377,14 +377,18 @@ pub mod pallet {
             Collection::<T>::try_mutate_exists(collection_id, |maybe_meta| {
                 // let meta = maybe_meta.as_mut().ok_or(Error::<T>::NotFound)?;
 
+                let deposit;
                 if let Some(ref meta) = maybe_meta {
                     ensure!(meta.owner == who, Error::<T>::Unauthorized);
                     ensure!(meta.asset_count == 0, Error::<T>::HasAssetLeft);
+                    deposit = meta.deposit;
                 } else {
                     return Err(Error::<T>::NotFound.into());
                 }
 
                 *maybe_meta = None;
+
+                T::Currency::unreserve(&who, deposit);
 
                 Ok(().into())
             })
