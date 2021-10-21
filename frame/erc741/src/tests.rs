@@ -88,6 +88,7 @@ parameter_types! {
     pub const AssetDepositBase: u64 = 1;
     pub const AssetDepositPerZombie: u64 = 1;
     pub const StringLimit: u32 = 50;
+    pub const StringUriLimit: u32 = 160;
     pub const MetadataDepositBase: u64 = 1;
     pub const MetadataDepositPerByte: u64 = 1;
 }
@@ -102,6 +103,7 @@ impl Config for Test {
     type AssetDepositBase = AssetDepositBase;
     type AssetDepositPerZombie = AssetDepositPerZombie;
     type StringLimit = StringLimit;
+    type StringUriLimit = StringUriLimit;
     type MetadataDepositBase = MetadataDepositBase;
     type MetadataDepositPerByte = MetadataDepositPerByte;
     type WeightInfo = ();
@@ -383,6 +385,7 @@ fn asset_minting_deposit_calculation_works() {
         expected_deposit = expected_deposit + <Test as Config>::MetadataDepositBase::get();
         expected_deposit =
             expected_deposit + <Test as Config>::MetadataDepositPerByte::get() * (8 + 15);
+        expected_deposit += 1; // AssetIndex cost
         assert_eq!(meta.deposit, expected_deposit);
         assert_eq!(meta.name, b"asset #1".to_vec());
         assert_eq!(meta.description, b"some description".to_vec());
@@ -460,14 +463,14 @@ fn transfer_collection_ownership() {
     with_minted_asset(|| {
         Balances::make_free_balance_be(&2, 1);
         assert_eq!(Assets::is_collection_owner(&1, COLLECTION_ID), true);
-        assert_eq!(Balances::reserved_balance(&1), 10);
+        assert_eq!(Balances::reserved_balance(&1), 11);
         assert_ok!(Assets::transfer_collection_ownership(
             Origin::signed(1),
             COLLECTION_ID,
             2
         ));
         assert_eq!(Assets::is_collection_owner(&1, COLLECTION_ID), false);
-        assert_eq!(Balances::reserved_balance(&1), 1);
+        assert_eq!(Balances::reserved_balance(&1), 2);
         assert_eq!(Assets::is_collection_owner(&2, COLLECTION_ID), true);
         assert_eq!(Balances::reserved_balance(&2), 9);
     });
@@ -644,6 +647,30 @@ fn update_collection_should_works() {
 //     });
 // }
 
+// @TODO(Robin): cover collection freeze functionalities
+
+#[test]
+fn enumerate_assets_via_asset_index() {
+    with_minted_asset(|| {
+        assert_eq!(AssetIndex::<Test>::get(COLLECTION_ID, 1), Some(ASSET_ID));
+        assert_eq!(AssetIndex::<Test>::get(COLLECTION_ID, 2), None);
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID + 1,
+            b"dua".to_vec(),
+            Vec::new(),
+            None,
+            None,
+            None
+        ));
+        assert_eq!(
+            AssetIndex::<Test>::get(COLLECTION_ID, 2),
+            Some(ASSET_ID + 1)
+        );
+    });
+}
+
 // #[test]
 // fn lifecycle_should_work() {
 //     new_test_ext().execute_with(|| {
@@ -738,7 +765,7 @@ fn destroy_asset_should_work() {
             Metadata::<Test>::contains_key(COLLECTION_ID, ASSET_ID),
             true
         );
-        assert_eq!(Balances::reserved_balance(&1), 14);
+        assert_eq!(Balances::reserved_balance(&1), 15);
 
         assert_ok!(Assets::destroy_asset(
             Origin::signed(1),

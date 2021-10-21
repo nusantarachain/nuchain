@@ -96,6 +96,9 @@ pub mod pallet {
         /// The maximum length of a name or symbol stored on-chain.
         type StringLimit: Get<u32>;
 
+        /// The maximum length of a name or symbol stored on-chain.
+        type StringUriLimit: Get<u32>;
+
         /// The basic amount of funds that must be reserved when adding metadata to your asset.
         type MetadataDepositBase: Get<BalanceOf<Self>>;
 
@@ -164,16 +167,8 @@ pub mod pallet {
         ForceCreated(T::CollectionId, T::AssetId, T::AccountId),
         /// The maximum amount of zombies allowed has changed. \[collection_id, max_zombies\]
         MaxZombiesChanged(T::CollectionId, T::AssetId, u32),
-        /// New metadata has been set for an asset. \[collection_id, asset_id, name, description, ip_owner\]
-        MetadataSet(
-            T::CollectionId,
-            T::AssetId,
-            Vec<u8>,
-            Vec<u8>,
-            Vec<u8>,
-            Vec<u8>,
-            T::AccountId,
-        ),
+        /// New metadata has been set for an asset. \[collection_id, asset_id, ip_owner\]
+        MetadataSet(T::CollectionId, T::AssetId, Vec<u8>, Vec<u8>, T::AccountId),
     }
 
     #[deprecated(note = "use `Event` instead")]
@@ -285,6 +280,18 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    #[pallet::storage]
+    /// Asset id by index
+    pub(super) type AssetIndex<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::CollectionId,
+        Blake2_128Concat,
+        u64,
+        T::AssetId,
+        OptionQuery,
+    >;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Build new instance of asset class from a public origin.
@@ -340,6 +347,7 @@ pub mod pallet {
                     public_mintable: meta.public_mintable,
                     max_asset_per_account: meta.max_asset_per_account,
                     asset_count: Zero::zero(),
+                    asset_index: Zero::zero(),
                     token_supply: Zero::zero(),
                     deposit,
                     min_balance: meta.min_balance,
@@ -488,6 +496,28 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             ensure!(
+                name.len() <= T::StringLimit::get() as usize,
+                Error::<T>::BadMetadata
+            );
+            ensure!(
+                description.len() <= T::StringLimit::get() as usize,
+                Error::<T>::BadMetadata
+            );
+
+            if let Some(ref token_uri) = token_uri {
+                ensure!(
+                    token_uri.len() <= T::StringUriLimit::get() as usize,
+                    Error::<T>::BadMetadata
+                );
+            }
+            if let Some(ref base_uri) = base_uri {
+                ensure!(
+                    base_uri.len() <= T::StringUriLimit::get() as usize,
+                    Error::<T>::BadMetadata
+                );
+            }
+
+            ensure!(
                 !AccountAsset::<T>::contains_key(collection_id, asset_id),
                 Error::<T>::InUse
             );
@@ -529,17 +559,13 @@ pub mod pallet {
         ///
         /// The origin must conform to `ForceOrigin`.
         ///
-        /// Unlike `mint_asset`, no funds are reserved and no max holding per account limit are checked.
+        /// Unlike `mint_asset`, no funds are reserved, no max holding per account limit are checked,
+        /// and no string length parameter validation checks.
         ///
         /// - `id`: The identifier of the new asset. This must not be currently in use to identify
         /// an existing asset.
         /// - `owner`: The owner of this class of assets. The owner has full superuser permissions
         /// over this asset, but may later change and configure the permissions using `transfer_ownership`
-        /// and `set_team`.
-        /// - `max_zombies`: The total number of accounts which may hold assets in this class yet
-        /// have no existential deposit.
-        /// - `min_balance`: The minimum balance of this new asset that any single account must
-        /// have. If an account's balance is reduced below this, then it collapses to zero.
         ///
         /// Emits `ForceCreated` event when successful.
         ///
@@ -1222,51 +1248,6 @@ pub mod pallet {
             })
         }
 
-        // /// Set the maximum number of zombie accounts for an tokens.
-        // ///
-        // /// Origin must be Signed and the sender should be the Owner of the asset `id`.
-        // ///
-        // /// Funds of sender are reserved according to the formula:
-        // /// `AssetDepositBase + AssetDepositPerZombie * max_zombies` taking into account
-        // /// any already reserved funds.
-        // ///
-        // /// - `id`: The identifier of the asset to update zombie count.
-        // /// - `max_zombies`: The new number of zombies allowed for this asset.
-        // ///
-        // /// Emits `MaxZombiesChanged`.
-        // ///
-        // /// Weight: `O(1)`
-        // #[pallet::weight(T::WeightInfo::set_max_zombies())]
-        // pub(super) fn set_max_zombies(
-        //     origin: OriginFor<T>,
-        //     #[pallet::compact] collection_id: T::CollectionId,
-        //     #[pallet::compact] asset_id: T::AssetId,
-        //     #[pallet::compact] max_zombies: u32,
-        // ) -> DispatchResultWithPostInfo {
-        //     let origin = ensure_signed(origin)?;
-
-        //     Collectible::<T>::try_mutate(collection_id, asset_id, |maybe_details| {
-        //         let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-        //         ensure!(&origin == &details.owner, Error::<T>::Unauthorized);
-        //         ensure!(max_zombies >= details.zombies, Error::<T>::TooManyZombies);
-
-        //         let new_deposit = T::AssetDepositPerZombie::get()
-        //             .saturating_mul(max_zombies.into())
-        //             .saturating_add(T::AssetDepositBase::get());
-
-        //         if new_deposit > details.deposit {
-        //             T::Currency::reserve(&origin, new_deposit - details.deposit)?;
-        //         } else {
-        //             T::Currency::unreserve(&origin, details.deposit - new_deposit);
-        //         }
-
-        //         details.max_zombies = max_zombies;
-
-        //         Self::deposit_event(Event::MaxZombiesChanged(collection_id, asset_id, max_zombies));
-        //         Ok(().into())
-        //     })
-        // }
-
         /// Set the metadata for an asset.
         ///
         /// NOTE: There is no `unset_metadata` call. Simply pass an empty name, symbol,
@@ -1284,38 +1265,50 @@ pub mod pallet {
         /// - `symbol`: The exchange symbol for this asset. Limited in length by `StringLimit`.
         /// - `decimals`: The number of decimals this asset uses to represent one unit.
         ///
-        /// Emits `MaxZombiesChanged`.
+        /// Emits `MetadataSet`.
         ///
         /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::set_metadata(name.len() as u32, description.len() as u32))]
+        #[pallet::weight(T::WeightInfo::set_metadata(token_uri.as_ref().map(|a| a.len()).unwrap_or(0) as u32, base_uri.as_ref().map(|a| a.len()).unwrap_or(0) as u32))]
         pub(super) fn set_metadata(
             origin: OriginFor<T>,
             #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            name: Vec<u8>,
-            description: Vec<u8>,
-            token_uri: Vec<u8>,
-            base_uri: Vec<u8>,
-            ip_owner: T::AccountId,
+            // name: Vec<u8>,
+            // description: Vec<u8>,
+            token_uri: Option<Vec<u8>>,
+            base_uri: Option<Vec<u8>>,
+            ip_owner: Option<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            ensure!(
-                name.len() <= T::StringLimit::get() as usize,
-                Error::<T>::BadMetadata
-            );
-            ensure!(
-                description.len() <= T::StringLimit::get() as usize,
-                Error::<T>::BadMetadata
-            );
+            if let Some(ref token_uri) = token_uri {
+                ensure!(
+                    token_uri.len() <= T::StringUriLimit::get() as usize,
+                    Error::<T>::BadMetadata
+                );
+            }
+            if let Some(ref base_uri) = base_uri {
+                ensure!(
+                    base_uri.len() <= T::StringUriLimit::get() as usize,
+                    Error::<T>::BadMetadata
+                );
+            }
+
+            if token_uri.is_none() && base_uri.is_none() && ip_owner.is_none() {
+                return Ok(().into());
+            }
 
             // let owner =
             //     AccountAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
             // ensure!(&origin == &owner, Error::<T>::Unauthorized);
 
-            Metadata::<T>::try_mutate_exists(collection_id, asset_id, |metadata| {
+            Metadata::<T>::try_mutate(collection_id, asset_id, |metadata| {
                 let meta = metadata.as_mut().ok_or(Error::<T>::Unknown)?;
-                let bytes_used = name.len() + description.len();
+                let bytes_used = token_uri
+                    .as_ref()
+                    .map(|a| a.len())
+                    .unwrap_or(0)
+                    .saturating_add(base_uri.as_ref().map(|a| a.len()).unwrap_or(0));
                 // let old_deposit = match metadata {
                 //     Some(m) => m.deposit,
                 //     None => Default::default(),
@@ -1324,38 +1317,49 @@ pub mod pallet {
 
                 // Metadata is being removed
                 // if bytes_used.is_zero() && decimals.is_zero() {
-                if bytes_used.is_zero() {
-                    T::Currency::unreserve(&origin, old_deposit);
-                    *metadata = None;
+                // if bytes_used.is_zero() {
+                //     T::Currency::unreserve(&origin, old_deposit);
+                //     *metadata = None;
+                // } else {
+                let new_deposit = T::MetadataDepositPerByte::get()
+                    .saturating_mul((bytes_used as u32).into())
+                    .saturating_add(T::MetadataDepositBase::get());
+
+                if new_deposit > old_deposit {
+                    T::Currency::reserve(&origin, new_deposit - old_deposit)?;
                 } else {
-                    let new_deposit = T::MetadataDepositPerByte::get()
-                        .saturating_mul(((name.len() + description.len()) as u32).into())
-                        .saturating_add(T::MetadataDepositBase::get());
-
-                    if new_deposit > old_deposit {
-                        T::Currency::reserve(&origin, new_deposit - old_deposit)?;
-                    } else {
-                        T::Currency::unreserve(&origin, old_deposit - new_deposit);
-                    }
-
-                    *metadata = Some(AssetMetadata {
-                        deposit: new_deposit,
-                        name: name.clone(),
-                        description: description.clone(),
-                        token_uri: token_uri.clone(),
-                        base_uri: base_uri.clone(),
-                        ip_owner: ip_owner.clone(),
-                    })
+                    T::Currency::unreserve(&origin, old_deposit - new_deposit);
                 }
+
+                // *metadata = Some(AssetMetadata {
+                //     deposit: new_deposit,
+                //     name: name.clone(),
+                //     description: description.clone(),
+                //     token_uri: token_uri.clone(),
+                //     base_uri: base_uri.clone(),
+                //     ip_owner: ip_owner.clone(),
+                // })
+
+                meta.deposit = new_deposit;
+                if let Some(token_uri) = token_uri {
+                    meta.token_uri = token_uri;
+                }
+                if let Some(base_uri) = base_uri {
+                    meta.base_uri = base_uri;
+                }
+                if let Some(ip_owner) = ip_owner {
+                    meta.ip_owner = ip_owner;
+                }
+                // }
 
                 Self::deposit_event(Event::MetadataSet(
                     collection_id,
                     asset_id,
-                    name,
-                    description,
-                    token_uri,
-                    base_uri,
-                    ip_owner,
+                    // name,
+                    // description,
+                    meta.token_uri.clone(),
+                    meta.base_uri.clone(),
+                    meta.ip_owner.clone(),
                 ));
                 Ok(().into())
             })
@@ -1399,7 +1403,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Get the total supply of an asset `id`.
-    pub fn total_asset_count(collection_id: T::CollectionId) -> u32 {
+    pub fn total_asset_count(collection_id: T::CollectionId) -> u64 {
         Collection::<T>::get(collection_id)
             .map(|x| x.asset_count)
             .unwrap_or_else(Zero::zero)
@@ -1425,7 +1429,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &who);
 
-        if meta.max_asset_per_account > Zero::zero() {
+        if meta.max_asset_per_account > 0 {
             ensure!(
                 owned_asset_count < meta.max_asset_per_account,
                 Error::<T>::MaxLimitPerAccount
@@ -1448,9 +1452,12 @@ impl<T: Config> Pallet<T> {
             *count = count.saturating_add(1);
         });
 
+        // calculate deposit
         let mut deposit = T::MetadataDepositPerByte::get()
             .saturating_mul(((name.len() + description.len()) as u32).into())
-            .saturating_add(T::MetadataDepositBase::get());
+            // storage cost calculation:
+            //   deposit base + asset_index
+            .saturating_add(T::MetadataDepositBase::get().saturating_add((1 as u32).into()));
 
         if let Some(ref token_uri) = token_uri {
             deposit = deposit.saturating_add(
@@ -1478,6 +1485,10 @@ impl<T: Config> Pallet<T> {
                 deposit,
             },
         );
+
+        meta.asset_index = Self::next_asset_index(collection_id).ok_or(Error::<T>::Unknown)?;
+
+        AssetIndex::<T>::insert(collection_id, meta.asset_index, asset_id);
 
         Self::deposit_event(Event::AssetMinted(collection_id, asset_id, who));
         Ok(())
@@ -1563,5 +1574,13 @@ impl<T: Config> Pallet<T> {
             frame_system::Module::<T>::dec_consumers(who);
         }
         d.accounts = d.accounts.saturating_sub(1);
+    }
+
+    pub fn next_asset_index(collection_id: T::CollectionId) -> Option<u64> {
+        // AssetIndex::<T>::mutate(collection_id, |m_idx| {
+        //     *m_idx = Some(m_idx.map_or(1, |idx| idx.saturating_add(1)));
+        //     *m_idx
+        // })
+        Collection::<T>::get(collection_id).map(|o| o.asset_index + 1)
     }
 }

@@ -98,7 +98,10 @@ pub struct CollectionMetadata<
     // /// Can freeze tokens.
     // freezer: AccountId,
     /// The total asset across all accounts.
-    asset_count: u32,
+    asset_count: u64,
+
+    /// Incremental asset index
+    asset_index: u64,
 
     /// The total available supply of sub-token
     token_supply: Balance,
@@ -125,39 +128,6 @@ pub struct CollectionMetadata<
     max_asset_per_account: u32,
 }
 
-// #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
-// pub struct TokenMetadata<
-// 	Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
-// 	AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
-// 	DepositBalance: Encode + Decode + Clone + Debug + Eq + PartialEq,
-// > {
-// 	/// Can change `owner`, `issuer`, `freezer` and `admin` accounts.
-// 	owner: AccountId,
-
-// 	/// The total supply across all accounts.
-// 	supply: Balance,
-
-// 	/// The balance deposited for this asset.
-// 	///
-// 	/// This pays for the data stored here together with any virtual accounts.
-// 	deposit: DepositBalance,
-
-// 	/// The number of balance-holding accounts that this asset may have, excluding those that were
-// 	/// created when they had a system-level ED.
-// 	max_zombies: u32,
-
-// 	/// The ED for virtual accounts.
-// 	min_balance: Balance,
-
-// 	/// The current number of zombie accounts.
-// 	zombies: u32,
-
-// 	/// The total number of accounts.
-// 	accounts: u32,
-
-// 	/// Whether the asset is frozen for permissionless transfers.
-// 	is_frozen: bool,
-// }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]
 pub struct AssetMetadata<
