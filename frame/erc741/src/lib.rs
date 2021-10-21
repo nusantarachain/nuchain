@@ -201,6 +201,8 @@ pub mod pallet {
         TooManyZombies,
         /// Attempt to destroy an asset class when non-zombie, reference-bearing accounts exist.
         RefsLeft,
+        /// Attempt to destroy collection when there is assets exists
+        HasAssetLeft,
         /// Invalid witness data given.
         BadWitness,
         /// Minimum balance should be non-zero.
@@ -361,6 +363,41 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// Destroy whole collection
+        ///
+        /// The origin must be Signed and the sender must be the collection owner.
+        #[pallet::weight(10_000_000)]
+        pub(super) fn destroy_collection(
+            origin: OriginFor<T>,
+            collection_id: T::CollectionId,
+        ) -> DispatchResultWithPostInfo {
+            let who = ensure_signed(origin)?;
+
+            // ensure!(Collection::<T>::contains(collection_id), Error::<T>::NotFound);
+
+            Collection::<T>::try_mutate_exists(collection_id, |maybe_meta| {
+                // let meta = maybe_meta.as_mut().ok_or(Error::<T>::NotFound)?;
+
+                let deposit;
+                if let Some(ref meta) = maybe_meta {
+                    ensure!(meta.owner == who, Error::<T>::Unauthorized);
+                    ensure!(meta.asset_count == 0, Error::<T>::HasAssetLeft);
+                    deposit = meta.deposit;
+                } else {
+                    return Err(Error::<T>::NotFound.into());
+                }
+
+                *maybe_meta = None;
+
+                T::Currency::unreserve(&who, deposit);
+
+                // clean up mint allowed registry
+                MintAllowed::<T>::remove_prefix(collection_id);
+
+                Ok(().into())
+            })
+        }
+
         /// Mint asset for the base token from public origin.
         ///
         /// This new asset class has no assets initially.
@@ -389,8 +426,6 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            // max_zombies: u32,
-            // min_balance: T::Balance,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
@@ -398,9 +433,6 @@ pub mod pallet {
                 !AccountAsset::<T>::contains_key(collection_id, asset_id),
                 Error::<T>::InUse
             );
-            // ensure!(!min_balance.is_zero(), Error::<T>::MinBalanceZero);
-
-            // let col_meta = Collection::<T>::get(collection_id).ok_or(Error::<T>::NotFound)?;
 
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
@@ -445,26 +477,6 @@ pub mod pallet {
                 Self::deposit_event(Event::AssetMinted(collection_id, asset_id, who));
                 Ok(().into())
             })
-
-            // let deposit = T::AssetDepositPerZombie::get()
-            //     .saturating_mul(max_zombies.into())
-            //     .saturating_add(T::AssetDepositBase::get());
-            // T::Currency::reserve(&who, deposit)?;
-
-            // Collectible::<T>::insert(
-            //     collection_id,
-            //     asset_id,
-            //     // TokenMetadata {
-            //     //     owner: who.clone(),
-            //     //     supply: Zero::zero(),
-            //     //     deposit,
-            //     //     max_zombies,
-            //     //     min_balance,
-            //     //     zombies: Zero::zero(),
-            //     //     accounts: Zero::zero(),
-            //     //     is_frozen: false,
-            //     // },
-            // );
         }
 
         /// Mint asset for base token from a privileged origin.
