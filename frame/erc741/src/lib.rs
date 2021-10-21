@@ -292,6 +292,30 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    #[pallet::storage]
+    /// Asset id by index
+    pub(super) type AssetOfOwnerIndex<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::CollectionId,
+        Blake2_128Concat,
+        (T::AccountId, u64),
+        T::AssetId,
+        OptionQuery,
+    >;
+
+    #[pallet::storage]
+    /// Asset owner auto incremental index
+    pub(super) type AssetOwnerIndex<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::CollectionId,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        OptionQuery,
+    >;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Build new instance of asset class from a public origin.
@@ -1456,8 +1480,10 @@ impl<T: Config> Pallet<T> {
         let mut deposit = T::MetadataDepositPerByte::get()
             .saturating_mul(((name.len() + description.len()) as u32).into())
             // storage cost calculation:
-            //   deposit base + asset_index
-            .saturating_add(T::MetadataDepositBase::get().saturating_add((1 as u32).into()));
+            //   deposit base + asset_index + owner index
+            .saturating_add(T::MetadataDepositBase::get().saturating_add(
+                T::MetadataDepositPerByte::get().saturating_mul((2 as u32).into()),
+            ));
 
         if let Some(ref token_uri) = token_uri {
             deposit = deposit.saturating_add(
@@ -1487,8 +1513,11 @@ impl<T: Config> Pallet<T> {
         );
 
         meta.asset_index = Self::next_asset_index(collection_id).ok_or(Error::<T>::Unknown)?;
+        let owner_index =
+            Self::next_asset_owner_index(collection_id, &who).ok_or(Error::<T>::Unknown)?;
 
         AssetIndex::<T>::insert(collection_id, meta.asset_index, asset_id);
+        AssetOfOwnerIndex::<T>::insert(collection_id, (&who, owner_index), asset_id);
 
         Self::deposit_event(Event::AssetMinted(collection_id, asset_id, who));
         Ok(())
@@ -1577,10 +1606,16 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn next_asset_index(collection_id: T::CollectionId) -> Option<u64> {
-        // AssetIndex::<T>::mutate(collection_id, |m_idx| {
-        //     *m_idx = Some(m_idx.map_or(1, |idx| idx.saturating_add(1)));
-        //     *m_idx
-        // })
         Collection::<T>::get(collection_id).map(|o| o.asset_index + 1)
+    }
+
+    pub fn next_asset_owner_index(
+        collection_id: T::CollectionId,
+        owner: &T::AccountId,
+    ) -> Option<u64> {
+        AssetOwnerIndex::<T>::mutate(collection_id, owner, |m_idx| {
+            *m_idx = Some(m_idx.map_or(1, |idx| idx.saturating_add(1)));
+            *m_idx
+        })
     }
 }
