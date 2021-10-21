@@ -282,7 +282,7 @@ pub mod pallet {
         Blake2_128Concat,
         T::AssetId,
         AssetMetadata<BalanceOf<T>, T::AccountId>,
-        ValueQuery,
+        OptionQuery,
     >;
 
     #[pallet::call]
@@ -479,6 +479,11 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
+            name: Vec<u8>,
+            description: Vec<u8>,
+            token_uri: Option<Vec<u8>>,
+            base_uri: Option<Vec<u8>>,
+            ip_owner: Option<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
@@ -488,7 +493,7 @@ pub mod pallet {
             );
 
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                let mut meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
                 // check is user allowed to mint this token's asset
                 if !meta.public_mintable {
@@ -502,32 +507,18 @@ pub mod pallet {
                     }
                 }
 
-                let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &who);
+                Self::do_mint_asset(
+                    who,
+                    collection_id,
+                    asset_id,
+                    &mut meta,
+                    name,
+                    description,
+                    token_uri,
+                    base_uri,
+                    ip_owner,
+                )?;
 
-                if meta.max_asset_per_account > Zero::zero() {
-                    ensure!(
-                        owned_asset_count < meta.max_asset_per_account,
-                        Error::<T>::MaxLimitPerAccount
-                    );
-                }
-
-                ensure!(
-                    owned_asset_count < MAX_ASSET_PER_ACCOUNT,
-                    Error::<T>::MaxLimitPerAccount
-                );
-
-                meta.asset_count = meta
-                    .asset_count
-                    .checked_add(1)
-                    .ok_or(Error::<T>::Overflow)?;
-
-                AccountAsset::<T>::insert(collection_id, asset_id, who.clone());
-
-                OwnedAssetCount::<T>::mutate(collection_id, &who, |count| {
-                    *count = count.saturating_add(1);
-                });
-
-                Self::deposit_event(Event::AssetMinted(collection_id, asset_id, who));
                 Ok(().into())
             })
         }
@@ -559,6 +550,11 @@ pub mod pallet {
             #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
             owner: <T::Lookup as StaticLookup>::Source,
+            name: Vec<u8>,
+            description: Vec<u8>,
+            token_uri: Option<Vec<u8>>,
+            base_uri: Option<Vec<u8>>,
+            ip_owner: Option<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             T::ForceOrigin::ensure_origin(origin)?;
             let owner = T::Lookup::lookup(owner)?;
@@ -569,7 +565,7 @@ pub mod pallet {
             );
 
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                let mut meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
                 // check limit per account
                 let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &owner);
@@ -581,23 +577,18 @@ pub mod pallet {
                     );
                 }
 
-                ensure!(
-                    owned_asset_count < MAX_ASSET_PER_ACCOUNT,
-                    Error::<T>::MaxLimitPerAccount
-                );
+                Self::do_mint_asset(
+                    owner,
+                    collection_id,
+                    asset_id,
+                    &mut meta,
+                    name,
+                    description,
+                    token_uri,
+                    base_uri,
+                    ip_owner,
+                )?;
 
-                meta.asset_count = meta
-                    .asset_count
-                    .checked_add(1)
-                    .ok_or(Error::<T>::Overflow)?;
-
-                AccountAsset::<T>::insert(collection_id, asset_id, owner.clone());
-
-                OwnedAssetCount::<T>::mutate(collection_id, &owner, |count| {
-                    *count = count.saturating_add(1);
-                });
-
-                Self::deposit_event(Event::AssetMinted(collection_id, asset_id, owner));
                 Ok(().into())
             })
         }
@@ -620,7 +611,7 @@ pub mod pallet {
             let origin = ensure_signed(origin)?;
 
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                // let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
                 ensure!(
                     // AccountAsset::<T>::get(collection_id, asset_id) == origin
@@ -628,17 +619,20 @@ pub mod pallet {
                     Error::<T>::Unauthorized
                 );
 
-                meta.asset_count = meta.asset_count.saturating_sub(1);
+                // meta.asset_count = meta.asset_count.saturating_sub(1);
 
-                AccountAsset::<T>::remove(collection_id, asset_id);
+                // AccountAsset::<T>::remove(collection_id, asset_id);
 
-                OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
-                    *count = count.saturating_sub(1);
-                });
+                // OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
+                //     *count = count.saturating_sub(1);
+                // });
 
-                Self::deposit_event(Event::Destroyed(collection_id, asset_id));
+                // Self::deposit_event(Event::Destroyed(collection_id, asset_id));
 
-                Ok(().into())
+                // Ok(().into())
+
+                let mut meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                Self::do_destroy_asset(collection_id, asset_id, &mut meta)
             })
         }
 
@@ -660,20 +654,14 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             T::ForceOrigin::ensure_origin(origin)?;
 
+            ensure!(
+                Metadata::<T>::contains_key(collection_id, asset_id),
+                Error::<T>::Unknown
+            );
+
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-
-                meta.asset_count = meta.asset_count.saturating_sub(1);
-
-                AccountAsset::<T>::remove(collection_id, asset_id);
-
-                OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
-                    *count = count.saturating_sub(1);
-                });
-
-                Self::deposit_event(Event::Destroyed(collection_id, asset_id));
-
-                Ok(().into())
+                let mut meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                Self::do_destroy_asset(collection_id, asset_id, &mut meta)
             })
         }
 
@@ -1375,6 +1363,9 @@ pub mod pallet {
     }
 }
 
+use frame_support::{dispatch::DispatchResultWithPostInfo, traits::Get};
+use sp_runtime::DispatchResult;
+
 // The main implementation block for the module.
 impl<T: Config> Pallet<T> {
     // Public immutables
@@ -1419,6 +1410,106 @@ impl<T: Config> Pallet<T> {
         Collection::<T>::get(collection_id)
             .map(|x| x.token_supply)
             .unwrap_or_else(Zero::zero)
+    }
+
+    fn do_mint_asset(
+        who: T::AccountId,
+        collection_id: T::CollectionId,
+        asset_id: T::AssetId,
+        meta: &mut CollectionMetadata<T::Balance, T::AccountId, BalanceOf<T>>,
+        name: Vec<u8>,
+        description: Vec<u8>,
+        token_uri: Option<Vec<u8>>,
+        base_uri: Option<Vec<u8>>,
+        ip_owner: Option<T::AccountId>,
+    ) -> DispatchResult {
+        let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &who);
+
+        if meta.max_asset_per_account > Zero::zero() {
+            ensure!(
+                owned_asset_count < meta.max_asset_per_account,
+                Error::<T>::MaxLimitPerAccount
+            );
+        }
+
+        ensure!(
+            owned_asset_count < MAX_ASSET_PER_ACCOUNT,
+            Error::<T>::MaxLimitPerAccount
+        );
+
+        meta.asset_count = meta
+            .asset_count
+            .checked_add(1)
+            .ok_or(Error::<T>::Overflow)?;
+
+        AccountAsset::<T>::insert(collection_id, asset_id, who.clone());
+
+        OwnedAssetCount::<T>::mutate(collection_id, &who, |count| {
+            *count = count.saturating_add(1);
+        });
+
+        let mut deposit = T::MetadataDepositPerByte::get()
+            .saturating_mul(((name.len() + description.len()) as u32).into())
+            .saturating_add(T::MetadataDepositBase::get());
+
+        if let Some(ref token_uri) = token_uri {
+            deposit = deposit.saturating_add(
+                T::MetadataDepositPerByte::get().saturating_mul((token_uri.len() as u32).into()),
+            );
+        }
+
+        if let Some(ref base_uri) = base_uri {
+            deposit = deposit.saturating_add(
+                T::MetadataDepositPerByte::get().saturating_mul((base_uri.len() as u32).into()),
+            );
+        }
+
+        T::Currency::reserve(&who, deposit)?;
+
+        Metadata::<T>::insert(
+            collection_id,
+            asset_id,
+            AssetMetadata {
+                name,
+                description,
+                token_uri: token_uri.unwrap_or(Vec::new()),
+                base_uri: base_uri.unwrap_or(Vec::new()),
+                ip_owner: ip_owner.unwrap_or_else(|| who.clone()),
+                deposit,
+            },
+        );
+
+        Self::deposit_event(Event::AssetMinted(collection_id, asset_id, who));
+        Ok(())
+    }
+
+    fn do_destroy_asset(
+        collection_id: T::CollectionId,
+        asset_id: T::AssetId,
+        meta: &mut CollectionMetadata<T::Balance, T::AccountId, BalanceOf<T>>,
+    ) -> DispatchResultWithPostInfo {
+        meta.asset_count = meta.asset_count.saturating_sub(1);
+
+        let owner = AccountAsset::<T>::mutate_exists(collection_id, asset_id, |maybe_owner| {
+            maybe_owner.take().ok_or(Error::<T>::Unknown)
+        })?;
+
+        OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
+            *count = count.saturating_sub(1);
+        });
+
+        Metadata::<T>::try_mutate_exists(collection_id, asset_id, |maybe_asset_meta| {
+            // let meta = maybe_asset_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+            if let Some(ref meta) = maybe_asset_meta {
+                T::Currency::unreserve(&owner, meta.deposit);
+            }
+
+            *maybe_asset_meta = None;
+
+            Self::deposit_event(Event::Destroyed(collection_id, asset_id));
+
+            Ok(().into())
+        })
     }
 
     /// Check the number of zombies allow yet for an asset.

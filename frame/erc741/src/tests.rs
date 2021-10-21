@@ -238,6 +238,11 @@ fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
             Origin::signed(1),
             COLLECTION_ID,
             ASSET_ID,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None
         ));
         cb()
     });
@@ -294,6 +299,11 @@ fn basic_asset_minting_should_work() {
             Origin::signed(1),
             COLLECTION_ID,
             ASSET_ID,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None
         ));
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
         assert_ok!(Assets::mint_token(
@@ -319,6 +329,11 @@ fn basic_asset_minting_should_work() {
             Origin::signed(1),
             COLLECTION_ID,
             ASSET_ID + 1,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None
         ));
 
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 2);
@@ -331,13 +346,46 @@ fn basic_asset_minting_should_work() {
 #[test]
 fn public_asset_minting_should_work() {
     with_collection(|| {
+        Balances::make_free_balance_be(&2, 100);
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
         assert_ok!(Assets::mint_asset(
             Origin::signed(2),
             COLLECTION_ID,
             ASSET_ID,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None
         ));
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
+    });
+}
+
+#[test]
+fn asset_minting_deposit_calculation_works() {
+    with_collection(|| {
+        Balances::make_free_balance_be(&2, 100);
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID,
+            b"asset #1".to_vec(),
+            b"some description".to_vec(),
+            Some(b"/asset-1".to_vec()),
+            Some(b"https://ipfs.io".to_vec()),
+            None
+        ));
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
+        let meta = Metadata::<Test>::get(COLLECTION_ID, ASSET_ID).expect("get metadata");
+        let mut expected_deposit = <Test as Config>::MetadataDepositPerByte::get() * (8 + 16);
+        expected_deposit = expected_deposit + <Test as Config>::MetadataDepositBase::get();
+        expected_deposit =
+            expected_deposit + <Test as Config>::MetadataDepositPerByte::get() * (8 + 15);
+        assert_eq!(meta.deposit, expected_deposit);
+        assert_eq!(meta.name, b"asset #1".to_vec());
+        assert_eq!(meta.description, b"some description".to_vec());
     });
 }
 
@@ -349,7 +397,12 @@ fn force_minting_should_work() {
             Origin::root(),
             COLLECTION_ID,
             ASSET_ID,
-            1
+            1,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None
         ));
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 1);
@@ -364,7 +417,12 @@ fn cannot_destroy_collection_when_has_assets() {
             Origin::root(),
             COLLECTION_ID,
             ASSET_ID,
-            1
+            1,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None
         ));
         assert_noop!(
             Assets::destroy_collection(Origin::signed(1), COLLECTION_ID),
@@ -402,14 +460,14 @@ fn transfer_collection_ownership() {
     with_minted_asset(|| {
         Balances::make_free_balance_be(&2, 1);
         assert_eq!(Assets::is_collection_owner(&1, COLLECTION_ID), true);
-        assert_eq!(Balances::reserved_balance(&1), 9);
+        assert_eq!(Balances::reserved_balance(&1), 10);
         assert_ok!(Assets::transfer_collection_ownership(
             Origin::signed(1),
             COLLECTION_ID,
             2
         ));
         assert_eq!(Assets::is_collection_owner(&1, COLLECTION_ID), false);
-        assert_eq!(Balances::reserved_balance(&1), 0);
+        assert_eq!(Balances::reserved_balance(&1), 1);
         assert_eq!(Assets::is_collection_owner(&2, COLLECTION_ID), true);
         assert_eq!(Balances::reserved_balance(&2), 9);
     });
@@ -454,25 +512,58 @@ fn allowed_minting_mechanism_should_work() {
             Origin::signed(1),
             COLLECTION_ID,
             ASSET_ID,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None
         ));
         assert_eq!(MintAllowed::<Test>::get(COLLECTION_ID, &3), Some(1));
         // exclusive minting only
         assert_noop!(
-            Assets::mint_asset(Origin::signed(2), COLLECTION_ID, ASSET_ID + 1),
+            Assets::mint_asset(
+                Origin::signed(2),
+                COLLECTION_ID,
+                ASSET_ID + 1,
+                Vec::new(),
+                Vec::new(),
+                None,
+                None,
+                None
+            ),
             Error::<Test>::Unauthorized,
         );
         assert_ok!(Assets::mint_asset(
             Origin::signed(3),
             COLLECTION_ID,
-            ASSET_ID + 2
+            ASSET_ID + 2,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None
         ));
         assert_ok!(Assets::mint_asset(
             Origin::signed(4),
             COLLECTION_ID,
-            ASSET_ID + 3
+            ASSET_ID + 3,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None
         ));
         assert_noop!(
-            Assets::mint_asset(Origin::signed(5), COLLECTION_ID, ASSET_ID + 4),
+            Assets::mint_asset(
+                Origin::signed(5),
+                COLLECTION_ID,
+                ASSET_ID + 4,
+                Vec::new(),
+                Vec::new(),
+                None,
+                None,
+                None
+            ),
             Error::<Test>::Unauthorized,
         );
 
@@ -486,10 +577,16 @@ fn allowed_minting_mechanism_should_work() {
             None
         ));
         // now everybody can mint
+        Balances::make_free_balance_be(&10, 100);
         assert_ok!(Assets::mint_asset(
             Origin::signed(10),
             COLLECTION_ID,
-            ASSET_ID + 4
+            ASSET_ID + 4,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None
         ));
     });
 }
@@ -624,8 +721,24 @@ fn update_collection_should_works() {
 
 #[test]
 fn destroy_asset_should_work() {
-    with_minted_asset(|| {
+    with_collection(|| {
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            b"satu".to_vec(),
+            Vec::new(),
+            None,
+            None,
+            None
+        ));
+
         assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), true);
+        assert_eq!(
+            Metadata::<Test>::contains_key(COLLECTION_ID, ASSET_ID),
+            true
+        );
+        assert_eq!(Balances::reserved_balance(&1), 14);
 
         assert_ok!(Assets::destroy_asset(
             Origin::signed(1),
@@ -636,6 +749,11 @@ fn destroy_asset_should_work() {
         assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), false);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 0);
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
+        assert_eq!(
+            Metadata::<Test>::contains_key(COLLECTION_ID, ASSET_ID),
+            false
+        );
+        assert_eq!(Balances::reserved_balance(&1), 9);
     });
 }
 

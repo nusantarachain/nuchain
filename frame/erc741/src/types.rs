@@ -164,10 +164,6 @@ pub struct AssetMetadata<
     DepositBalance,
     AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
 > {
-    /// The balance deposited for this metadata.
-    ///
-    /// This pays for the data stored in this struct.
-    deposit: DepositBalance,
     /// The user friendly name of this asset. Limited in length by `StringLimit`.
     name: Vec<u8>,
 
@@ -186,6 +182,11 @@ pub struct AssetMetadata<
 
     /// Intelectual property owner
     ip_owner: AccountId,
+
+    /// The balance deposited for this metadata.
+    ///
+    /// This pays for the data stored in this struct.
+    deposit: DepositBalance,
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]
