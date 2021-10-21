@@ -53,7 +53,7 @@ pub struct NewCollectionParam<
     /// Max limit holding token per account.
     max_asset_per_account: u32,
 
-	/// The number of balance-holding accounts that this asset may have, excluding those that were
+    /// The number of balance-holding accounts that this asset may have, excluding those that were
     /// created when they had a system-level ED.
     max_zombies: u32,
 }
@@ -108,14 +108,14 @@ pub struct CollectionMetadata<
     /// This pays for the data stored here together with any virtual accounts.
     deposit: DepositBalance,
 
-	/// The number of balance-holding accounts that this asset may have, excluding those that were
+    /// The number of balance-holding accounts that this asset may have, excluding those that were
     /// created when they had a system-level ED.
     max_zombies: u32,
 
     /// The current number of zombie accounts.
     zombies: u32,
 
-	/// The total number of accounts.
+    /// The total number of accounts.
     accounts: u32,
 
     /// Whether the asset is frozen for permissionless transfers.
@@ -160,23 +160,32 @@ pub struct CollectionMetadata<
 // }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]
-pub struct AssetMetadata<DepositBalance> {
+pub struct AssetMetadata<
+    DepositBalance,
+    AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
+> {
     /// The balance deposited for this metadata.
     ///
     /// This pays for the data stored in this struct.
     deposit: DepositBalance,
     /// The user friendly name of this asset. Limited in length by `StringLimit`.
     name: Vec<u8>,
-    /// The ticker symbol for this asset. Limited in length by `StringLimit`.
-    symbol: Vec<u8>,
+
+    /// Description of this asset. Limited in length by `StringLimit`.
+    description: Vec<u8>,
+
     // /// The number of decimals this asset uses to represent one unit.
     // decimals: u8,
+
     /// Token URI
     token_uri: Vec<u8>,
 
     /// Base URI
     /// based on https://docs.openzeppelin.com/contracts/2.x/api/token/erc721#ERC721Metadata
     base_uri: Vec<u8>,
+
+    /// Intelectual property owner
+    ip_owner: AccountId,
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]

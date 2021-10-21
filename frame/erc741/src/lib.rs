@@ -164,7 +164,7 @@ pub mod pallet {
         ForceCreated(T::CollectionId, T::AssetId, T::AccountId),
         /// The maximum amount of zombies allowed has changed. \[collection_id, max_zombies\]
         MaxZombiesChanged(T::CollectionId, T::AssetId, u32),
-        /// New metadata has been set for an asset. \[collection_id, asset_id, name, symbol, decimals\]
+        /// New metadata has been set for an asset. \[collection_id, asset_id, name, description, ip_owner\]
         MetadataSet(
             T::CollectionId,
             T::AssetId,
@@ -172,6 +172,7 @@ pub mod pallet {
             Vec<u8>,
             Vec<u8>,
             Vec<u8>,
+            T::AccountId,
         ),
     }
 
@@ -278,7 +279,7 @@ pub mod pallet {
         T::CollectionId,
         Blake2_128Concat,
         T::AssetId,
-        AssetMetadata<BalanceOf<T>>,
+        AssetMetadata<BalanceOf<T>, T::AccountId>,
         ValueQuery,
     >;
 
@@ -1282,10 +1283,10 @@ pub mod pallet {
             #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
             name: Vec<u8>,
-            symbol: Vec<u8>,
+            description: Vec<u8>,
             token_uri: Vec<u8>,
             base_uri: Vec<u8>,
-            // decimals: u8,
+            ip_owner: T::AccountId
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
@@ -1294,16 +1295,17 @@ pub mod pallet {
                 Error::<T>::BadMetadata
             );
             ensure!(
-                symbol.len() <= T::StringLimit::get() as usize,
+                description.len() <= T::StringLimit::get() as usize,
                 Error::<T>::BadMetadata
             );
 
-            let owner =
-                AccountAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
-            ensure!(&origin == &owner, Error::<T>::Unauthorized);
+            // let owner =
+            //     AccountAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
+            // ensure!(&origin == &owner, Error::<T>::Unauthorized);
 
             Metadata::<T>::try_mutate_exists(collection_id, asset_id, |metadata| {
-                let bytes_used = name.len() + symbol.len();
+                let meta = metadata.as_mut().ok_or(Error::<T>::Unknown)?;
+                let bytes_used = name.len() + description.len();
                 let old_deposit = match metadata {
                     Some(m) => m.deposit,
                     None => Default::default(),
@@ -1316,7 +1318,7 @@ pub mod pallet {
                     *metadata = None;
                 } else {
                     let new_deposit = T::MetadataDepositPerByte::get()
-                        .saturating_mul(((name.len() + symbol.len()) as u32).into())
+                        .saturating_mul(((name.len() + description.len()) as u32).into())
                         .saturating_add(T::MetadataDepositBase::get());
 
                     if new_deposit > old_deposit {
@@ -1328,10 +1330,10 @@ pub mod pallet {
                     *metadata = Some(AssetMetadata {
                         deposit: new_deposit,
                         name: name.clone(),
-                        symbol: symbol.clone(),
+                        description: description.clone(),
                         token_uri: token_uri.clone(),
                         base_uri: base_uri.clone(),
-                        // decimals,
+                        ip_owner: ip_owner.clone(),
                     })
                 }
 
@@ -1339,9 +1341,10 @@ pub mod pallet {
                     collection_id,
                     asset_id,
                     name,
-                    symbol,
+                    description,
                     token_uri,
                     base_uri,
+                    ip_owner
                 ));
                 Ok(().into())
             })
