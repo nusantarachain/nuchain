@@ -282,7 +282,7 @@ pub mod pallet {
 
     #[pallet::storage]
     /// Asset id by index
-    pub(super) type AssetIndex<T: Config> = StorageDoubleMap<
+    pub(super) type AssetOfIndex<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::CollectionId,
@@ -1516,7 +1516,7 @@ impl<T: Config> Pallet<T> {
         let owner_index =
             Self::next_asset_owner_index(collection_id, &who).ok_or(Error::<T>::Unknown)?;
 
-        AssetIndex::<T>::insert(collection_id, meta.asset_index, asset_id);
+        AssetOfIndex::<T>::insert(collection_id, meta.asset_index, asset_id);
         AssetOfOwnerIndex::<T>::insert(collection_id, (&who, owner_index), asset_id);
 
         Self::deposit_event(Event::AssetMinted(collection_id, asset_id, who));

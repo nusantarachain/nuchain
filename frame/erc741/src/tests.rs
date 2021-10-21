@@ -653,8 +653,8 @@ fn update_collection_should_works() {
 fn enumerate_assets_via_asset_index() {
     with_minted_asset(|| {
         Balances::make_free_balance_be(&2, 100);
-        assert_eq!(AssetIndex::<Test>::get(COLLECTION_ID, 1), Some(ASSET_ID));
-        assert_eq!(AssetIndex::<Test>::get(COLLECTION_ID, 2), None);
+        assert_eq!(AssetOfIndex::<Test>::get(COLLECTION_ID, 1), Some(ASSET_ID));
+        assert_eq!(AssetOfIndex::<Test>::get(COLLECTION_ID, 2), None);
         assert_ok!(Assets::mint_asset(
             Origin::signed(2),
             COLLECTION_ID,
@@ -666,7 +666,7 @@ fn enumerate_assets_via_asset_index() {
             None
         ));
         assert_eq!(
-            AssetIndex::<Test>::get(COLLECTION_ID, 2),
+            AssetOfIndex::<Test>::get(COLLECTION_ID, 2),
             Some(ASSET_ID + 1)
         );
         assert_eq!(
@@ -690,7 +690,7 @@ fn enumerate_assets_via_asset_index() {
             None
         ));
         assert_eq!(
-            AssetIndex::<Test>::get(COLLECTION_ID, 3),
+            AssetOfIndex::<Test>::get(COLLECTION_ID, 3),
             Some(ASSET_ID + 2)
         );
         assert_eq!(
