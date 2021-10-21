@@ -287,7 +287,7 @@ fn basic_destroy_collection() {
 }
 
 #[test]
-fn basic_minting_should_work() {
+fn basic_asset_minting_should_work() {
     with_collection(|| {
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
         assert_ok!(Assets::mint_asset(
@@ -325,6 +325,19 @@ fn basic_minting_should_work() {
 
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 2);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &2), 0);
+    });
+}
+
+#[test]
+fn public_asset_minting_should_work() {
+    with_collection(|| {
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID,
+        ));
+        assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
     });
 }
 
@@ -422,7 +435,7 @@ fn allowed_minting_mechanism_should_work() {
                 has_token: true,
                 max_token_supply: 100,
                 min_balance: 1,
-                public_mintable: true,
+                public_mintable: false,
                 allowed_mint_accounts: vec![
                     AllowedMintAccount {
                         account: 3,
@@ -443,6 +456,7 @@ fn allowed_minting_mechanism_should_work() {
             ASSET_ID,
         ));
         assert_eq!(MintAllowed::<Test>::get(COLLECTION_ID, &3), Some(1));
+        // exclusive minting only
         assert_noop!(
             Assets::mint_asset(Origin::signed(2), COLLECTION_ID, ASSET_ID + 1),
             Error::<Test>::Unauthorized,
@@ -461,6 +475,60 @@ fn allowed_minting_mechanism_should_work() {
             Assets::mint_asset(Origin::signed(5), COLLECTION_ID, ASSET_ID + 4),
             Error::<Test>::Unauthorized,
         );
+
+        // change to public mintable
+        assert_ok!(Assets::update_collection(
+            Origin::signed(1),
+            COLLECTION_ID,
+            Some(true),
+            None,
+            None,
+            None
+        ));
+        // now everybody can mint
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(10),
+            COLLECTION_ID,
+            ASSET_ID + 4
+        ));
+    });
+}
+
+#[test]
+fn update_collection_should_works() {
+    with_minted_asset(|| {
+        // change to public mintable
+        assert_noop!(
+            Assets::update_collection(Origin::signed(1), COLLECTION_ID, None, Some(0), None, None),
+            Error::<Test>::BadMetadata
+        );
+        assert_noop!(
+            Assets::update_collection(
+                Origin::signed(1),
+                COLLECTION_ID,
+                None,
+                Some(MAX_ASSET_PER_ACCOUNT + 1),
+                None,
+                None
+            ),
+            Error::<Test>::MaxLimitPerAccount
+        );
+
+        // change to public mintable
+        assert_ok!(Assets::update_collection(
+            Origin::signed(1),
+            COLLECTION_ID,
+            Some(true),
+            Some(7),
+            Some(9),
+            Some(false)
+        ));
+
+        let meta = Collection::<Test>::get(COLLECTION_ID).expect("cannot get collection");
+        assert_eq!(meta.public_mintable, true);
+        assert_eq!(meta.max_asset_per_account, 7);
+        assert_eq!(meta.min_balance, 9);
+        assert_eq!(meta.has_token, false);
     });
 }
 
