@@ -1016,6 +1016,8 @@ fn asset_token_support_cannot_greather_than_token_supply() {
     });
 }
 
+// @TODO(Robin): test MAX_ASSET_TOKEN_HOLDERS limitation
+
 // #[test]
 // fn lifecycle_should_work() {
 //     new_test_ext().execute_with(|| {

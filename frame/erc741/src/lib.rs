@@ -1422,8 +1422,6 @@ impl<T: Config> Pallet<T> {
         collection_id: T::CollectionId,
         asset_id: T::AssetId,
     ) -> bool {
-        // who == &collection.owner ||
-        // Some(who) == collection.approved_for_transfer.as_ref() ||
         OwnershipOfAsset::<T>::get(collection_id, asset_id)
             .as_ref()
             .map(|a| &a.owner == who || a.approved_to_transfer.as_ref() == Some(who))
