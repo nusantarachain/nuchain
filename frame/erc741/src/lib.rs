@@ -181,7 +181,9 @@ pub mod pallet {
         /// Transfer amount should be non-zero.
         AmountZero,
         /// Account balance must be greater than or equal to the transfer amount.
-        BalanceLow,
+        TokenBalanceLow,
+        /// Max token balance/supply reached.
+        TokenBalanceMax,
         /// Balance should be non-zero.
         BalanceZero,
         /// The signing account has no permission to do the operation.
@@ -227,13 +229,13 @@ pub mod pallet {
 
     #[pallet::storage]
     /// Asset owner account
-    pub(super) type AccountOfAsset<T: Config> = StorageDoubleMap<
+    pub(super) type OwnershipOfAsset<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::CollectionId,
         Blake2_128Concat,
         T::AssetId,
-        AssetHolderMetadata<T::AccountId>,
+        AssetOwnership<T::AccountId>,
     >;
 
     /// The number of token (IP sub-license) held by account.
@@ -281,7 +283,7 @@ pub mod pallet {
         T::CollectionId,
         Blake2_128Concat,
         T::AssetId,
-        AssetMetadata<BalanceOf<T>, T::AccountId>,
+        AssetMetadata<BalanceOf<T>, T::Balance, T::AccountId>,
         OptionQuery,
     >;
 
@@ -521,6 +523,7 @@ pub mod pallet {
             image_uri: Option<Vec<u8>>,
             base_uri: Option<Vec<u8>>,
             ip_owner: Option<T::AccountId>,
+            token_supply: Option<T::Balance>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
@@ -547,7 +550,7 @@ pub mod pallet {
             }
 
             ensure!(
-                !AccountOfAsset::<T>::contains_key(collection_id, asset_id),
+                !OwnershipOfAsset::<T>::contains_key(collection_id, asset_id),
                 Error::<T>::InUse
             );
 
@@ -576,6 +579,7 @@ pub mod pallet {
                     image_uri,
                     base_uri,
                     ip_owner,
+                    token_supply.unwrap_or(Zero::zero()),
                 )?;
 
                 Ok(().into())
@@ -610,12 +614,13 @@ pub mod pallet {
             image_uri: Option<Vec<u8>>,
             base_uri: Option<Vec<u8>>,
             ip_owner: Option<T::AccountId>,
+            token_supply: Option<T::Balance>,
         ) -> DispatchResultWithPostInfo {
             T::ForceOrigin::ensure_origin(origin)?;
             let owner = T::Lookup::lookup(owner)?;
 
             ensure!(
-                !AccountOfAsset::<T>::contains_key(collection_id, asset_id),
+                !OwnershipOfAsset::<T>::contains_key(collection_id, asset_id),
                 Error::<T>::InUse
             );
 
@@ -642,6 +647,7 @@ pub mod pallet {
                     image_uri,
                     base_uri,
                     ip_owner,
+                    token_supply.unwrap_or(Zero::zero()),
                 )?;
 
                 Ok(().into())
@@ -669,14 +675,14 @@ pub mod pallet {
                 // let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
                 ensure!(
-                    // AccountOfAsset::<T>::get(collection_id, asset_id) == origin
+                    // OwnershipOfAsset::<T>::get(collection_id, asset_id) == origin
                     Self::is_asset_owner(&origin, collection_id, asset_id),
                     Error::<T>::Unauthorized
                 );
 
                 // meta.asset_count = meta.asset_count.saturating_sub(1);
 
-                // AccountOfAsset::<T>::remove(collection_id, asset_id);
+                // OwnershipOfAsset::<T>::remove(collection_id, asset_id);
 
                 // OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
                 //     *count = count.saturating_sub(1);
@@ -758,7 +764,7 @@ pub mod pallet {
                     (asset_id, &beneficiary),
                     |t| -> DispatchResultWithPostInfo {
                         let new_balance = t.balance.saturating_add(amount);
-                        ensure!(new_balance >= meta.min_balance, Error::<T>::BalanceLow);
+                        ensure!(new_balance >= meta.min_balance, Error::<T>::TokenBalanceLow);
                         if t.balance.is_zero() {
                             t.is_zombie = Self::new_account(&beneficiary, meta)?;
                         }
@@ -862,7 +868,7 @@ pub mod pallet {
             origin_account.balance = origin_account
                 .balance
                 .checked_sub(&amount)
-                .ok_or(Error::<T>::BalanceLow)?;
+                .ok_or(Error::<T>::TokenBalanceLow)?;
 
             let dest = T::Lookup::lookup(target)?;
             // Collectible::<T>::try_mutate(collection_id, asset_id, |maybe_meta| {
@@ -887,7 +893,7 @@ pub mod pallet {
                     (asset_id, &dest),
                     |a| -> DispatchResultWithPostInfo {
                         let new_balance = a.balance.saturating_add(amount);
-                        ensure!(new_balance >= meta.min_balance, Error::<T>::BalanceLow);
+                        ensure!(new_balance >= meta.min_balance, Error::<T>::TokenBalanceLow);
                         if a.balance.is_zero() {
                             a.is_zombie = Self::new_account(&dest, meta)?;
                         }
@@ -977,7 +983,10 @@ pub mod pallet {
                     (asset_id, &dest),
                     |a| -> DispatchResultWithPostInfo {
                         let new_balance = a.balance.saturating_add(amount);
-                        ensure!(new_balance >= details.min_balance, Error::<T>::BalanceLow);
+                        ensure!(
+                            new_balance >= details.min_balance,
+                            Error::<T>::TokenBalanceLow
+                        );
                         if a.balance.is_zero() {
                             a.is_zombie = Self::new_account(&dest, details)?;
                         }
@@ -1028,7 +1037,7 @@ pub mod pallet {
             let origin = ensure_signed(origin)?;
 
             let holder_meta =
-                AccountOfAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
+                OwnershipOfAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
 
             // ensure!(&origin == &d.freezer, Error::<T>::Unauthorized);
             ensure!(&origin == &holder_meta.owner, Error::<T>::Unauthorized);
@@ -1064,7 +1073,7 @@ pub mod pallet {
             let origin = ensure_signed(origin)?;
 
             let holder_meta =
-                AccountOfAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
+                OwnershipOfAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
             // ensure!(&origin == &details.admin, Error::<T>::Unauthorized);
             ensure!(&origin == &holder_meta.owner, Error::<T>::Unauthorized);
             let who = T::Lookup::lookup(who)?;
@@ -1197,7 +1206,7 @@ pub mod pallet {
             let new_owner = T::Lookup::lookup(new_owner)?;
 
             ensure!(
-                AccountOfAsset::<T>::get(collection_id, asset_id)
+                OwnershipOfAsset::<T>::get(collection_id, asset_id)
                     .as_ref()
                     .map(|m| &m.owner)
                     == Some(&from_owner),
@@ -1405,7 +1414,7 @@ pub mod pallet {
             }
 
             // let owner =
-            //     AccountOfAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
+            //     OwnershipOfAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
             // ensure!(&origin == &owner, Error::<T>::Unauthorized);
 
             Metadata::<T>::try_mutate(collection_id, asset_id, |metadata| {
@@ -1496,7 +1505,7 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         // who == &collection.owner ||
         // Some(who) == collection.approved_for_transfer.as_ref() ||
-        AccountOfAsset::<T>::get(collection_id, asset_id)
+        OwnershipOfAsset::<T>::get(collection_id, asset_id)
             .as_ref()
             .map(|a| &a.owner)
             == Some(who)
@@ -1525,7 +1534,7 @@ impl<T: Config> Pallet<T> {
         collection_id: T::CollectionId,
         asset_id: T::AssetId,
     ) -> bool {
-        AccountOfAsset::<T>::get(collection_id, asset_id)
+        OwnershipOfAsset::<T>::get(collection_id, asset_id)
             .map(|a| &a.owner == who)
             .unwrap_or(false)
     }
@@ -1554,7 +1563,8 @@ impl<T: Config> Pallet<T> {
         image_uri: Option<Vec<u8>>,
         base_uri: Option<Vec<u8>>,
         ip_owner: Option<T::AccountId>,
-    ) -> DispatchResult {
+        token_supply: T::Balance,
+    ) -> DispatchResultWithPostInfo {
         let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &who);
 
         if meta.max_asset_per_account > 0 {
@@ -1574,16 +1584,40 @@ impl<T: Config> Pallet<T> {
             .checked_add(1)
             .ok_or(Error::<T>::Overflow)?;
 
-        AccountOfAsset::<T>::insert(
-            collection_id,
-            asset_id,
-            AssetHolderMetadata {
-                owner: who.clone(),
-                allowed_to_transfer: None,
-                allowed_to_transfer_token: None,
-                token_holders: Vec::new(),
-            },
-        );
+        let mut asset_ownership = AssetOwnership {
+            owner: who.clone(),
+            approved_to_transfer: None,
+            approved_to_transfer_token: None,
+            token_holders: Vec::new(),
+        };
+
+        if meta.has_token {
+            // if this asset has token
+            // then assign current owner as the initial holder
+            asset_ownership.token_holders.push(who.clone());
+        }
+
+        OwnershipOfAsset::<T>::insert(collection_id, asset_id, asset_ownership);
+
+        if meta.has_token {
+            Account::<T>::try_mutate(
+                collection_id,
+                (asset_id, &who),
+                |tb| -> DispatchResultWithPostInfo {
+                    let initial_balance = token_supply;
+                    ensure!(
+                        initial_balance >= meta.min_balance,
+                        Error::<T>::TokenBalanceLow
+                    );
+                    ensure!(
+                        initial_balance <= meta.max_token_supply,
+                        Error::<T>::TokenBalanceMax
+                    );
+                    tb.balance = initial_balance;
+                    Ok(().into())
+                },
+            )?;
+        }
 
         OwnedAssetCount::<T>::mutate(collection_id, &who, |count| {
             *count = count.saturating_add(1);
@@ -1593,9 +1627,9 @@ impl<T: Config> Pallet<T> {
         let mut deposit = T::MetadataDepositPerByte::get()
             .saturating_mul(((name.len() + description.len()) as u32).into())
             // storage cost calculation:
-            //   deposit base + asset_index + owner index
+            //   deposit base + asset_index + owner index + ownershipOfAsset
             .saturating_add(T::MetadataDepositBase::get().saturating_add(
-                T::MetadataDepositPerByte::get().saturating_mul((2 as u32).into()),
+                T::MetadataDepositPerByte::get().saturating_mul((1 + 1 + 4 as u32).into()),
             ));
 
         if let Some(ref image_uri) = image_uri {
@@ -1622,7 +1656,7 @@ impl<T: Config> Pallet<T> {
                 base_uri: base_uri.unwrap_or(Vec::new()),
                 ip_owner: ip_owner.unwrap_or_else(|| who.clone()),
                 deposit,
-                token_supply: Zero::zero(),
+                token_supply,
             },
         );
 
@@ -1634,7 +1668,7 @@ impl<T: Config> Pallet<T> {
         AssetOfOwnerIndex::<T>::insert(collection_id, (&who, owner_index), asset_id);
 
         Self::deposit_event(Event::AssetMinted(collection_id, asset_id, who));
-        Ok(())
+        Ok(().into())
     }
 
     fn do_destroy_asset(
@@ -1645,7 +1679,7 @@ impl<T: Config> Pallet<T> {
         meta.asset_count = meta.asset_count.saturating_sub(1);
 
         let holder_meta =
-            AccountOfAsset::<T>::mutate_exists(collection_id, asset_id, |maybe_holder_meta| {
+            OwnershipOfAsset::<T>::mutate_exists(collection_id, asset_id, |maybe_holder_meta| {
                 maybe_holder_meta.take().ok_or(Error::<T>::Unknown)
             })?;
 

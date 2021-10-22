@@ -82,9 +82,6 @@ pub struct CollectionMetadata<
     /// Max token supply when `has_token` is true.
     max_token_supply: Balance,
 
-    // // /// Can mint tokens.
-    // // issuer: AccountId,
-
     // /// Whether only eligible account cant mint
     // allowed_mint_only: bool,
     /// anyone from public origin can mint tokens.
@@ -131,6 +128,7 @@ pub struct CollectionMetadata<
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]
 pub struct AssetMetadata<
+    DepositBalance: Encode + Decode + Clone + Debug + Eq + PartialEq,
     Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
     AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
 > {
@@ -156,24 +154,24 @@ pub struct AssetMetadata<
     /// The balance deposited for this metadata.
     ///
     /// This pays for the data stored in this struct.
-    deposit: Balance,
+    deposit: DepositBalance,
 
-    /// Available supply for this asset's token (sub-license).
+    /// Available supply for this asset's token (sub-token).
     token_supply: Balance
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]
-pub struct AssetHolderMetadata<
+pub struct AssetOwnership<
     AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq
 > {
     /// Asset owner
     owner: AccountId,
 
     /// Other account that allowed/approved to transfer this asset
-    allowed_to_transfer: Option<AccountId>,
+    approved_to_transfer: Option<AccountId>,
     
     /// Other account that allowed/approved to transfer this asset's token
-    allowed_to_transfer_token: Option<AccountId>,
+    approved_to_transfer_token: Option<AccountId>,
 
     /// List of this asset's token holder, see `TokenBalance` to get balances
     /// for each holders

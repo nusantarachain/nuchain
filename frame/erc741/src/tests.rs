@@ -18,7 +18,9 @@
 use super::*;
 use crate as pallet_erc741;
 
-use frame_support::{assert_noop, assert_ok, parameter_types};
+use frame_support::{
+    assert_err_ignore_postinfo as assert_err, assert_noop, assert_ok, parameter_types,
+};
 use pallet_balances::Error as BalancesError;
 use sp_core::H256;
 use sp_runtime::{
@@ -201,7 +203,7 @@ fn with_collection<F: FnOnce() -> ()>(cb: F) {
                 symbol: b"NFT".to_vec(),
                 owner: 1,
                 max_asset_count: 1000,
-                has_token: true,
+                has_token: false,
                 max_token_supply: 100,
                 min_balance: 1,
                 public_mintable: true,
@@ -216,6 +218,42 @@ fn with_collection<F: FnOnce() -> ()>(cb: F) {
 }
 
 fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
+    new_test_ext().execute_with(|| {
+        Balances::make_free_balance_be(&1, 100);
+        Assets::create_collection(
+            Origin::signed(1),
+            COLLECTION_ID,
+            NewCollectionParam {
+                name: b"Test1".to_vec(),
+                symbol: b"NFT".to_vec(),
+                owner: 1,
+                max_asset_count: 1000,
+                has_token: false,
+                max_token_supply: 0,
+                min_balance: 1,
+                public_mintable: true,
+                allowed_mint_accounts: Vec::new(),
+                max_asset_per_account: 0,
+                max_zombies: 5,
+            },
+        )
+        .expect("Cannot create asset");
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None,
+            None
+        ));
+        cb()
+    });
+}
+
+fn with_minted_asset_plus_token<F: FnOnce() -> ()>(cb: F) {
     new_test_ext().execute_with(|| {
         Balances::make_free_balance_be(&1, 100);
         Assets::create_collection(
@@ -244,7 +282,8 @@ fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
             Vec::new(),
             None,
             None,
-            None
+            None,
+            Some(100)
         ));
         cb()
     });
@@ -305,6 +344,7 @@ fn basic_asset_minting_should_work() {
             Vec::new(),
             None,
             None,
+            None,
             None
         ));
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
@@ -335,6 +375,7 @@ fn basic_asset_minting_should_work() {
             Vec::new(),
             None,
             None,
+            None,
             None
         ));
 
@@ -358,6 +399,7 @@ fn public_asset_minting_should_work() {
             Vec::new(),
             None,
             None,
+            None,
             None
         ));
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
@@ -377,6 +419,7 @@ fn asset_minting_deposit_calculation_works() {
             b"some description".to_vec(),
             Some(b"/asset-1".to_vec()),
             Some(b"https://ipfs.io".to_vec()),
+            None,
             None
         ));
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
@@ -385,7 +428,7 @@ fn asset_minting_deposit_calculation_works() {
         expected_deposit = expected_deposit + <Test as Config>::MetadataDepositBase::get();
         expected_deposit =
             expected_deposit + <Test as Config>::MetadataDepositPerByte::get() * (8 + 15);
-        expected_deposit += <Test as Config>::MetadataDepositPerByte::get() * 2; // indices cost
+        expected_deposit += <Test as Config>::MetadataDepositPerByte::get() * (1 + 1 + 4); // indices cost
         assert_eq!(meta.deposit, expected_deposit);
         assert_eq!(meta.name, b"asset #1".to_vec());
         assert_eq!(meta.description, b"some description".to_vec());
@@ -403,6 +446,7 @@ fn force_minting_should_work() {
             1,
             Vec::new(),
             Vec::new(),
+            None,
             None,
             None,
             None
@@ -423,6 +467,7 @@ fn cannot_destroy_collection_when_has_assets() {
             1,
             Vec::new(),
             Vec::new(),
+            None,
             None,
             None,
             None
@@ -463,14 +508,14 @@ fn transfer_collection_ownership() {
     with_minted_asset(|| {
         Balances::make_free_balance_be(&2, 1);
         assert_eq!(Assets::is_collection_owner(&1, COLLECTION_ID), true);
-        assert_eq!(Balances::reserved_balance(&1), 12);
+        assert_eq!(Balances::reserved_balance(&1), 16);
         assert_ok!(Assets::transfer_collection_ownership(
             Origin::signed(1),
             COLLECTION_ID,
             2
         ));
         assert_eq!(Assets::is_collection_owner(&1, COLLECTION_ID), false);
-        assert_eq!(Balances::reserved_balance(&1), 3);
+        assert_eq!(Balances::reserved_balance(&1), 7);
         assert_eq!(Assets::is_collection_owner(&2, COLLECTION_ID), true);
         assert_eq!(Balances::reserved_balance(&2), 9);
     });
@@ -493,7 +538,7 @@ fn allowed_minting_mechanism_should_work() {
                 symbol: b"NFT".to_vec(),
                 owner: 1,
                 max_asset_count: 1000,
-                has_token: true,
+                has_token: false,
                 max_token_supply: 100,
                 min_balance: 1,
                 public_mintable: false,
@@ -519,6 +564,7 @@ fn allowed_minting_mechanism_should_work() {
             Vec::new(),
             None,
             None,
+            None,
             None
         ));
         assert_eq!(MintAllowed::<Test>::get(COLLECTION_ID, &3), Some(1));
@@ -530,6 +576,7 @@ fn allowed_minting_mechanism_should_work() {
                 ASSET_ID + 1,
                 Vec::new(),
                 Vec::new(),
+                None,
                 None,
                 None,
                 None
@@ -544,6 +591,7 @@ fn allowed_minting_mechanism_should_work() {
             Vec::new(),
             None,
             None,
+            None,
             None
         ));
         assert_ok!(Assets::mint_asset(
@@ -552,6 +600,7 @@ fn allowed_minting_mechanism_should_work() {
             ASSET_ID + 3,
             Vec::new(),
             Vec::new(),
+            None,
             None,
             None,
             None
@@ -563,6 +612,7 @@ fn allowed_minting_mechanism_should_work() {
                 ASSET_ID + 4,
                 Vec::new(),
                 Vec::new(),
+                None,
                 None,
                 None,
                 None
@@ -587,6 +637,7 @@ fn allowed_minting_mechanism_should_work() {
             ASSET_ID + 4,
             Vec::new(),
             Vec::new(),
+            None,
             None,
             None,
             None
@@ -663,6 +714,7 @@ fn enumerate_assets_via_asset_index() {
             Vec::new(),
             None,
             None,
+            None,
             None
         ));
         assert_eq!(
@@ -687,6 +739,7 @@ fn enumerate_assets_via_asset_index() {
             Vec::new(),
             None,
             None,
+            None,
             None
         ));
         assert_eq!(
@@ -703,6 +756,62 @@ fn enumerate_assets_via_asset_index() {
         );
         assert_eq!(AssetOwnerIndex::<Test>::get(COLLECTION_ID, &1), Some(1));
         assert_eq!(AssetOwnerIndex::<Test>::get(COLLECTION_ID, &2), Some(2));
+    });
+}
+
+#[test]
+fn basic_collection_with_asset_token_support_should_works() {
+    with_minted_asset_plus_token(|| {
+        let ownership =
+            OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID).expect("Couldn't get ownership");
+        assert_eq!(ownership.owner, 1);
+        assert_eq!(ownership.approved_to_transfer, None);
+        assert_eq!(ownership.approved_to_transfer_token, None);
+        assert_eq!(ownership.token_holders, vec![1]);
+        // check tokens/shares for accountn 1
+        assert_eq!(
+            Account::<Test>::get(COLLECTION_ID, (ASSET_ID, &1)).balance,
+            100
+        );
+    });
+}
+
+#[test]
+fn asset_token_support_cannot_greather_than_token_supply() {
+    new_test_ext().execute_with(|| {
+        Balances::make_free_balance_be(&1, 100);
+        Assets::create_collection(
+            Origin::signed(1),
+            COLLECTION_ID,
+            NewCollectionParam {
+                name: b"Test1".to_vec(),
+                symbol: b"NFT".to_vec(),
+                owner: 1,
+                max_asset_count: 1000,
+                has_token: true,
+                max_token_supply: 100,
+                min_balance: 1,
+                public_mintable: true,
+                allowed_mint_accounts: Vec::new(),
+                max_asset_per_account: 0,
+                max_zombies: 5,
+            },
+        )
+        .expect("Cannot create asset");
+        assert_err!(
+            Assets::mint_asset(
+                Origin::signed(1),
+                COLLECTION_ID,
+                ASSET_ID,
+                Vec::new(),
+                Vec::new(),
+                None,
+                None,
+                None,
+                Some(101)
+            ),
+            Error::<Test>::TokenBalanceMax
+        );
     });
 }
 
@@ -792,6 +901,7 @@ fn destroy_asset_should_work() {
             Vec::new(),
             None,
             None,
+            None,
             None
         ));
 
@@ -800,7 +910,7 @@ fn destroy_asset_should_work() {
             Metadata::<Test>::contains_key(COLLECTION_ID, ASSET_ID),
             true
         );
-        assert_eq!(Balances::reserved_balance(&1), 16);
+        assert_eq!(Balances::reserved_balance(&1), 20);
 
         assert_ok!(Assets::destroy_asset(
             Origin::signed(1),
