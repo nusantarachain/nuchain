@@ -119,7 +119,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[test]
-fn basic_build_should_work() {
+fn create_collection_should_work() {
     new_test_ext().execute_with(|| {
         Balances::make_free_balance_be(&1, 10);
         assert_ok!(Assets::create_collection(
@@ -754,6 +754,11 @@ fn token_transfer_should_update_token_holders() {
             0
         );
 
+        assert_eq!(
+            Account::<Test>::get(COLLECTION_ID, (ASSET_ID, &3)).balance,
+            15
+        );
+
         let ownership = OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID)
             .expect("Cannot get asset ownership");
         // account 2 is no longer holder
@@ -827,6 +832,23 @@ fn root_able_to_force_transfer_token() {
             OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID).expect("get ownership");
         assert_eq!(ownership.token_holders.contains(&2), true);
         assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 15);
+    });
+}
+
+#[test]
+fn non_root_unable_to_force_transfer_token() {
+    with_minted_asset_plus_token(|| {
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            20
+        ));
+        assert_noop!(
+            Assets::force_transfer_token(Origin::signed(2), COLLECTION_ID, ASSET_ID, 1, 2, 15),
+            DispatchError::BadOrigin
+        );
     });
 }
 
@@ -1186,8 +1208,44 @@ fn burn_token_should_works() {
             1,
             5
         ));
-        // result: 100 (initial) + 20 (minted) - 5 (burn)
+        // 115: 100 (initial) + 20 (minted) - 5 (burn)
         assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 115);
+    });
+}
+
+#[test]
+fn burn_token_should_update_token_holders() {
+    with_minted_asset_plus_token(|| {
+        let ownership =
+            OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID).expect("Couldn't get ownership");
+
+        assert!(!ownership.token_holders.is_empty());
+
+        assert_ok!(Assets::burn_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            99
+        ));
+
+        let ownership =
+            OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID).expect("Couldn't get ownership");
+
+        assert!(!ownership.token_holders.is_empty());
+
+        assert_ok!(Assets::burn_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            100
+        ));
+
+        let ownership =
+            OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID).expect("Couldn't get ownership");
+
+        assert_eq!(ownership.token_holders.is_empty(), true);
     });
 }
 

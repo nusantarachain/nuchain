@@ -1307,13 +1307,14 @@ pub mod pallet {
                 ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
                 ensure!(meta.has_token, Error::<T>::NotSupported);
 
-                let burned = Account::<T>::try_mutate_exists(
+                let (burned, is_balance_zero) = Account::<T>::try_mutate_exists(
                     collection_id,
                     (asset_id, &who),
-                    |maybe_account| -> Result<T::Balance, DispatchError> {
+                    |maybe_account| -> Result<(T::Balance, bool), DispatchError> {
                         let mut account = maybe_account.take().ok_or(Error::<T>::BalanceZero)?;
                         let mut burned = amount.min(account.balance);
                         account.balance = account.balance.saturating_sub(burned);
+                        let is_balance_zero = account.balance.is_zero();
                         *maybe_account = if account.balance < meta.min_balance {
                             burned = burned.saturating_add(account.balance);
                             Self::dead_account(&who, meta, account.is_zombie);
@@ -1321,7 +1322,7 @@ pub mod pallet {
                         } else {
                             Some(account)
                         };
-                        Ok(burned)
+                        Ok((burned, is_balance_zero))
                     },
                 )?;
 
@@ -1336,6 +1337,23 @@ pub mod pallet {
                         Ok(().into())
                     },
                 )?;
+
+                if is_balance_zero {
+                    OwnershipOfAsset::<T>::try_mutate(
+                        collection_id,
+                        asset_id,
+                        |ow| -> DispatchResultWithPostInfo {
+                            if let Some(ow) = ow {
+                                if let Some(idx) =
+                                    ow.token_holders.iter().position(|a| a == &origin)
+                                {
+                                    ow.token_holders.swap_remove(idx);
+                                }
+                            }
+                            Ok(().into())
+                        },
+                    )?;
+                }
 
                 Self::deposit_event(Event::Burned(collection_id, asset_id, who, burned));
 
@@ -1709,7 +1727,7 @@ impl<T: Config> Pallet<T> {
                     );
                     ow.token_holders.push(new_holder);
                 }
-                // if orogin account balance become zero then remove
+                // if origin account balance become zero then remove
                 // from holders
                 if source_account.balance == Zero::zero() {
                     if let Some(idx) = ow.token_holders.iter().position(|a| a == &source) {
