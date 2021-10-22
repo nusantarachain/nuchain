@@ -919,56 +919,7 @@ pub mod pallet {
             let from_owner = T::Lookup::lookup(from_owner)?;
             let new_owner = T::Lookup::lookup(new_owner)?;
 
-            ensure!(
-                OwnershipOfAsset::<T>::get(collection_id, asset_id)
-                    .as_ref()
-                    .map(|m| &m.owner)
-                    == Some(&from_owner),
-                Error::<T>::NotOwner
-            );
-
-            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-                // ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
-                ensure!(
-                    Self::is_approved_transfer(&origin, collection_id, asset_id),
-                    Error::<T>::Unauthorized
-                );
-
-                if meta.owner == new_owner {
-                    return Ok(().into());
-                }
-
-                let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &new_owner);
-
-                if meta.max_asset_per_account > Zero::zero() {
-                    ensure!(
-                        owned_asset_count < meta.max_asset_per_account,
-                        Error::<T>::MaxLimitPerAccount
-                    );
-                }
-
-                ensure!(
-                    owned_asset_count < MAX_ASSET_PER_ACCOUNT,
-                    Error::<T>::MaxLimitPerAccount
-                );
-
-                // Move the deposit to the new owner.
-                T::Currency::repatriate_reserved(&meta.owner, &new_owner, meta.deposit, Reserved)?;
-
-                OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
-                    *count = count.saturating_sub(1);
-                });
-
-                meta.owner = new_owner.clone();
-
-                OwnedAssetCount::<T>::mutate(collection_id, &new_owner, |count| {
-                    *count = count.saturating_add(1);
-                });
-
-                Self::deposit_event(Event::AssetOwnerChanged(collection_id, asset_id, new_owner));
-                Ok(().into())
-            })
+            Self::do_transfer_asset_from(collection_id, asset_id, origin, from_owner, new_owner)
         }
 
         /// Change the Owner of asset.
@@ -989,46 +940,48 @@ pub mod pallet {
             new_owner: <T::Lookup as StaticLookup>::Source,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
+            let from_owner = origin.clone();
             let new_owner = T::Lookup::lookup(new_owner)?;
 
-            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
+            Self::do_transfer_asset_from(collection_id, asset_id, origin, from_owner, new_owner)
 
-                if meta.owner == new_owner {
-                    return Ok(().into());
-                }
+            // if origin == new_owner {
+            //     return Ok(().into());
+            // }
 
-                let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &new_owner);
+            // Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+            //     let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
-                if meta.max_asset_per_account > Zero::zero() {
-                    ensure!(
-                        owned_asset_count < meta.max_asset_per_account,
-                        Error::<T>::MaxLimitPerAccount
-                    );
-                }
+            //     let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &new_owner);
 
-                ensure!(
-                    owned_asset_count < MAX_ASSET_PER_ACCOUNT,
-                    Error::<T>::MaxLimitPerAccount
-                );
+            //     if meta.max_asset_per_account > Zero::zero() {
+            //         ensure!(
+            //             owned_asset_count < meta.max_asset_per_account,
+            //             Error::<T>::MaxLimitPerAccount
+            //         );
+            //     }
 
-                // Move the deposit to the new owner.
-                T::Currency::repatriate_reserved(&meta.owner, &new_owner, meta.deposit, Reserved)?;
+            //     ensure!(
+            //         owned_asset_count < MAX_ASSET_PER_ACCOUNT,
+            //         Error::<T>::MaxLimitPerAccount
+            //     );
 
-                OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
-                    *count = count.saturating_sub(1);
-                });
+            //     // Move the deposit to the new owner.
+            //     T::Currency::repatriate_reserved(&meta.owner, &new_owner, meta.deposit, Reserved)?;
 
-                meta.owner = new_owner.clone();
+            //     OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
+            //         *count = count.saturating_sub(1);
+            //     });
 
-                OwnedAssetCount::<T>::mutate(collection_id, &new_owner, |count| {
-                    *count = count.saturating_add(1);
-                });
+            //     meta.owner = new_owner.clone();
 
-                Self::deposit_event(Event::AssetOwnerChanged(collection_id, asset_id, new_owner));
-                Ok(().into())
-            })
+            //     OwnedAssetCount::<T>::mutate(collection_id, &new_owner, |count| {
+            //         *count = count.saturating_add(1);
+            //     });
+
+            //     Self::deposit_event(Event::AssetOwnerChanged(collection_id, asset_id, new_owner));
+            //     Ok(().into())
+            // })
         }
 
         /// Change the Issuer, Admin and Freezer of an asset.
@@ -1825,6 +1778,68 @@ impl<T: Config> Pallet<T> {
         AssetOwnerIndex::<T>::mutate(collection_id, owner, |m_idx| {
             *m_idx = Some(m_idx.map_or(1, |idx| idx.saturating_add(1)));
             *m_idx
+        })
+    }
+
+    fn do_transfer_asset_from(
+        collection_id: T::CollectionId,
+        asset_id: T::AssetId,
+        origin: T::AccountId,
+        from_owner: T::AccountId,
+        new_owner: T::AccountId,
+    ) -> DispatchResultWithPostInfo {
+        if from_owner == new_owner {
+            return Ok(().into());
+        }
+
+        ensure!(
+            OwnershipOfAsset::<T>::get(collection_id, asset_id)
+                .as_ref()
+                .map(|m| &m.owner)
+                == Some(&from_owner),
+            Error::<T>::NotOwner
+        );
+
+        Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+            let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+            ensure!(
+                Self::is_approved_transfer(&origin, collection_id, asset_id),
+                Error::<T>::Unauthorized
+            );
+
+            if meta.owner == new_owner {
+                return Ok(().into());
+            }
+
+            let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &new_owner);
+
+            if meta.max_asset_per_account > Zero::zero() {
+                ensure!(
+                    owned_asset_count < meta.max_asset_per_account,
+                    Error::<T>::MaxLimitPerAccount
+                );
+            }
+
+            ensure!(
+                owned_asset_count < MAX_ASSET_PER_ACCOUNT,
+                Error::<T>::MaxLimitPerAccount
+            );
+
+            // Move the deposit to the new owner.
+            T::Currency::repatriate_reserved(&meta.owner, &new_owner, meta.deposit, Reserved)?;
+
+            OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
+                *count = count.saturating_sub(1);
+            });
+
+            meta.owner = new_owner.clone();
+
+            OwnedAssetCount::<T>::mutate(collection_id, &new_owner, |count| {
+                *count = count.saturating_add(1);
+            });
+
+            Self::deposit_event(Event::AssetOwnerChanged(collection_id, asset_id, new_owner));
+            Ok(().into())
         })
     }
 }

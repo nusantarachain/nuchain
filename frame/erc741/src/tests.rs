@@ -510,13 +510,6 @@ fn cannot_destroy_collection_when_has_assets() {
 #[test]
 fn basic_transfer_asset_ownership_should_work() {
     with_minted_asset_plus_token(|| {
-        // assert_ok!(Assets::mint_token(
-        //     Origin::signed(1),
-        //     COLLECTION_ID,
-        //     ASSET_ID,
-        //     1,
-        //     20
-        // ));
         Balances::make_free_balance_be(&2, 1);
         assert_ok!(Assets::transfer_asset(
             Origin::signed(1),
@@ -526,6 +519,43 @@ fn basic_transfer_asset_ownership_should_work() {
         ));
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 0);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &2), 1);
+    });
+}
+
+#[test]
+fn non_asset_owner_cannot_transfer_asset() {
+    with_minted_asset_plus_token(|| {
+        Balances::make_free_balance_be(&2, 100);
+        assert_noop!(
+            Assets::transfer_asset(Origin::signed(2), COLLECTION_ID, ASSET_ID, 3),
+            Error::<Test>::NotOwner
+        );
+
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID + 1,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None,
+            Some(100)
+        ));
+
+        // make 3 life (balance >= ED)
+        Balances::make_free_balance_be(&3, 1);
+        assert_ok!(Assets::transfer_asset(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID + 1,
+            3
+        ));
+        // dead account cannot receive transfer
+        assert_noop!(
+            Assets::transfer_asset(Origin::signed(2), COLLECTION_ID, ASSET_ID + 1, 4),
+            BalancesError::<Test>::DeadAccount
+        );
     });
 }
 
