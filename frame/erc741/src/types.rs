@@ -131,7 +131,7 @@ pub struct CollectionMetadata<
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]
 pub struct AssetMetadata<
-    DepositBalance,
+    Balance: Encode + Decode + Clone + Debug + Eq + PartialEq,
     AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq,
 > {
     /// The user friendly name of this asset. Limited in length by `StringLimit`.
@@ -143,8 +143,8 @@ pub struct AssetMetadata<
     // /// The number of decimals this asset uses to represent one unit.
     // decimals: u8,
 
-    /// Token URI
-    token_uri: Vec<u8>,
+    /// Asset's image URI
+    image_uri: Vec<u8>,
 
     /// Base URI
     /// based on https://docs.openzeppelin.com/contracts/2.x/api/token/erc721#ERC721Metadata
@@ -156,7 +156,28 @@ pub struct AssetMetadata<
     /// The balance deposited for this metadata.
     ///
     /// This pays for the data stored in this struct.
-    deposit: DepositBalance,
+    deposit: Balance,
+
+    /// Available supply for this asset's token (sub-license).
+    token_supply: Balance
+}
+
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]
+pub struct AssetHolderMetadata<
+    AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq
+> {
+    /// Asset owner
+    owner: AccountId,
+
+    /// Other account that allowed/approved to transfer this asset
+    allowed_to_transfer: Option<AccountId>,
+    
+    /// Other account that allowed/approved to transfer this asset's token
+    allowed_to_transfer_token: Option<AccountId>,
+
+    /// List of this asset's token holder, see `TokenBalance` to get balances
+    /// for each holders
+    token_holders: Vec<AccountId>,
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default)]

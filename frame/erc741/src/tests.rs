@@ -447,7 +447,7 @@ fn basic_transfer_asset_ownership_should_work() {
             20
         ));
         Balances::make_free_balance_be(&2, 1);
-        assert_ok!(Assets::transfer_asset_ownership(
+        assert_ok!(Assets::transfer_asset(
             Origin::signed(1),
             COLLECTION_ID,
             ASSET_ID,
