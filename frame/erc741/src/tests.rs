@@ -528,7 +528,7 @@ fn non_asset_owner_cannot_transfer_asset() {
         Balances::make_free_balance_be(&2, 100);
         assert_noop!(
             Assets::transfer_asset(Origin::signed(2), COLLECTION_ID, ASSET_ID, 3),
-            Error::<Test>::NotOwner
+            Error::<Test>::Unauthorized
         );
 
         assert_ok!(Assets::mint_asset(
@@ -558,6 +558,8 @@ fn non_asset_owner_cannot_transfer_asset() {
         );
     });
 }
+
+// @TODO(Robin): add test for approved to transfer and to transfer token.
 
 #[test]
 fn transfer_collection_ownership() {

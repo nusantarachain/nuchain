@@ -1426,8 +1426,8 @@ impl<T: Config> Pallet<T> {
         // Some(who) == collection.approved_for_transfer.as_ref() ||
         OwnershipOfAsset::<T>::get(collection_id, asset_id)
             .as_ref()
-            .map(|a| &a.owner)
-            == Some(who)
+            .map(|a| &a.owner == who || a.approved_to_transfer.as_ref() == Some(who))
+            .unwrap_or(false)
     }
 
     /// Get the asset `id` balance of `who`.
@@ -1791,14 +1791,6 @@ impl<T: Config> Pallet<T> {
         if from_owner == new_owner {
             return Ok(().into());
         }
-
-        ensure!(
-            OwnershipOfAsset::<T>::get(collection_id, asset_id)
-                .as_ref()
-                .map(|m| &m.owner)
-                == Some(&from_owner),
-            Error::<T>::NotOwner
-        );
 
         Collection::<T>::try_mutate(collection_id, |maybe_meta| {
             let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
