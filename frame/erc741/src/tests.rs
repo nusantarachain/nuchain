@@ -204,7 +204,32 @@ fn with_collection<F: FnOnce() -> ()>(cb: F) {
                 owner: 1,
                 max_asset_count: 1000,
                 has_token: false,
-                max_token_supply: 100,
+                max_token_supply: 0,
+                min_balance: 1,
+                public_mintable: true,
+                allowed_mint_accounts: Vec::new(),
+                max_asset_per_account: 0,
+                max_zombies: 5,
+            },
+        )
+        .expect("Cannot create asset");
+        cb()
+    });
+}
+
+fn with_collection_plus_token<F: FnOnce() -> ()>(cb: F) {
+    new_test_ext().execute_with(|| {
+        Balances::make_free_balance_be(&1, 100);
+        Assets::create_collection(
+            Origin::signed(1),
+            COLLECTION_ID,
+            NewCollectionParam {
+                name: b"Test1".to_vec(),
+                symbol: b"NFT".to_vec(),
+                owner: 1,
+                max_asset_count: 1000,
+                has_token: true,
+                max_token_supply: 200,
                 min_balance: 1,
                 public_mintable: true,
                 allowed_mint_accounts: Vec::new(),
@@ -265,7 +290,7 @@ fn with_minted_asset_plus_token<F: FnOnce() -> ()>(cb: F) {
                 owner: 1,
                 max_asset_count: 1000,
                 has_token: true,
-                max_token_supply: 100,
+                max_token_supply: 200,
                 min_balance: 1,
                 public_mintable: true,
                 allowed_mint_accounts: Vec::new(),
@@ -334,7 +359,7 @@ fn basic_destroy_collection() {
 
 #[test]
 fn basic_asset_minting_should_work() {
-    with_collection(|| {
+    with_collection_plus_token(|| {
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
         assert_ok!(Assets::mint_asset(
             Origin::signed(1),
@@ -345,7 +370,7 @@ fn basic_asset_minting_should_work() {
             None,
             None,
             None,
-            None
+            Some(1)
         ));
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
         assert_ok!(Assets::mint_token(
@@ -353,18 +378,19 @@ fn basic_asset_minting_should_work() {
             COLLECTION_ID,
             ASSET_ID,
             1,
-            100
+            10
         ));
 
-        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 100);
+        // 1 (initial mint asset) + 10 (minted) = 11
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 11);
         assert_ok!(Assets::mint_token(
             Origin::signed(1),
             COLLECTION_ID,
             ASSET_ID,
             2,
-            100
+            10
         ));
-        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 100);
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 10);
 
         // check token holdings
         assert_ok!(Assets::mint_asset(
@@ -376,7 +402,7 @@ fn basic_asset_minting_should_work() {
             None,
             None,
             None,
-            None
+            Some(1)
         ));
 
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 2);
@@ -423,7 +449,7 @@ fn asset_minting_deposit_calculation_works() {
             None
         ));
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 1);
-        let meta = Metadata::<Test>::get(COLLECTION_ID, ASSET_ID).expect("get metadata");
+        let meta = MetadataOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID).expect("get metadata");
         let mut expected_deposit = <Test as Config>::MetadataDepositPerByte::get() * (8 + 16);
         expected_deposit = expected_deposit + <Test as Config>::MetadataDepositBase::get();
         expected_deposit =
@@ -483,14 +509,14 @@ fn cannot_destroy_collection_when_has_assets() {
 
 #[test]
 fn basic_transfer_asset_ownership_should_work() {
-    with_minted_asset(|| {
-        assert_ok!(Assets::mint_token(
-            Origin::signed(1),
-            COLLECTION_ID,
-            ASSET_ID,
-            1,
-            20
-        ));
+    with_minted_asset_plus_token(|| {
+        // assert_ok!(Assets::mint_token(
+        //     Origin::signed(1),
+        //     COLLECTION_ID,
+        //     ASSET_ID,
+        //     1,
+        //     20
+        // ));
         Balances::make_free_balance_be(&2, 1);
         assert_ok!(Assets::transfer_asset(
             Origin::signed(1),
@@ -683,6 +709,127 @@ fn update_collection_should_works() {
     });
 }
 
+#[test]
+fn token_transfer_should_update_token_holders() {
+    with_minted_asset_plus_token(|| {
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            20
+        ));
+
+        let ownership = OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID)
+            .expect("Cannot get asset ownership");
+        // account 2 is not holder yet
+        assert_eq!(ownership.token_holders.contains(&2), false);
+
+        assert_ok!(Assets::transfer_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            2,
+            15
+        ));
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 15);
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 105);
+
+        let ownership = OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID)
+            .expect("Cannot get asset ownership");
+        assert_eq!(ownership.token_holders.contains(&1), true);
+        // account 2 is now holder
+        assert_eq!(ownership.token_holders.contains(&2), true);
+
+        // move all token from account 2 to account 3
+        assert_ok!(Assets::transfer_token(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID,
+            3,
+            15
+        ));
+        assert_eq!(
+            Account::<Test>::get(COLLECTION_ID, (ASSET_ID, &2)).balance,
+            0
+        );
+
+        let ownership = OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID)
+            .expect("Cannot get asset ownership");
+        // account 2 is no longer holder
+        assert_eq!(ownership.token_holders.contains(&2), false);
+        assert_eq!(ownership.token_holders.contains(&3), true);
+
+        // tranfser parts of token from account 3 to account 2
+        assert_ok!(Assets::transfer_token(
+            Origin::signed(3),
+            COLLECTION_ID,
+            ASSET_ID,
+            2,
+            5
+        ));
+        assert_eq!(
+            Account::<Test>::get(COLLECTION_ID, (ASSET_ID, &2)).balance,
+            5
+        );
+
+        let ownership = OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID)
+            .expect("Cannot get asset ownership");
+        // account 2 and 3 now both holder
+        assert_eq!(ownership.token_holders.contains(&2), true);
+        assert_eq!(ownership.token_holders.contains(&3), true);
+    });
+}
+
+#[test]
+fn low_balance_cannot_transfer_token() {
+    with_minted_asset_plus_token(|| {
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            20
+        ));
+
+        assert_noop!(
+            Assets::transfer_token(Origin::signed(2), COLLECTION_ID, ASSET_ID, 3, 15),
+            Error::<Test>::TokenBalanceLow
+        );
+    });
+}
+
+#[test]
+fn root_able_to_force_transfer_token() {
+    with_minted_asset_plus_token(|| {
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            20
+        ));
+
+        let ownership =
+            OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID).expect("get ownership");
+        assert_eq!(ownership.token_holders.contains(&2), false);
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 0);
+
+        assert_ok!(Assets::force_transfer_token(
+            Origin::root(),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            2,
+            15
+        ));
+        let ownership =
+            OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID).expect("get ownership");
+        assert_eq!(ownership.token_holders.contains(&2), true);
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 15);
+    });
+}
+
 // @TODO(Robin): code distribute royalties here
 // #[test]
 // fn distribute_royalties_work() {
@@ -831,7 +978,7 @@ fn asset_token_support_cannot_greather_than_token_supply() {
 //             12
 //         ));
 //         assert_eq!(Balances::reserved_balance(&1), 14);
-//         assert!(Metadata::<Test>::contains_key(0));
+//         assert!(MetadataOfAsset::<Test>::contains_key(0));
 
 //         assert_ok!(Assets::mint(Origin::signed(1), 0, 10, 100));
 //         assert_ok!(Assets::mint(Origin::signed(1), 0, 20, 100));
@@ -841,7 +988,7 @@ fn asset_token_support_cannot_greather_than_token_supply() {
 //         assert_eq!(Balances::reserved_balance(&1), 0);
 
 //         assert!(!Collectible::<Test>::contains_key(0));
-//         assert!(!Metadata::<Test>::contains_key(0));
+//         assert!(!MetadataOfAsset::<Test>::contains_key(0));
 //         assert_eq!(Account::<Test>::iter_prefix(0).count(), 0);
 
 //         assert_ok!(Assets::create(Origin::signed(1), 0, 1, 10, 1));
@@ -856,7 +1003,7 @@ fn asset_token_support_cannot_greather_than_token_supply() {
 //             12
 //         ));
 //         assert_eq!(Balances::reserved_balance(&1), 14);
-//         assert!(Metadata::<Test>::contains_key(0));
+//         assert!(MetadataOfAsset::<Test>::contains_key(0));
 
 //         assert_ok!(Assets::mint(Origin::signed(1), 0, 10, 100));
 //         assert_ok!(Assets::mint(Origin::signed(1), 0, 20, 100));
@@ -866,7 +1013,7 @@ fn asset_token_support_cannot_greather_than_token_supply() {
 //         assert_eq!(Balances::reserved_balance(&1), 0);
 
 //         assert!(!Collectible::<Test>::contains_key(0));
-//         assert!(!Metadata::<Test>::contains_key(0));
+//         assert!(!MetadataOfAsset::<Test>::contains_key(0));
 //         assert_eq!(Account::<Test>::iter_prefix(0).count(), 0);
 //     });
 // }
@@ -907,7 +1054,7 @@ fn destroy_asset_should_work() {
 
         assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), true);
         assert_eq!(
-            Metadata::<Test>::contains_key(COLLECTION_ID, ASSET_ID),
+            MetadataOfAsset::<Test>::contains_key(COLLECTION_ID, ASSET_ID),
             true
         );
         assert_eq!(Balances::reserved_balance(&1), 20);
@@ -922,7 +1069,7 @@ fn destroy_asset_should_work() {
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 0);
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
         assert_eq!(
-            Metadata::<Test>::contains_key(COLLECTION_ID, ASSET_ID),
+            MetadataOfAsset::<Test>::contains_key(COLLECTION_ID, ASSET_ID),
             false
         );
         assert_eq!(Balances::reserved_balance(&1), 9);
@@ -969,7 +1116,7 @@ fn non_owner_cannot_destroy_asset() {
 
 #[test]
 fn mint_token_should_works() {
-    with_minted_asset(|| {
+    with_minted_asset_plus_token(|| {
         assert_ok!(Assets::mint_token(
             Origin::signed(1),
             COLLECTION_ID,
@@ -977,20 +1124,14 @@ fn mint_token_should_works() {
             1,
             20
         ));
-        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 20);
+        // 120 = 100 (initial) + 20 (mint)
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 120);
     });
 }
 
 #[test]
 fn basic_token_transfer_should_work() {
-    with_minted_asset(|| {
-        assert_ok!(Assets::mint_token(
-            Origin::signed(1),
-            COLLECTION_ID,
-            ASSET_ID,
-            1,
-            20
-        ));
+    with_minted_asset_plus_token(|| {
         assert_ok!(Assets::transfer_token(
             Origin::signed(1),
             COLLECTION_ID,
@@ -999,13 +1140,14 @@ fn basic_token_transfer_should_work() {
             15
         ));
         assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 15);
-        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 5);
+        // 85 = 100 - 15
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 85);
     });
 }
 
 #[test]
 fn force_token_transfer_should_work() {
-    with_minted_asset(|| {
+    with_minted_asset_plus_token(|| {
         assert_ok!(Assets::mint_token(
             Origin::signed(1),
             COLLECTION_ID,
@@ -1014,7 +1156,7 @@ fn force_token_transfer_should_work() {
             20
         ));
         assert_ok!(Assets::force_transfer_token(
-            Origin::signed(1),
+            Origin::root(),
             COLLECTION_ID,
             ASSET_ID,
             1,
@@ -1022,13 +1164,14 @@ fn force_token_transfer_should_work() {
             15
         ));
         assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 15);
-        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 5);
+        // 105 = 100 (initial) + 20 (minted) - 15 (transfer)
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 105);
     });
 }
 
 #[test]
 fn burn_token_should_works() {
-    with_minted_asset(|| {
+    with_minted_asset_plus_token(|| {
         assert_ok!(Assets::mint_token(
             Origin::signed(1),
             COLLECTION_ID,
@@ -1043,7 +1186,8 @@ fn burn_token_should_works() {
             1,
             5
         ));
-        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 15);
+        // result: 100 (initial) + 20 (minted) - 5 (burn)
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 115);
     });
 }
 
@@ -1467,8 +1611,8 @@ fn burn_token_should_works() {
 //             BalancesError::<Test, _>::InsufficientBalance,
 //         );
 
-//         // Clear Metadata
-//         assert!(Metadata::<Test>::contains_key(0));
+//         // Clear MetadataOfAsset
+//         assert!(MetadataOfAsset::<Test>::contains_key(0));
 //         assert_ok!(Assets::set_metadata(
 //             Origin::signed(1),
 //             0,
@@ -1476,6 +1620,6 @@ fn burn_token_should_works() {
 //             vec![],
 //             0
 //         ));
-//         assert!(!Metadata::<Test>::contains_key(0));
+//         assert!(!MetadataOfAsset::<Test>::contains_key(0));
 //     });
 // }
