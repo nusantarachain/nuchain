@@ -527,7 +527,7 @@ fn non_asset_owner_cannot_transfer_asset() {
         Balances::make_free_balance_be(&2, 100);
         assert_noop!(
             Assets::transfer_asset(Origin::signed(2), COLLECTION_ID, ASSET_ID, 3),
-            Error::<Test>::Unauthorized
+            Error::<Test>::NotOwner
         );
 
         assert_ok!(Assets::mint_asset(
@@ -558,7 +558,70 @@ fn non_asset_owner_cannot_transfer_asset() {
     });
 }
 
-// @TODO(Robin): add test for approved to transfer and to transfer token.
+#[test]
+fn approved_to_transfer_asset_works() {
+    with_minted_asset(|| {
+        Balances::make_free_balance_be(&2, 100);
+        assert_ok!(Assets::approve_to_transfer(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            Some(2)
+        ));
+        Balances::make_free_balance_be(&3, 1); // make target account alive
+        assert_ok!(Assets::transfer_asset_from(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            3
+        ),);
+        // nullify to remove approved account
+        assert_ok!(Assets::approve_to_transfer(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            None
+        ));
+        assert_noop!(
+            Assets::transfer_asset_from(Origin::signed(2), COLLECTION_ID, ASSET_ID, 1, 3),
+            Error::<Test>::Unauthorized
+        );
+    });
+}
+
+#[test]
+fn approved_to_transfer_token_works() {
+    with_minted_asset_plus_token(|| {
+        Balances::make_free_balance_be(&2, 100);
+        assert_ok!(Assets::approve_to_transfer_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            Some(2)
+        ));
+        Balances::make_free_balance_be(&3, 1); // make target account alive
+        assert_ok!(Assets::transfer_token_from(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            3,
+            50
+        ),);
+        // nullify to remove approved account
+        assert_ok!(Assets::approve_to_transfer_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            None
+        ));
+        assert_noop!(
+            Assets::transfer_token_from(Origin::signed(2), COLLECTION_ID, ASSET_ID, 1, 3, 50),
+            Error::<Test>::Unauthorized
+        );
+    });
+}
 
 #[test]
 fn transfer_collection_ownership() {
@@ -1257,7 +1320,7 @@ fn random_holders_removed_when_token_balance_is_zero() {
     with_minted_asset_plus_token(|| {
         // we needs to mint 2 more tokens
 
-        for i in 1..(MAX_ASSET_TOKEN_HOLDERS-1) {
+        for i in 1..(MAX_ASSET_TOKEN_HOLDERS - 1) {
             assert_ok!(Assets::force_transfer_token(
                 Origin::root(),
                 COLLECTION_ID,
@@ -1272,11 +1335,19 @@ fn random_holders_removed_when_token_balance_is_zero() {
             .expect("Cannot get asset ownership");
         assert_eq!(ownership.token_holders.contains(&2), true);
 
-        assert_eq!(Account::<Test>::get(COLLECTION_ID, (ASSET_ID, 2)).balance, 1);
-
-        assert_ok!(
-            Assets::force_transfer_token(Origin::root(), COLLECTION_ID, ASSET_ID, 2, 3, 1)
+        assert_eq!(
+            Account::<Test>::get(COLLECTION_ID, (ASSET_ID, 2)).balance,
+            1
         );
+
+        assert_ok!(Assets::force_transfer_token(
+            Origin::root(),
+            COLLECTION_ID,
+            ASSET_ID,
+            2,
+            3,
+            1
+        ));
 
         let ownership = OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID)
             .expect("Cannot get asset ownership");

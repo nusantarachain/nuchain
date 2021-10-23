@@ -943,89 +943,59 @@ pub mod pallet {
             let from_owner = origin.clone();
             let new_owner = T::Lookup::lookup(new_owner)?;
 
+            // origin must be owner
+            ensure!(
+                OwnershipOfAsset::<T>::get(collection_id, asset_id)
+                    .map(|o| &o.owner == &from_owner)
+                    == Some(true),
+                Error::<T>::NotOwner
+            );
+
             Self::do_transfer_asset_from(collection_id, asset_id, origin, from_owner, new_owner)
-
-            // if origin == new_owner {
-            //     return Ok(().into());
-            // }
-
-            // Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-            //     let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-
-            //     let owned_asset_count = OwnedAssetCount::<T>::get(collection_id, &new_owner);
-
-            //     if meta.max_asset_per_account > Zero::zero() {
-            //         ensure!(
-            //             owned_asset_count < meta.max_asset_per_account,
-            //             Error::<T>::MaxLimitPerAccount
-            //         );
-            //     }
-
-            //     ensure!(
-            //         owned_asset_count < MAX_ASSET_PER_ACCOUNT,
-            //         Error::<T>::MaxLimitPerAccount
-            //     );
-
-            //     // Move the deposit to the new owner.
-            //     T::Currency::repatriate_reserved(&meta.owner, &new_owner, meta.deposit, Reserved)?;
-
-            //     OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
-            //         *count = count.saturating_sub(1);
-            //     });
-
-            //     meta.owner = new_owner.clone();
-
-            //     OwnedAssetCount::<T>::mutate(collection_id, &new_owner, |count| {
-            //         *count = count.saturating_add(1);
-            //     });
-
-            //     Self::deposit_event(Event::AssetOwnerChanged(collection_id, asset_id, new_owner));
-            //     Ok(().into())
-            // })
         }
 
-        /// Change the Issuer, Admin and Freezer of an asset.
-        ///
-        /// Origin must be Signed and the sender should be the Owner of the asset `id`.
-        ///
-        /// - `id`: The identifier of the asset to be frozen.
-        /// - `issuer`: The new Issuer of this asset.
-        /// - `admin`: The new Admin of this asset.
-        /// - `freezer`: The new Freezer of this asset.
-        ///
-        /// Emits `TeamChanged`.
-        ///
-        /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::set_team())]
-        pub(super) fn set_team(
-            origin: OriginFor<T>,
-            #[pallet::compact] collection_id: T::CollectionId,
-            // issuer: <T::Lookup as StaticLookup>::Source,
-            // allowed_mint_accounts: Vec<T::AccountId>,
-            admin: <T::Lookup as StaticLookup>::Source,
-            freezer: <T::Lookup as StaticLookup>::Source,
-        ) -> DispatchResultWithPostInfo {
-            let origin = ensure_signed(origin)?;
-            // let issuer = T::Lookup::lookup(issuer)?;
-            let admin = T::Lookup::lookup(admin)?;
-            let freezer = T::Lookup::lookup(freezer)?;
+        // /// Change the Issuer, Admin and Freezer of an asset.
+        // ///
+        // /// Origin must be Signed and the sender should be the Owner of the asset `id`.
+        // ///
+        // /// - `id`: The identifier of the asset to be frozen.
+        // /// - `issuer`: The new Issuer of this asset.
+        // /// - `admin`: The new Admin of this asset.
+        // /// - `freezer`: The new Freezer of this asset.
+        // ///
+        // /// Emits `TeamChanged`.
+        // ///
+        // /// Weight: `O(1)`
+        // #[pallet::weight(T::WeightInfo::set_team())]
+        // pub(super) fn set_team(
+        //     origin: OriginFor<T>,
+        //     #[pallet::compact] collection_id: T::CollectionId,
+        //     // issuer: <T::Lookup as StaticLookup>::Source,
+        //     // allowed_mint_accounts: Vec<T::AccountId>,
+        //     admin: <T::Lookup as StaticLookup>::Source,
+        //     freezer: <T::Lookup as StaticLookup>::Source,
+        // ) -> DispatchResultWithPostInfo {
+        //     let origin = ensure_signed(origin)?;
+        //     // let issuer = T::Lookup::lookup(issuer)?;
+        //     let admin = T::Lookup::lookup(admin)?;
+        //     let freezer = T::Lookup::lookup(freezer)?;
 
-            Collection::<T>::try_mutate(collection_id, |maybe_details| {
-                let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &details.owner, Error::<T>::Unauthorized);
+        //     Collection::<T>::try_mutate(collection_id, |maybe_details| {
+        //         let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
+        //         ensure!(&origin == &details.owner, Error::<T>::Unauthorized);
 
-                // @TODO(robin): adjust deposit here
-                // ....
+        //         // @TODO(robin): adjust deposit here
+        //         // ....
 
-                // details.issuer = issuer.clone();
-                // details.allowed_mint_accounts = allowed_mint_accounts.clone();
-                // details.admin = admin.clone();
-                // details.freezer = freezer.clone();
+        //         // details.issuer = issuer.clone();
+        //         // details.allowed_mint_accounts = allowed_mint_accounts.clone();
+        //         // details.admin = admin.clone();
+        //         // details.freezer = freezer.clone();
 
-                Self::deposit_event(Event::TeamChanged(collection_id, admin, freezer));
-                Ok(().into())
-            })
-        }
+        //         Self::deposit_event(Event::TeamChanged(collection_id, admin, freezer));
+        //         Ok(().into())
+        //     })
+        // }
 
         /// Set the metadata for an asset.
         ///
@@ -1362,6 +1332,88 @@ pub mod pallet {
             })
         }
 
+        #[pallet::weight(T::WeightInfo::transfer())]
+        pub(super) fn transfer_token_from(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+            #[pallet::compact] asset_id: T::AssetId,
+            source: <T::Lookup as StaticLookup>::Source,
+            target: <T::Lookup as StaticLookup>::Source,
+            #[pallet::compact] amount: T::Balance,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+            ensure!(!amount.is_zero(), Error::<T>::AmountZero);
+
+            let source = T::Lookup::lookup(source)?;
+            let dest = T::Lookup::lookup(target)?;
+
+            if dest == source {
+                return Ok(().into());
+            }
+            ensure!(
+                Self::is_approved_transfer_token(&origin, collection_id, asset_id),
+                Error::<T>::Unauthorized
+            );
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(!meta.is_frozen, Error::<T>::Frozen);
+                ensure!(meta.has_token, Error::<T>::NotSupported);
+
+                Self::do_transfer_token(source, collection_id, asset_id, meta, dest, amount)
+            })
+        }
+
+        /// Approve account to transfer asset
+        #[pallet::weight(100_000_000)]
+        pub(super) fn approve_to_transfer(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+            #[pallet::compact] asset_id: T::AssetId,
+            target: Option<<T::Lookup as StaticLookup>::Source>,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+
+            OwnershipOfAsset::<T>::try_mutate(collection_id, asset_id, |maybe_aw| {
+                let aw = maybe_aw.as_mut().ok_or(Error::<T>::NotFound)?;
+                ensure!(origin == aw.owner, Error::<T>::Unauthorized);
+
+                if let Some(target) = target {
+                    let target = T::Lookup::lookup(target)?;
+                    aw.approved_to_transfer = Some(target);
+                } else {
+                    aw.approved_to_transfer = None;
+                }
+
+                Ok(().into())
+            })
+        }
+
+        /// Approve other account to transfer asset
+        #[pallet::weight(100_000_000)]
+        pub(super) fn approve_to_transfer_token(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+            #[pallet::compact] asset_id: T::AssetId,
+            target: Option<<T::Lookup as StaticLookup>::Source>,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+
+            OwnershipOfAsset::<T>::try_mutate(collection_id, asset_id, |maybe_aw| {
+                let aw = maybe_aw.as_mut().ok_or(Error::<T>::NotFound)?;
+                ensure!(origin == aw.owner, Error::<T>::Unauthorized);
+
+                if let Some(target) = target {
+                    let target = T::Lookup::lookup(target)?;
+                    aw.approved_to_transfer_token = Some(target);
+                } else {
+                    aw.approved_to_transfer_token = None;
+                }
+
+                Ok(().into())
+            })
+        }
+
         /// Move some assets from one account to another.
         ///
         /// Origin must be Signed and the sender should be the Admin of the asset `id`.
@@ -1425,6 +1477,21 @@ impl<T: Config> Pallet<T> {
         OwnershipOfAsset::<T>::get(collection_id, asset_id)
             .as_ref()
             .map(|a| &a.owner == who || a.approved_to_transfer.as_ref() == Some(who))
+            .unwrap_or(false)
+    }
+
+    /// Check whether `who` is aprroved to do transfers some tokens for given asset
+    /// from other account.
+    ///
+    /// `who` must be collection owner, or asset owner, or approved operator.
+    pub fn is_approved_transfer_token(
+        who: &T::AccountId,
+        collection_id: T::CollectionId,
+        asset_id: T::AssetId,
+    ) -> bool {
+        OwnershipOfAsset::<T>::get(collection_id, asset_id)
+            .as_ref()
+            .map(|a| &a.owner == who || a.approved_to_transfer_token.as_ref() == Some(who))
             .unwrap_or(false)
     }
 
