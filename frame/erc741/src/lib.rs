@@ -38,7 +38,7 @@ use frame_support::{
 };
 use sp_runtime::{
     traits::{
-        AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedSub, SaturatedConversion, Saturating,
+        AtLeast32BitUnsigned, CheckedAdd, CheckedSub, SaturatedConversion, Saturating,
         StaticLookup, Zero,
     },
     Percent, RuntimeDebug,
@@ -134,13 +134,22 @@ pub mod pallet {
         /// Some assets were issued. \[collection_id, owner, total_supply\]
         Issued(T::CollectionId, T::AssetId, T::AccountId, T::Balance),
         /// Some assets were transferred. \[collection_id, from, to, amount\]
-        Transferred(
+        TokenTransferred(
             T::CollectionId,
             T::AssetId,
             T::AccountId,
             T::AccountId,
             T::Balance,
         ),
+        /// Some assets was transferred by an admin. \[collection_id, from, to, amount\]
+        ForceTokenTransferred(
+            T::CollectionId,
+            T::AssetId,
+            T::AccountId,
+            T::AccountId,
+            T::Balance,
+        ),
+
         /// Some assets were destroyed. \[collection_id, owner, balance\]
         Burned(T::CollectionId, T::AssetId, T::AccountId, T::Balance),
         /// The management team changed \[collection_id, admin, freezer\]
@@ -149,14 +158,15 @@ pub mod pallet {
         CollectionOwnerChanged(T::CollectionId, T::AccountId),
         /// The owner changed \[collection_id, asset_id, owner\]
         AssetOwnerChanged(T::CollectionId, T::AssetId, T::AccountId),
-        /// Some assets was transferred by an admin. \[collection_id, from, to, amount\]
-        ForceTransferred(
-            T::CollectionId,
-            T::AssetId,
-            T::AccountId,
-            T::AccountId,
-            T::Balance,
-        ),
+
+        /// Some account approved to transfer someone's asset \[collection_id, asset_id, account_id\].
+        ApprovedToTransfer(T::CollectionId, T::AssetId, T::AccountId),
+        /// Some account approved to transfer someone's token's asset \[collection_id, asset_id, account_id\].
+        ApprovedToTransferToken(T::CollectionId, T::AssetId, T::AccountId),
+        /// Some account approval to transfer revoked.
+        ApprovedToTransferRevoked(T::CollectionId, T::AssetId, T::AccountId),
+        /// Some account revoked from approval to transfer someone's token's asset \[collection_id, asset_id, account_id\].
+        ApprovedToTransferTokenRevoked(T::CollectionId, T::AssetId, T::AccountId),
         /// Some account `who` was frozen. \[collection_id, who\]
         Frozen(T::CollectionId, T::AssetId, T::AccountId),
         /// Some account `who` was thawed. \[collection_id, who\]
@@ -220,6 +230,8 @@ pub mod pallet {
         MaxLimitPerAccount,
         /// From address is not owner of asset
         NotOwner,
+        /// Attributes already set, no needs to change.
+        AlreadySet,
         /// Some metadata attribute cannot be set twice
         MetadataAlreadySet,
         /// Operation not supported
@@ -1458,19 +1470,37 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
-            OwnershipOfAsset::<T>::try_mutate(collection_id, asset_id, |maybe_aw| {
-                let aw = maybe_aw.as_mut().ok_or(Error::<T>::NotFound)?;
-                ensure!(origin == aw.owner, Error::<T>::Unauthorized);
+            OwnershipOfAsset::<T>::try_mutate(
+                collection_id,
+                asset_id,
+                |maybe_aw| -> DispatchResultWithPostInfo {
+                    let aw = maybe_aw.as_mut().ok_or(Error::<T>::NotFound)?;
+                    ensure!(origin == aw.owner, Error::<T>::Unauthorized);
 
-                if let Some(target) = target {
-                    let target = T::Lookup::lookup(target)?;
-                    aw.approved_to_transfer = Some(target);
-                } else {
-                    aw.approved_to_transfer = None;
-                }
+                    if let Some(target) = target {
+                        let target = T::Lookup::lookup(target)?;
+                        aw.approved_to_transfer = Some(target.clone());
+                        Self::deposit_event(Event::ApprovedToTransfer(
+                            collection_id,
+                            asset_id,
+                            target,
+                        ));
+                    } else {
+                        let old_target = match aw.approved_to_transfer.clone() {
+                            Some(target) => target,
+                            None => return Err(Error::<T>::AlreadySet.into()),
+                        };
+                        aw.approved_to_transfer = None;
+                        Self::deposit_event(Event::ApprovedToTransferRevoked(
+                            collection_id,
+                            asset_id,
+                            old_target,
+                        ));
+                    }
 
-                Ok(().into())
-            })
+                    Ok(().into())
+                },
+            )
         }
 
         /// Approve other account to transfer asset
@@ -1489,9 +1519,23 @@ pub mod pallet {
 
                 if let Some(target) = target {
                     let target = T::Lookup::lookup(target)?;
-                    aw.approved_to_transfer_token = Some(target);
+                    aw.approved_to_transfer_token = Some(target.clone());
+                    Self::deposit_event(Event::ApprovedToTransferToken(
+                        collection_id,
+                        asset_id,
+                        target,
+                    ));
                 } else {
+                    let old_target = match aw.approved_to_transfer_token.clone() {
+                        Some(target) => target,
+                        None => return Err(Error::<T>::AlreadySet.into()),
+                    };
                     aw.approved_to_transfer_token = None;
+                    Self::deposit_event(Event::ApprovedToTransferTokenRevoked(
+                        collection_id,
+                        asset_id,
+                        old_target,
+                    ));
                 }
 
                 Ok(().into())
@@ -1868,7 +1912,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::deposit_event(Event::Transferred(
+        Self::deposit_event(Event::TokenTransferred(
             collection_id,
             asset_id,
             source,

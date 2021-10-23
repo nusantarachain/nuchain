@@ -1130,7 +1130,7 @@ fn basic_collection_with_asset_token_support_should_works() {
 }
 
 #[test]
-fn asset_token_support_cannot_greather_than_token_supply() {
+fn asset_token_support_cannot_greater_than_token_supply() {
     new_test_ext().execute_with(|| {
         Balances::make_free_balance_be(&1, 100);
         Assets::create_collection(
@@ -1408,10 +1408,9 @@ fn max_holder_limitation_works() {
 }
 
 #[test]
-fn random_holders_removed_when_token_balance_is_zero() {
+fn test_random_holder_removed_when_token_balance_become_zero() {
     with_minted_asset_plus_token(|| {
         // we needs to mint 2 more tokens
-
         for i in 1..(MAX_ASSET_TOKEN_HOLDERS - 1) {
             assert_ok!(Assets::force_transfer_token(
                 Origin::root(),
