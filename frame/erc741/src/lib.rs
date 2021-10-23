@@ -191,7 +191,7 @@ pub mod pallet {
         Unauthorized,
         /// The given asset ID is unknown.
         Unknown,
-        /// The origin account is frozen.
+        /// The collection/asset/origin account is frozen.
         Frozen,
         /// The asset ID is already taken.
         InUse,
@@ -815,18 +815,94 @@ pub mod pallet {
         pub(super) fn freeze_collection(
             origin: OriginFor<T>,
             #[pallet::compact] collection_id: T::CollectionId,
-            // #[pallet::compact] asset_id: T::AssetId,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let d = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-                // ensure!(&origin == &d.freezer, Error::<T>::Unauthorized);
-                ensure!(&origin == &d.owner, Error::<T>::Unauthorized);
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
 
-                d.is_frozen = true;
+                meta.is_frozen = true;
 
                 Self::deposit_event(Event::<T>::CollectionFrozen(collection_id));
+                Ok(().into())
+            })
+        }
+
+        /// Allow further unprivileged transfers for the asset class.
+        ///
+        /// Origin must be Signed and the sender should be the Freezer of the asset `id`.
+        ///
+        /// - `collection_id`: The identifier of the asset to be frozen.
+        ///
+        /// Emits `Frozen`.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(T::WeightInfo::freeze_asset())]
+        pub(super) fn unfreeze_collection(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
+
+                meta.is_frozen = false;
+
+                Self::deposit_event(Event::<T>::CollectionThawed(collection_id));
+                Ok(().into())
+            })
+        }
+
+        /// Disallow further unprivileged transfers for the asset class.
+        ///
+        /// Origin must be `ForceOrigin`.
+        ///
+        /// - `id`: The identifier of the asset to be frozen.
+        ///
+        /// Emits `Frozen`.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(T::WeightInfo::freeze_asset())]
+        pub(super) fn force_freeze_collection(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+        ) -> DispatchResultWithPostInfo {
+            T::ForceOrigin::ensure_origin(origin)?;
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+
+                meta.is_frozen = true;
+
+                Self::deposit_event(Event::<T>::CollectionFrozen(collection_id));
+                Ok(().into())
+            })
+        }
+
+        /// Allow further unprivileged transfers for the asset class.
+        ///
+        /// Origin must be `ForceOrigin`.
+        ///
+        /// - `collection_id`: The identifier of the asset to be frozen.
+        ///
+        /// Emits `Frozen`.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(T::WeightInfo::freeze_asset())]
+        pub(super) fn force_unfreeze_collection(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+        ) -> DispatchResultWithPostInfo {
+            T::ForceOrigin::ensure_origin(origin)?;
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                meta.is_frozen = false;
+
+                Self::deposit_event(Event::<T>::CollectionThawed(collection_id));
                 Ok(().into())
             })
         }
@@ -1857,6 +1933,7 @@ impl<T: Config> Pallet<T> {
 
         Collection::<T>::try_mutate(collection_id, |maybe_meta| {
             let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+            ensure!(!meta.is_frozen, Error::<T>::Frozen);
             ensure!(
                 Self::is_approved_transfer(&origin, collection_id, asset_id),
                 Error::<T>::Unauthorized

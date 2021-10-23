@@ -964,6 +964,61 @@ fn non_root_unable_to_force_transfer_token() {
 // @TODO(Robin): cover collection freeze functionalities
 
 #[test]
+fn freeze_unfreeze_collection_works() {
+    with_minted_asset_plus_token(|| {
+        assert_ok!(Assets::freeze_collection(Origin::signed(1), COLLECTION_ID));
+        Balances::make_free_balance_be(&2, 100);
+        assert_noop!(
+            Assets::transfer_asset(Origin::signed(1), COLLECTION_ID, ASSET_ID, 2),
+            Error::<Test>::Frozen
+        );
+        assert_ok!(Assets::unfreeze_collection(
+            Origin::signed(1),
+            COLLECTION_ID
+        ));
+        assert_ok!(Assets::transfer_asset(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            2
+        ));
+    });
+}
+
+#[test]
+fn force_freeze_unfreeze_collection_works() {
+    with_minted_asset_plus_token(|| {
+        assert_noop!(
+            Assets::force_freeze_collection(Origin::signed(1), COLLECTION_ID),
+            DispatchError::BadOrigin
+        );
+        assert_ok!(Assets::force_freeze_collection(
+            Origin::root(),
+            COLLECTION_ID
+        ));
+        Balances::make_free_balance_be(&2, 100);
+        assert_noop!(
+            Assets::transfer_asset(Origin::signed(1), COLLECTION_ID, ASSET_ID, 2),
+            Error::<Test>::Frozen
+        );
+        assert_noop!(
+            Assets::force_unfreeze_collection(Origin::signed(1), COLLECTION_ID),
+            DispatchError::BadOrigin
+        );
+        assert_ok!(Assets::force_unfreeze_collection(
+            Origin::root(),
+            COLLECTION_ID
+        ));
+        assert_ok!(Assets::transfer_asset(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            2
+        ));
+    });
+}
+
+#[test]
 fn enumerate_assets_via_asset_index() {
     with_minted_asset(|| {
         Balances::make_free_balance_be(&2, 100);
