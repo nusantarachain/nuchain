@@ -30,7 +30,6 @@ use sp_runtime::{
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
-type AssetId = <Test as Config>::AssetId;
 
 frame_support::construct_runtime!(
     pub enum Test where
@@ -1016,8 +1015,6 @@ fn asset_token_support_cannot_greather_than_token_supply() {
     });
 }
 
-// @TODO(Robin): test MAX_ASSET_TOKEN_HOLDERS limitation
-
 // #[test]
 // fn lifecycle_should_work() {
 //     new_test_ext().execute_with(|| {
@@ -1222,6 +1219,69 @@ fn force_token_transfer_should_work() {
         assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 15);
         // 105 = 100 (initial) + 20 (minted) - 15 (transfer)
         assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 105);
+    });
+}
+
+#[test]
+fn max_holder_limitation_works() {
+    with_minted_asset_plus_token(|| {
+        // we needs to mint 2 more tokens
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            1
+        ));
+        let mut n_i: u64 = 0;
+        for i in 1..MAX_ASSET_TOKEN_HOLDERS {
+            n_i = i as u64;
+            assert_ok!(Assets::force_transfer_token(
+                Origin::root(),
+                COLLECTION_ID,
+                ASSET_ID,
+                1,
+                1 + n_i,
+                1
+            ));
+        }
+        assert_err!(
+            Assets::force_transfer_token(Origin::root(), COLLECTION_ID, ASSET_ID, 1, 1 + n_i, 1),
+            Error::<Test>::MaxTokenHolder
+        );
+    });
+}
+
+#[test]
+fn random_holders_removed_when_token_balance_is_zero() {
+    with_minted_asset_plus_token(|| {
+        // we needs to mint 2 more tokens
+
+        for i in 1..(MAX_ASSET_TOKEN_HOLDERS-1) {
+            assert_ok!(Assets::force_transfer_token(
+                Origin::root(),
+                COLLECTION_ID,
+                ASSET_ID,
+                1,
+                1 + i as u64,
+                1
+            ));
+        }
+
+        let ownership = OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID)
+            .expect("Cannot get asset ownership");
+        assert_eq!(ownership.token_holders.contains(&2), true);
+
+        assert_eq!(Account::<Test>::get(COLLECTION_ID, (ASSET_ID, 2)).balance, 1);
+
+        assert_ok!(
+            Assets::force_transfer_token(Origin::root(), COLLECTION_ID, ASSET_ID, 2, 3, 1)
+        );
+
+        let ownership = OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID)
+            .expect("Cannot get asset ownership");
+        // account 2 is no longer holder
+        assert_eq!(ownership.token_holders.contains(&2), false);
     });
 }
 

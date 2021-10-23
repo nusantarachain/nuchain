@@ -1321,7 +1321,8 @@ pub mod pallet {
         /// Transfered account will added into asset's token holders, seee `AssetOwnership`.
         /// If origin token become zero then origin removed from token holders.
         ///
-        /// - `id`: The identifier of the asset to have some amount transferred.
+        /// - `collection_id`: The identifier of the collection where asset is located.
+        /// - `asset_id`: The identifier of the asset to have some amount transferred.
         /// - `target`: The account to be credited.
         /// - `amount`: The amount by which the sender's balance of assets should be reduced and
         /// `target`'s balance increased. The amount actually transferred may be slightly greater in
@@ -1408,7 +1409,6 @@ pub mod pallet {
 }
 
 use frame_support::{dispatch::DispatchResultWithPostInfo, traits::Get};
-use sp_runtime::DispatchResult;
 
 // The main implementation block for the module.
 impl<T: Config> Pallet<T> {
@@ -1511,10 +1511,10 @@ impl<T: Config> Pallet<T> {
         if meta.has_token {
             // if this asset has token
             // then assign current owner as the initial holder
-            ensure!(
-                asset_ownership.token_holders.len() as u32 + 1 <= MAX_ASSET_TOKEN_HOLDERS,
-                Error::<T>::MaxTokenHolder
-            );
+            // ensure!(
+            //     asset_ownership.token_holders.len() as u32 + 1 <= MAX_ASSET_TOKEN_HOLDERS,
+            //     Error::<T>::MaxTokenHolder
+            // );
             asset_ownership.token_holders.push(who.clone());
         }
 
@@ -1641,8 +1641,6 @@ impl<T: Config> Pallet<T> {
             .balance
             .checked_sub(&amount)
             .ok_or(Error::<T>::TokenBalanceLow)?;
-
-        dbg!(source_account.balance);
 
         let mut amount = amount;
         if source_account.balance < meta.min_balance {
