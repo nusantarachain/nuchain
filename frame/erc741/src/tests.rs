@@ -947,21 +947,57 @@ fn non_root_unable_to_force_transfer_token() {
 }
 
 // @TODO(Robin): code distribute royalties here
-// #[test]
-// fn distribute_royalties_work() {
-//     with_minted_asset(|| {
-//         assert_ok!(Assets::mint_token(
-//             Origin::signed(1),
-//             COLLECTION_ID,
-//             ASSET_ID,
-//             1,
-//             3
-//         ));
-//         Assets::transfer
-//     });
-// }
+#[test]
+fn distribute_shares() {
+    with_minted_asset_plus_token(|| {
+        Balances::make_free_balance_be(&1, 100);
+        assert_ok!(Assets::dist_shares(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            100
+        ));
+        // split shares to self
+        assert_eq!(Balances::free_balance(1), 100);
 
-// @TODO(Robin): cover collection freeze functionalities
+        Balances::make_free_balance_be(&1, 1000);
+        assert_ok!(Assets::transfer_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            2,
+            20
+        ));
+
+        assert_ok!(Assets::transfer_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            3,
+            30
+        ));
+
+        assert_ok!(Assets::transfer_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            4,
+            5
+        ));
+
+        assert_ok!(Assets::dist_shares(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1000
+        ));
+
+        assert_eq!(Balances::free_balance(2), 200);
+        assert_eq!(Balances::free_balance(3), 300);
+        assert_eq!(Balances::free_balance(4), 50);
+        assert_eq!(Balances::free_balance(1), 450);
+    });
+}
 
 #[test]
 fn freeze_unfreeze_collection_works() {
@@ -1132,6 +1168,8 @@ fn asset_token_support_cannot_greather_than_token_supply() {
         );
     });
 }
+
+// @TODO(Robin): add tests for set asset metadata.
 
 // #[test]
 // fn lifecycle_should_work() {

@@ -34,11 +34,14 @@ use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::DispatchError,
     ensure,
-    traits::{BalanceStatus::Reserved, Currency, ReservableCurrency},
+    traits::{BalanceStatus::Reserved, Currency, ExistenceRequirement, ReservableCurrency},
 };
 use sp_runtime::{
-    traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
-    RuntimeDebug,
+    traits::{
+        AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedSub, SaturatedConversion, Saturating,
+        StaticLookup, Zero,
+    },
+    Percent, RuntimeDebug,
 };
 use sp_std::{fmt::Debug, prelude::*};
 pub use weights::WeightInfo;
@@ -221,6 +224,8 @@ pub mod pallet {
         NotSupported,
         /// Max token holder limit reached
         MaxTokenHolder,
+        /// When origin balance less than amount to share
+        InsufficientBalance,
     }
 
     #[pallet::storage]
@@ -491,6 +496,111 @@ pub mod pallet {
                     meta.has_token = has_token;
                 }
 
+                Ok(().into())
+            })
+        }
+
+        /// Disallow further unprivileged transfers for the asset class.
+        ///
+        /// Origin must be Signed and the sender should be the Freezer of the asset `id`.
+        ///
+        /// - `id`: The identifier of the asset to be frozen.
+        ///
+        /// Emits `Frozen`.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(100_000_000)]
+        pub(super) fn freeze_collection(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
+
+                meta.is_frozen = true;
+
+                Self::deposit_event(Event::<T>::CollectionFrozen(collection_id));
+                Ok(().into())
+            })
+        }
+
+        /// Disallow further unprivileged transfers for the asset class.
+        ///
+        /// Origin must be `ForceOrigin`.
+        ///
+        /// - `id`: The identifier of the asset to be frozen.
+        ///
+        /// Emits `Frozen`.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(100_000_000)]
+        pub(super) fn force_freeze_collection(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+        ) -> DispatchResultWithPostInfo {
+            T::ForceOrigin::ensure_origin(origin)?;
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+
+                meta.is_frozen = true;
+
+                Self::deposit_event(Event::<T>::CollectionFrozen(collection_id));
+                Ok(().into())
+            })
+        }
+
+        /// Allow further unprivileged transfers for the asset class.
+        ///
+        /// Origin must be Signed and the sender should be the Freezer of the asset `id`.
+        ///
+        /// - `collection_id`: The identifier of the asset to be frozen.
+        ///
+        /// Emits `Frozen`.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(100_000_000)]
+        pub(super) fn unfreeze_collection(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+        ) -> DispatchResultWithPostInfo {
+            let origin = ensure_signed(origin)?;
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
+
+                meta.is_frozen = false;
+
+                Self::deposit_event(Event::<T>::CollectionThawed(collection_id));
+                Ok(().into())
+            })
+        }
+
+        /// Allow further unprivileged transfers for the asset class.
+        ///
+        /// Origin must be `ForceOrigin`.
+        ///
+        /// - `collection_id`: The identifier of the asset to be frozen.
+        ///
+        /// Emits `Frozen`.
+        ///
+        /// Weight: `O(1)`
+        #[pallet::weight(100_000_000)]
+        pub(super) fn force_unfreeze_collection(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+        ) -> DispatchResultWithPostInfo {
+            T::ForceOrigin::ensure_origin(origin)?;
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                meta.is_frozen = false;
+
+                Self::deposit_event(Event::<T>::CollectionThawed(collection_id));
                 Ok(().into())
             })
         }
@@ -802,111 +912,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Disallow further unprivileged transfers for the asset class.
-        ///
-        /// Origin must be Signed and the sender should be the Freezer of the asset `id`.
-        ///
-        /// - `id`: The identifier of the asset to be frozen.
-        ///
-        /// Emits `Frozen`.
-        ///
-        /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::freeze_asset())]
-        pub(super) fn freeze_collection(
-            origin: OriginFor<T>,
-            #[pallet::compact] collection_id: T::CollectionId,
-        ) -> DispatchResultWithPostInfo {
-            let origin = ensure_signed(origin)?;
-
-            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
-
-                meta.is_frozen = true;
-
-                Self::deposit_event(Event::<T>::CollectionFrozen(collection_id));
-                Ok(().into())
-            })
-        }
-
-        /// Allow further unprivileged transfers for the asset class.
-        ///
-        /// Origin must be Signed and the sender should be the Freezer of the asset `id`.
-        ///
-        /// - `collection_id`: The identifier of the asset to be frozen.
-        ///
-        /// Emits `Frozen`.
-        ///
-        /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::freeze_asset())]
-        pub(super) fn unfreeze_collection(
-            origin: OriginFor<T>,
-            #[pallet::compact] collection_id: T::CollectionId,
-        ) -> DispatchResultWithPostInfo {
-            let origin = ensure_signed(origin)?;
-
-            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-                ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
-
-                meta.is_frozen = false;
-
-                Self::deposit_event(Event::<T>::CollectionThawed(collection_id));
-                Ok(().into())
-            })
-        }
-
-        /// Disallow further unprivileged transfers for the asset class.
-        ///
-        /// Origin must be `ForceOrigin`.
-        ///
-        /// - `id`: The identifier of the asset to be frozen.
-        ///
-        /// Emits `Frozen`.
-        ///
-        /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::freeze_asset())]
-        pub(super) fn force_freeze_collection(
-            origin: OriginFor<T>,
-            #[pallet::compact] collection_id: T::CollectionId,
-        ) -> DispatchResultWithPostInfo {
-            T::ForceOrigin::ensure_origin(origin)?;
-
-            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-
-                meta.is_frozen = true;
-
-                Self::deposit_event(Event::<T>::CollectionFrozen(collection_id));
-                Ok(().into())
-            })
-        }
-
-        /// Allow further unprivileged transfers for the asset class.
-        ///
-        /// Origin must be `ForceOrigin`.
-        ///
-        /// - `collection_id`: The identifier of the asset to be frozen.
-        ///
-        /// Emits `Frozen`.
-        ///
-        /// Weight: `O(1)`
-        #[pallet::weight(T::WeightInfo::freeze_asset())]
-        pub(super) fn force_unfreeze_collection(
-            origin: OriginFor<T>,
-            #[pallet::compact] collection_id: T::CollectionId,
-        ) -> DispatchResultWithPostInfo {
-            T::ForceOrigin::ensure_origin(origin)?;
-
-            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
-                meta.is_frozen = false;
-
-                Self::deposit_event(Event::<T>::CollectionThawed(collection_id));
-                Ok(().into())
-            })
-        }
-
         /// Allow unprivileged transfers for the asset again.
         ///
         /// Origin must be Signed and the sender should be the Admin of the asset `id`.
@@ -1029,49 +1034,6 @@ pub mod pallet {
 
             Self::do_transfer_asset_from(collection_id, asset_id, origin, from_owner, new_owner)
         }
-
-        // /// Change the Issuer, Admin and Freezer of an asset.
-        // ///
-        // /// Origin must be Signed and the sender should be the Owner of the asset `id`.
-        // ///
-        // /// - `id`: The identifier of the asset to be frozen.
-        // /// - `issuer`: The new Issuer of this asset.
-        // /// - `admin`: The new Admin of this asset.
-        // /// - `freezer`: The new Freezer of this asset.
-        // ///
-        // /// Emits `TeamChanged`.
-        // ///
-        // /// Weight: `O(1)`
-        // #[pallet::weight(T::WeightInfo::set_team())]
-        // pub(super) fn set_team(
-        //     origin: OriginFor<T>,
-        //     #[pallet::compact] collection_id: T::CollectionId,
-        //     // issuer: <T::Lookup as StaticLookup>::Source,
-        //     // allowed_mint_accounts: Vec<T::AccountId>,
-        //     admin: <T::Lookup as StaticLookup>::Source,
-        //     freezer: <T::Lookup as StaticLookup>::Source,
-        // ) -> DispatchResultWithPostInfo {
-        //     let origin = ensure_signed(origin)?;
-        //     // let issuer = T::Lookup::lookup(issuer)?;
-        //     let admin = T::Lookup::lookup(admin)?;
-        //     let freezer = T::Lookup::lookup(freezer)?;
-
-        //     Collection::<T>::try_mutate(collection_id, |maybe_details| {
-        //         let details = maybe_details.as_mut().ok_or(Error::<T>::Unknown)?;
-        //         ensure!(&origin == &details.owner, Error::<T>::Unauthorized);
-
-        //         // @TODO(robin): adjust deposit here
-        //         // ....
-
-        //         // details.issuer = issuer.clone();
-        //         // details.allowed_mint_accounts = allowed_mint_accounts.clone();
-        //         // details.admin = admin.clone();
-        //         // details.freezer = freezer.clone();
-
-        //         Self::deposit_event(Event::TeamChanged(collection_id, admin, freezer));
-        //         Ok(().into())
-        //     })
-        // }
 
         /// Set the metadata for an asset.
         ///
@@ -1440,6 +1402,50 @@ pub mod pallet {
             })
         }
 
+        /// Move some assets from one account to another.
+        ///
+        /// Origin must be Signed and the sender should be the Admin of the asset `id`.
+        ///
+        /// - `id`: The identifier of the asset to have some amount transferred.
+        /// - `source`: The account to be debited.
+        /// - `dest`: The account to be credited.
+        /// - `amount`: The amount by which the `source`'s balance of assets should be reduced and
+        /// `dest`'s balance increased. The amount actually transferred may be slightly greater in
+        /// the case that the transfer would otherwise take the `source` balance above zero but
+        /// below the minimum balance. Must be greater than zero.
+        ///
+        /// Emits `Transferred` with the actual amount transferred. If this takes the source balance
+        /// to below the minimum for the asset, then the amount transferred is increased to take it
+        /// to zero.
+        ///
+        /// Weight: `O(1)`
+        /// Modes: Pre-existence of `dest`; Post-existence of `source`; Prior & post zombie-status
+        /// of `source`; Account pre-existence of `dest`.
+        #[pallet::weight(T::WeightInfo::force_transfer())]
+        pub(super) fn force_transfer_token(
+            origin: OriginFor<T>,
+            #[pallet::compact] collection_id: T::CollectionId,
+            #[pallet::compact] asset_id: T::AssetId,
+            source: <T::Lookup as StaticLookup>::Source,
+            dest: <T::Lookup as StaticLookup>::Source,
+            #[pallet::compact] amount: T::Balance,
+        ) -> DispatchResultWithPostInfo {
+            T::ForceOrigin::ensure_origin(origin)?;
+
+            let source = T::Lookup::lookup(source)?;
+            let dest = T::Lookup::lookup(dest)?;
+
+            if dest == source {
+                return Ok(().into());
+            }
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+
+                Self::do_transfer_token(source, collection_id, asset_id, meta, dest, amount)
+            })
+        }
+
         /// Approve account to transfer asset
         #[pallet::weight(100_000_000)]
         pub(super) fn approve_to_transfer(
@@ -1490,47 +1496,56 @@ pub mod pallet {
             })
         }
 
-        /// Move some assets from one account to another.
+        /// Distribute native token to asset's token holders.
+        /// Splitted by the percentage they own.
         ///
-        /// Origin must be Signed and the sender should be the Admin of the asset `id`.
+        /// The origin must be signed and owner of the asset.
         ///
-        /// - `id`: The identifier of the asset to have some amount transferred.
-        /// - `source`: The account to be debited.
-        /// - `dest`: The account to be credited.
-        /// - `amount`: The amount by which the `source`'s balance of assets should be reduced and
-        /// `dest`'s balance increased. The amount actually transferred may be slightly greater in
-        /// the case that the transfer would otherwise take the `source` balance above zero but
-        /// below the minimum balance. Must be greater than zero.
-        ///
-        /// Emits `Transferred` with the actual amount transferred. If this takes the source balance
-        /// to below the minimum for the asset, then the amount transferred is increased to take it
-        /// to zero.
-        ///
-        /// Weight: `O(1)`
-        /// Modes: Pre-existence of `dest`; Post-existence of `source`; Prior & post zombie-status
-        /// of `source`; Account pre-existence of `dest`.
-        #[pallet::weight(T::WeightInfo::force_transfer())]
-        pub(super) fn force_transfer_token(
+        #[pallet::weight(100_000_000)]
+        pub(super) fn dist_shares(
             origin: OriginFor<T>,
             #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            source: <T::Lookup as StaticLookup>::Source,
-            dest: <T::Lookup as StaticLookup>::Source,
-            #[pallet::compact] amount: T::Balance,
+            amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
-            T::ForceOrigin::ensure_origin(origin)?;
+            let origin = ensure_signed(origin)?;
 
-            let source = T::Lookup::lookup(source)?;
-            let dest = T::Lookup::lookup(dest)?;
+            OwnershipOfAsset::<T>::try_mutate(collection_id, asset_id, |maybe_ow| {
+                let ow = maybe_ow.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(ow.owner == origin, Error::<T>::NotOwner);
 
-            if dest == source {
-                return Ok(().into());
-            }
+                T::Currency::free_balance(&origin)
+                    .checked_sub(&amount)
+                    .ok_or(Error::<T>::InsufficientBalance)?;
 
-            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
-                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                let asset = MetadataOfAsset::<T>::get(collection_id, asset_id)
+                    .ok_or(Error::<T>::Unknown)?;
 
-                Self::do_transfer_token(source, collection_id, asset_id, meta, dest, amount)
+                let supply = asset.token_supply.saturated_into::<u32>();
+                ensure!(supply > 0, Error::<T>::Overflow);
+
+                for holder in ow.token_holders.iter() {
+                    dbg!(holder);
+                    if holder == &origin {
+                        continue;
+                    }
+                    let tb = Account::<T>::get(collection_id, (asset_id, holder));
+
+                    let shares: f64 = tb.balance.saturated_into::<u32>() as f64 / supply as f64;
+
+                    let shares = BalanceOf::<T>::from(
+                        (shares * amount.saturated_into::<u32>() as f64) as u32,
+                    );
+
+                    T::Currency::transfer(
+                        &origin,
+                        &holder,
+                        shares,
+                        ExistenceRequirement::KeepAlive,
+                    )?;
+                }
+
+                Ok(().into())
             })
         }
     }
