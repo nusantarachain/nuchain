@@ -1534,7 +1534,8 @@ pub mod pallet {
                     let shares: f64 = tb.balance.saturated_into::<u32>() as f64 / supply as f64;
 
                     let shares = BalanceOf::<T>::from(
-                        (shares * amount.saturated_into::<u32>() as f64) as u32,
+                        // (shares * amount.saturated_into::<u32>() as f64) as u32,
+                        Percent::from_fraction(shares) * amount,
                     );
 
                     T::Currency::transfer(
