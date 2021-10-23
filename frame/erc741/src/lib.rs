@@ -173,8 +173,8 @@ pub mod pallet {
         MaxZombiesChanged(T::CollectionId, T::AssetId, u32),
         /// New metadata has been set for an asset. \[collection_id, asset_id, ip_owner\]
         MetadataSet(T::CollectionId, T::AssetId, Vec<u8>, Vec<u8>, T::AccountId),
-        /// Some account received share distribution via dist_shares. \[account_id, share_amount\]
-        ShareDistributed(T::AccountId, BalanceOf<T>),
+        /// Some account received share distribution from asset via dist_shares. \[collection_id, asset_id, account_id, share_amount\]
+        ShareDistributed(T::CollectionId, T::AssetId, T::AccountId, BalanceOf<T>),
     }
 
     #[deprecated(note = "use `Event` instead")]
@@ -1547,7 +1547,12 @@ pub mod pallet {
                         ExistenceRequirement::KeepAlive,
                     )?;
 
-                    Self::deposit_event(Event::ShareDistributed(holder.clone(), shares));
+                    Self::deposit_event(Event::ShareDistributed(
+                        collection_id,
+                        asset_id,
+                        holder.clone(),
+                        shares,
+                    ));
                 }
 
                 Ok(().into())
