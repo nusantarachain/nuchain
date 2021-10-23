@@ -946,7 +946,6 @@ fn non_root_unable_to_force_transfer_token() {
     });
 }
 
-// @TODO(Robin): code distribute royalties here
 #[test]
 fn distribute_shares() {
     with_minted_asset_plus_token(|| {
