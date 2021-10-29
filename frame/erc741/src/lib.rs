@@ -1102,47 +1102,52 @@ pub mod pallet {
                 return Ok(().into());
             }
 
+            if let Some(ref image_uri) = image_uri {
+                ensure!(
+                    image_uri.len() <= T::StringUriLimit::get() as usize,
+                    Error::<T>::BadMetadata
+                );
+            }
+            if let Some(ref base_uri) = base_uri {
+                ensure!(
+                    base_uri.len() <= T::StringUriLimit::get() as usize,
+                    Error::<T>::BadMetadata
+                );
+            }
+
             // let owner =
             //     OwnershipOfAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
             // ensure!(&origin == &owner, Error::<T>::Unauthorized);
 
             MetadataOfAsset::<T>::try_mutate(collection_id, asset_id, |metadata| {
                 let meta = metadata.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(
+                    Self::is_asset_owner(&origin, collection_id, asset_id),
+                    Error::<T>::Unauthorized
+                );
+
                 let bytes_used = image_uri
                     .as_ref()
                     .map(|a| a.len())
                     .unwrap_or(0)
                     .saturating_add(base_uri.as_ref().map(|a| a.len()).unwrap_or(0));
-                // let old_deposit = match metadata {
-                //     Some(m) => m.deposit,
-                //     None => Default::default(),
-                // };
+
                 let old_deposit = meta.deposit;
 
-                // MetadataOfAsset is being removed
-                // if bytes_used.is_zero() && decimals.is_zero() {
-                // if bytes_used.is_zero() {
-                //     T::Currency::unreserve(&origin, old_deposit);
-                //     *metadata = None;
-                // } else {
-                let new_deposit = T::MetadataDepositPerByte::get()
+                let mut new_deposit = T::MetadataDepositPerByte::get()
                     .saturating_mul((bytes_used as u32).into())
                     .saturating_add(T::MetadataDepositBase::get());
 
-                if new_deposit > old_deposit {
-                    T::Currency::reserve(&origin, new_deposit - old_deposit)?;
-                } else {
-                    T::Currency::unreserve(&origin, old_deposit - new_deposit);
+                if ip_owner.is_some() {
+                    // account id == 32 bytes size
+                    new_deposit = T::MetadataDepositPerByte::get().saturating_mul(32u32.into());
                 }
 
-                // *metadata = Some(AssetMetadata {
-                //     deposit: new_deposit,
-                //     name: name.clone(),
-                //     description: description.clone(),
-                //     image_uri: image_uri.clone(),
-                //     base_uri: base_uri.clone(),
-                //     ip_owner: ip_owner.clone(),
-                // })
+                if new_deposit > old_deposit {
+                    T::Currency::reserve(&origin, new_deposit.saturating_sub(old_deposit))?;
+                } else {
+                    T::Currency::unreserve(&origin, old_deposit.saturating_sub(new_deposit));
+                }
 
                 meta.deposit = new_deposit;
 
@@ -1159,8 +1164,6 @@ pub mod pallet {
                 if let Some(ip_owner) = ip_owner {
                     meta.ip_owner = ip_owner;
                 }
-                // }
-                // meta.approved_for_transfer = approved_for_transfer;
 
                 Self::deposit_event(Event::MetadataSet(
                     collection_id,
@@ -1375,6 +1378,11 @@ pub mod pallet {
                 return Ok(().into());
             }
 
+            ensure!(
+                !Account::<T>::get(collection_id, (asset_id, &origin)).is_frozen,
+                Error::<T>::Frozen
+            );
+
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
                 ensure!(!meta.is_frozen, Error::<T>::Frozen);
@@ -1402,9 +1410,15 @@ pub mod pallet {
             if dest == source {
                 return Ok(().into());
             }
+
             ensure!(
                 Self::is_approved_transfer_token(&origin, collection_id, asset_id),
                 Error::<T>::Unauthorized
+            );
+
+            ensure!(
+                !Account::<T>::get(collection_id, (asset_id, &source)).is_frozen,
+                Error::<T>::Frozen
             );
 
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {

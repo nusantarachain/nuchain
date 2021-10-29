@@ -1168,83 +1168,6 @@ fn asset_token_support_cannot_greater_than_token_supply() {
     });
 }
 
-// @TODO(Robin): add tests for set asset metadata.
-
-// #[test]
-// fn lifecycle_should_work() {
-//     new_test_ext().execute_with(|| {
-//         Balances::make_free_balance_be(&1, 100);
-//         assert_ok!(Assets::create(Origin::signed(1), 0, 1, 10, 1));
-//         assert_eq!(Balances::reserved_balance(&1), 11);
-//         assert!(Collectible::<Test>::contains_key(0));
-
-//         assert_ok!(Assets::set_metadata(
-//             Origin::signed(1),
-//             0,
-//             vec![0],
-//             vec![0],
-//             12
-//         ));
-//         assert_eq!(Balances::reserved_balance(&1), 14);
-//         assert!(MetadataOfAsset::<Test>::contains_key(0));
-
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 10, 100));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 20, 100));
-//         assert_eq!(Account::<Test>::iter_prefix(0).count(), 2);
-
-//         assert_ok!(Assets::destroy(Origin::signed(1), 0, 100));
-//         assert_eq!(Balances::reserved_balance(&1), 0);
-
-//         assert!(!Collectible::<Test>::contains_key(0));
-//         assert!(!MetadataOfAsset::<Test>::contains_key(0));
-//         assert_eq!(Account::<Test>::iter_prefix(0).count(), 0);
-
-//         assert_ok!(Assets::create(Origin::signed(1), 0, 1, 10, 1));
-//         assert_eq!(Balances::reserved_balance(&1), 11);
-//         assert!(Collectible::<Test>::contains_key(0));
-
-//         assert_ok!(Assets::set_metadata(
-//             Origin::signed(1),
-//             0,
-//             vec![0],
-//             vec![0],
-//             12
-//         ));
-//         assert_eq!(Balances::reserved_balance(&1), 14);
-//         assert!(MetadataOfAsset::<Test>::contains_key(0));
-
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 10, 100));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 20, 100));
-//         assert_eq!(Account::<Test>::iter_prefix(0).count(), 2);
-
-//         assert_ok!(Assets::force_destroy(Origin::root(), 0, 100));
-//         assert_eq!(Balances::reserved_balance(&1), 0);
-
-//         assert!(!Collectible::<Test>::contains_key(0));
-//         assert!(!MetadataOfAsset::<Test>::contains_key(0));
-//         assert_eq!(Account::<Test>::iter_prefix(0).count(), 0);
-//     });
-// }
-
-// #[test]
-// fn destroy_with_non_zombies_should_not_work() {
-//     new_test_ext().execute_with(|| {
-//         Balances::make_free_balance_be(&1, 100);
-//         assert_ok!(Assets::force_create(Origin::root(), 0, 1, 10, 1));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 1, 100));
-//         assert_noop!(
-//             Assets::destroy(Origin::signed(1), 0, 100),
-//             Error::<Test>::RefsLeft
-//         );
-//         assert_noop!(
-//             Assets::force_destroy(Origin::root(), 0, 100),
-//             Error::<Test>::RefsLeft
-//         );
-//         assert_ok!(Assets::burn(Origin::signed(1), 0, 1, 100));
-//         assert_ok!(Assets::destroy(Origin::signed(1), 0, 100));
-//     });
-// }
-
 #[test]
 fn destroy_asset_should_work() {
     with_collection(|| {
@@ -1267,12 +1190,22 @@ fn destroy_asset_should_work() {
         );
         assert_eq!(Balances::reserved_balance(&1), 20);
 
+        assert_eq!(
+            Collection::<Test>::get(COLLECTION_ID).map(|a| a.asset_count),
+            Some(1)
+        );
+
         assert_ok!(Assets::destroy_asset(
             Origin::signed(1),
             COLLECTION_ID,
             ASSET_ID,
         ));
 
+        assert_eq!(
+            Collection::<Test>::get(COLLECTION_ID).map(|a| a.asset_count),
+            Some(0)
+        );
+        assert_eq!(OwnershipOfAsset::<Test>::get(COLLECTION_ID, ASSET_ID), None);
         assert_eq!(Assets::is_asset_owner(&1, COLLECTION_ID, ASSET_ID), false);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 0);
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
@@ -1506,97 +1439,6 @@ fn burn_token_should_update_token_holders() {
 }
 
 // #[test]
-// fn destroy_with_bad_witness_should_not_work() {
-//     new_test_ext().execute_with(|| {
-//         Balances::make_free_balance_be(&1, 100);
-//         assert_ok!(Assets::force_create(Origin::root(), 0, 1, 10, 1));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 10, 100));
-//         assert_noop!(
-//             Assets::destroy(Origin::signed(1), 0, 0),
-//             Error::<Test>::BadWitness
-//         );
-//         assert_noop!(
-//             Assets::force_destroy(Origin::root(), 0, 0),
-//             Error::<Test>::BadWitness
-//         );
-//     });
-// }
-
-// #[test]
-// fn max_zombies_should_work() {
-//     new_test_ext().execute_with(|| {
-//         assert_ok!(Assets::force_create(Origin::root(), 0, 1, 2, 1));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 0, 100));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 1, 100));
-
-//         assert_eq!(Assets::zombie_allowance(0), 0);
-//         assert_noop!(
-//             Assets::mint(Origin::signed(1), 0, 2, 100),
-//             Error::<Test>::TooManyZombies
-//         );
-//         assert_noop!(
-//             Assets::transfer(Origin::signed(1), 0, 2, 50),
-//             Error::<Test>::TooManyZombies
-//         );
-//         assert_noop!(
-//             Assets::force_transfer(Origin::signed(1), 0, 1, 2, 50),
-//             Error::<Test>::TooManyZombies
-//         );
-
-//         Balances::make_free_balance_be(&3, 100);
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 3, 100));
-
-//         assert_ok!(Assets::transfer(Origin::signed(0), 0, 1, 100));
-//         assert_eq!(Assets::zombie_allowance(0), 1);
-//         assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 50));
-//     });
-// }
-
-// #[test]
-// fn resetting_max_zombies_should_work() {
-//     new_test_ext().execute_with(|| {
-//         assert_ok!(Assets::force_create(Origin::root(), 0, 1, 2, 1));
-//         Balances::make_free_balance_be(&1, 100);
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 1, 100));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 2, 100));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 3, 100));
-
-//         assert_eq!(Assets::zombie_allowance(0), 0);
-
-//         assert_noop!(
-//             Assets::set_max_zombies(Origin::signed(1), 0, 1),
-//             Error::<Test>::TooManyZombies
-//         );
-
-//         assert_ok!(Assets::set_max_zombies(Origin::signed(1), 0, 3));
-//         assert_eq!(Assets::zombie_allowance(0), 1);
-//     });
-// }
-
-// #[test]
-// fn dezombifying_should_work() {
-//     new_test_ext().execute_with(|| {
-//         assert_ok!(Assets::force_create(Origin::root(), 0, 1, 10, 10));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 1, 100));
-//         assert_eq!(Assets::zombie_allowance(0), 9);
-
-//         // introduce a bit of balance for account 2.
-//         Balances::make_free_balance_be(&2, 100);
-
-//         // transfer 25 units, nothing changes.
-//         assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 25));
-//         assert_eq!(Assets::zombie_allowance(0), 9);
-
-//         // introduce a bit of balance; this will create the account.
-//         Balances::make_free_balance_be(&1, 100);
-
-//         // now transferring 25 units will create it.
-//         assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 25));
-//         assert_eq!(Assets::zombie_allowance(0), 10);
-//     });
-// }
-
-// #[test]
 // fn min_balance_should_work() {
 //     new_test_ext().execute_with(|| {
 //         assert_ok!(Assets::force_create(Origin::root(), 0, 1, 10, 10));
@@ -1665,81 +1507,86 @@ fn burn_token_should_update_token_holders() {
 //     });
 // }
 
-// #[test]
-// fn transferring_frozen_user_should_not_work() {
-//     new_test_ext().execute_with(|| {
-//         assert_ok!(Assets::force_create(Origin::root(), 0, 1, 10, 1));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 1, 100));
-//         assert_eq!(Assets::balance(0, 1), 100);
-//         assert_ok!(Assets::freeze(Origin::signed(1), 0, 1));
-//         assert_noop!(
-//             Assets::transfer(Origin::signed(1), 0, 2, 50),
-//             Error::<Test>::Frozen
-//         );
-//         assert_ok!(Assets::thaw(Origin::signed(1), 0, 1));
-//         assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 50));
-//     });
-// }
+#[test]
+fn transferring_frozen_user_should_not_work() {
+    with_minted_asset_plus_token(|| {
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 100);
+        assert_ok!(Assets::transfer_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            2,
+            10
+        ));
+        assert_ok!(Assets::transfer_token(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID,
+            3,
+            5
+        ));
+        assert_ok!(Assets::freeze(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            2
+        ));
+        assert_noop!(
+            Assets::transfer_token(Origin::signed(2), COLLECTION_ID, ASSET_ID, 3, 3),
+            Error::<Test>::Frozen
+        );
+        assert_ok!(Assets::thaw(Origin::signed(1), COLLECTION_ID, ASSET_ID, 2));
+        assert_ok!(Assets::transfer_token(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID,
+            3,
+            3
+        ));
+    });
+}
 
-// #[test]
-// fn transferring_frozen_asset_should_not_work() {
-//     new_test_ext().execute_with(|| {
-//         assert_ok!(Assets::force_create(Origin::root(), 0, 1, 10, 1));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 1, 100));
-//         assert_eq!(Assets::balance(0, 1), 100);
-//         assert_ok!(Assets::freeze_asset(Origin::signed(1), 0));
-//         assert_noop!(
-//             Assets::transfer(Origin::signed(1), 0, 2, 50),
-//             Error::<Test>::Frozen
-//         );
-//         assert_ok!(Assets::thaw_asset(Origin::signed(1), 0));
-//         assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 50));
-//     });
-// }
-
-// #[test]
-// fn origin_guards_should_work() {
-//     new_test_ext().execute_with(|| {
-//         assert_ok!(Assets::force_create(Origin::root(), 0, 1, 10, 1));
-//         assert_ok!(Assets::mint(Origin::signed(1), 0, 1, 100));
-//         assert_noop!(
-//             Assets::transfer_collection_ownership(Origin::signed(2), 0, 2),
-//             Error::<Test>::Unauthorized,
-//         );
-//         assert_noop!(
-//             Assets::set_team(Origin::signed(2), 0, 2, 2, 2),
-//             Error::<Test>::Unauthorized,
-//         );
-//         assert_noop!(
-//             Assets::freeze(Origin::signed(2), 0, 1),
-//             Error::<Test>::Unauthorized,
-//         );
-//         assert_noop!(
-//             Assets::thaw(Origin::signed(2), 0, 2),
-//             Error::<Test>::Unauthorized,
-//         );
-//         assert_noop!(
-//             Assets::mint(Origin::signed(2), 0, 2, 100),
-//             Error::<Test>::Unauthorized,
-//         );
-//         assert_noop!(
-//             Assets::burn(Origin::signed(2), 0, 1, 100),
-//             Error::<Test>::Unauthorized,
-//         );
-//         assert_noop!(
-//             Assets::force_transfer(Origin::signed(2), 0, 1, 2, 100),
-//             Error::<Test>::Unauthorized,
-//         );
-//         assert_noop!(
-//             Assets::set_max_zombies(Origin::signed(2), 0, 11),
-//             Error::<Test>::Unauthorized,
-//         );
-//         assert_noop!(
-//             Assets::destroy(Origin::signed(2), 0, 100),
-//             Error::<Test>::Unauthorized,
-//         );
-//     });
-// }
+#[test]
+fn transfer_from_frozen_user_should_not_work() {
+    with_minted_asset_plus_token(|| {
+        assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 100);
+        assert_ok!(Assets::transfer_token_from(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            2,
+            10
+        ));
+        assert_ok!(Assets::transfer_token_from(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            2,
+            3,
+            5
+        ));
+        assert_ok!(Assets::freeze(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            2
+        ));
+        assert_noop!(
+            Assets::transfer_token_from(Origin::signed(1), COLLECTION_ID, ASSET_ID, 2, 3, 3),
+            Error::<Test>::Frozen
+        );
+        assert_ok!(Assets::thaw(Origin::signed(1), COLLECTION_ID, ASSET_ID, 2));
+        assert_ok!(Assets::transfer_token_from(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            2,
+            3,
+            3
+        ));
+    });
+}
 
 // #[test]
 // fn transfer_owner_should_work() {
@@ -1865,75 +1712,146 @@ fn burn_token_should_update_token_holders() {
 //     });
 // }
 
-// #[test]
-// fn set_metadata_should_work() {
-//     new_test_ext().execute_with(|| {
-//         // Cannot add metadata to unknown asset
-//         assert_noop!(
-//             Assets::set_metadata(Origin::signed(1), 0, vec![0u8; 10], vec![0u8; 10], 12),
-//             Error::<Test>::Unknown,
-//         );
-//         assert_ok!(Assets::force_create(Origin::root(), 0, 1, 10, 1));
-//         // Cannot add metadata to unowned asset
-//         assert_noop!(
-//             Assets::set_metadata(Origin::signed(2), 0, vec![0u8; 10], vec![0u8; 10], 12),
-//             Error::<Test>::Unauthorized,,
-//         );
+#[test]
+fn set_metadata_should_work() {
+    with_minted_asset(|| {
+        // Cannot add metadata to unknown asset
+        assert_noop!(
+            Assets::set_metadata(
+                Origin::signed(1),
+                0,
+                ASSET_ID,
+                Some(vec![0u8; 10]),
+                Some(vec![0u8; 10]),
+                None
+            ),
+            Error::<Test>::Unknown,
+        );
 
-//         // Cannot add oversized metadata
-//         assert_noop!(
-//             Assets::set_metadata(Origin::signed(1), 0, vec![0u8; 100], vec![0u8; 10], 12),
-//             Error::<Test>::BadMetadata,
-//         );
-//         assert_noop!(
-//             Assets::set_metadata(Origin::signed(1), 0, vec![0u8; 10], vec![0u8; 100], 12),
-//             Error::<Test>::BadMetadata,
-//         );
+        Balances::make_free_balance_be(&1, 100);
+        // Cannot add metadata to unowned asset
+        assert_noop!(
+            Assets::set_metadata(
+                Origin::signed(2),
+                COLLECTION_ID,
+                ASSET_ID,
+                Some(vec![0u8; 10]),
+                Some(vec![0u8; 10]),
+                None
+            ),
+            Error::<Test>::Unauthorized,
+        );
 
-//         // Successfully add metadata and take deposit
-//         Balances::make_free_balance_be(&1, 30);
-//         assert_ok!(Assets::set_metadata(
-//             Origin::signed(1),
-//             0,
-//             vec![0u8; 10],
-//             vec![0u8; 10],
-//             12
-//         ));
-//         assert_eq!(Balances::free_balance(&1), 9);
+        Balances::make_free_balance_be(&1, 1000);
+        // Cannot add oversized metadata
+        assert_noop!(
+            Assets::set_metadata(
+                Origin::signed(1),
+                COLLECTION_ID,
+                ASSET_ID,
+                Some(vec![0u8; 161]),
+                Some(vec![0u8; 10]),
+                None
+            ),
+            Error::<Test>::BadMetadata,
+        );
+        assert_noop!(
+            Assets::set_metadata(
+                Origin::signed(1),
+                COLLECTION_ID,
+                ASSET_ID,
+                Some(vec![0u8; 10]),
+                Some(vec![0u8; 161]),
+                None
+            ),
+            Error::<Test>::BadMetadata,
+        );
 
-//         // Update deposit
-//         assert_ok!(Assets::set_metadata(
-//             Origin::signed(1),
-//             0,
-//             vec![0u8; 10],
-//             vec![0u8; 5],
-//             12
-//         ));
-//         assert_eq!(Balances::free_balance(&1), 14);
-//         assert_ok!(Assets::set_metadata(
-//             Origin::signed(1),
-//             0,
-//             vec![0u8; 10],
-//             vec![0u8; 15],
-//             12
-//         ));
-//         assert_eq!(Balances::free_balance(&1), 4);
+        // Successfully add metadata and take deposit
+        Balances::make_free_balance_be(&1, 30);
+        assert_ok!(Assets::set_metadata(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            Some(vec![0u8; 10]),
+            Some(vec![0u8; 10]),
+            Some(12)
+        ));
+        assert_eq!(Balances::free_balance(&1), 5);
 
-//         // Cannot over-reserve
-//         assert_noop!(
-//             Assets::set_metadata(Origin::signed(1), 0, vec![0u8; 20], vec![0u8; 20], 12),
-//             BalancesError::<Test, _>::InsufficientBalance,
-//         );
+        Balances::make_free_balance_be(&1, 100);
+        assert_ok!(Assets::force_mint_asset(
+            Origin::root(),
+            COLLECTION_ID,
+            ASSET_ID + 1,
+            1,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None,
+            None
+        ));
 
-//         // Clear MetadataOfAsset
-//         assert!(MetadataOfAsset::<Test>::contains_key(0));
-//         assert_ok!(Assets::set_metadata(
-//             Origin::signed(1),
-//             0,
-//             vec![],
-//             vec![],
-//             0
-//         ));
-//         assert!(!MetadataOfAsset::<Test>::contains_key(0));
-//     });
-// }
+        // Successfully add metadata and take deposit without ip_owner
+        Balances::make_free_balance_be(&1, 30);
+        assert_ok!(Assets::set_metadata(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID + 1,
+            Some(vec![0u8; 10]),
+            Some(vec![0u8; 10]),
+            None
+        ));
+        assert_eq!(Balances::free_balance(&1), 16);
+
+        // Cannot set already set metadata
+        Balances::make_free_balance_be(&1, 30);
+        assert_err!(
+            Assets::set_metadata(
+                Origin::signed(1),
+                COLLECTION_ID,
+                ASSET_ID,
+                Some(vec![0u8; 10]),
+                Some(vec![0u8; 10]),
+                None
+            ),
+            Error::<Test>::MetadataAlreadySet
+        );
+
+        // // Update deposit
+        // assert_ok!(Assets::set_metadata(
+        //     Origin::signed(1),
+        //     0,
+        //     vec![0u8; 10],
+        //     vec![0u8; 5],
+        //     12
+        // ));
+        // assert_eq!(Balances::free_balance(&1), 14);
+        // assert_ok!(Assets::set_metadata(
+        //     Origin::signed(1),
+        //     0,
+        //     vec![0u8; 10],
+        //     vec![0u8; 15],
+        //     12
+        // ));
+        // assert_eq!(Balances::free_balance(&1), 4);
+
+        // // Cannot over-reserve
+        // assert_noop!(
+        //     Assets::set_metadata(Origin::signed(1), 0, vec![0u8; 20], vec![0u8; 20], 12),
+        //     BalancesError::<Test, _>::InsufficientBalance,
+        // );
+
+        // // Clear MetadataOfAsset
+        // assert!(MetadataOfAsset::<Test>::contains_key(0));
+        // assert_ok!(Assets::set_metadata(
+        //     Origin::signed(1),
+        //     0,
+        //     vec![],
+        //     vec![],
+        //     0
+        // ));
+        // assert!(!MetadataOfAsset::<Test>::contains_key(0));
+    });
+}
