@@ -1619,6 +1619,18 @@ fn mint_and_destroy_asset_affect_accounts_count() {
             None,
             None
         ));
+        // this one (same account 2) should not increase accounts counter
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID + 2,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None,
+            None
+        ));
         let meta = Collection::<Test>::get(COLLECTION_ID).expect("get collection meta");
         assert_eq!(meta.accounts, 2);
         assert_ok!(Assets::destroy_asset(
