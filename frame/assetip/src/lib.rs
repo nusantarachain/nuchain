@@ -93,10 +93,6 @@ pub mod pallet {
         /// The basic amount of funds that must be reserved when creating a new asset class.
         type AssetDepositBase: Get<BalanceOf<Self>>;
 
-        /// The additional funds that must be reserved for every zombie account that an asset class
-        /// supports.
-        type AssetDepositPerZombie: Get<BalanceOf<Self>>;
-
         /// The maximum length of a name or symbol stored on-chain.
         type StringLimit: Get<u32>;
 
@@ -626,7 +622,7 @@ pub mod pallet {
         /// The origin must be Signed and the sender must have sufficient funds free.
         ///
         /// Funds of sender are reserved according to the formula:
-        /// `AssetDepositBase + AssetDepositPerZombie * max_zombies`.
+        /// `AssetDepositBase`.
         ///
         /// Parameters:
         /// - `id`: The identifier of the new asset. This must not be currently in use to identify
@@ -1585,17 +1581,19 @@ pub mod pallet {
                 ensure!(supply > 0, Error::<T>::Overflow);
 
                 for holder in ow.token_holders.iter() {
-                    dbg!(holder);
+
                     if holder == &origin {
                         continue;
                     }
                     let tb = Account::<T>::get(collection_id, (asset_id, holder));
 
-                    let shares: f64 = tb.balance.saturated_into::<u32>() as f64 / supply as f64;
+                    // let shares: f64 = tb.balance.saturated_into::<u32>() as f64 / supply as f64;
+                    let shares = Percent::from_rational_approximation(tb.balance, supply.into());
 
                     let shares = BalanceOf::<T>::from(
                         // (shares * amount.saturated_into::<u32>() as f64) as u32,
-                        Percent::from_fraction(shares) * amount,
+                        // Percent::from_percent(shares) * amount,
+                        shares * amount
                     );
 
                     T::Currency::transfer(

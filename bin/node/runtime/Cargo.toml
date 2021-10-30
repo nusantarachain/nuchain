@@ -90,6 +90,7 @@ pallet-organization = { version = "0.0.1", default-features = false, path = "../
 pallet-product-registry = { default-features = false, path = "../../../frame/product-registry" }
 pallet-product-tracking = { default-features = false, path = "../../../frame/product-tracking" }
 pallet-commodities = { version = "0.0.1", default-features = false, path = "../../../frame/commodities" }
+pallet-assetip = { version = "0.0.1", default-features = false, path = "../../../frame/assetip" }
 
 
 [build-dependencies]

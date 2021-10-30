@@ -87,7 +87,6 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
     pub const AssetDepositBase: u64 = 1;
-    pub const AssetDepositPerZombie: u64 = 1;
     pub const StringLimit: u32 = 50;
     pub const StringUriLimit: u32 = 160;
     pub const MetadataDepositBase: u64 = 1;
@@ -102,7 +101,6 @@ impl Config for Test {
     type AssetId = u32;
     type ForceOrigin = frame_system::EnsureRoot<u64>;
     type AssetDepositBase = AssetDepositBase;
-    type AssetDepositPerZombie = AssetDepositPerZombie;
     type StringLimit = StringLimit;
     type StringUriLimit = StringUriLimit;
     type MetadataDepositBase = MetadataDepositBase;

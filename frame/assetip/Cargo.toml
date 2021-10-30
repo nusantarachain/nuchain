@@ -1,6 +1,6 @@
 [package]
-name = "pallet-erc741"
-version = "3.0.0"
+name = "pallet-assetip"
+version = "0.0.1"
 authors = ["Robin Syihab <robin.syihab@gmail.com>"]
 edition = "2018"
 license = "Apache-2.0"

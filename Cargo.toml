@@ -75,7 +75,7 @@ members = [
 	# "frame/example",
 	# "frame/example-offchain-worker",
 	# "frame/example-parallel",
-	"frame/erc741",
+	"frame/assetip",
 	"frame/executive",
 	"frame/grandpa",
 	"frame/identity",

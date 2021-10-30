@@ -1099,6 +1099,30 @@ impl pallet_product_tracking::Config for Runtime {
 //     pub const MaxCommoditiesPerUser: u64 = 2;
 // }
 
+
+parameter_types! {
+    pub const AssetIpAssetDepositBase: Balance = 1 * DOLLARS;
+    pub const AssetIpStringLimit: u32 = 50;
+    pub const AssetIpStringUriLimit: u32 = 160;
+    pub const AssetIpMetadataDepositBase: Balance = 100 * CENTS;
+    pub const AssetIpMetadataDepositPerByte: Balance = 100 * CENTS;
+}
+
+impl pallet_erc741::Config for Runtime {
+    type Currency = Balances;
+    type Event = Event;
+    type Balance = u64;
+    type CollectionId = u32;
+    type AssetId = u32;
+    type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+    type AssetDepositBase = AssetIpAssetDepositBase;
+    type StringLimit = AssetIpStringLimit;
+    type StringUriLimit = AssetIpStringUriLimit;
+    type MetadataDepositBase = AssetIpMetadataDepositBase;
+    type MetadataDepositPerByte = AssetIpMetadataDepositPerByte;
+    type WeightInfo = ();
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1146,6 +1170,7 @@ construct_runtime!(
         Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
         ProductRegistry: pallet_product_registry::{Module, Call, Storage, Event<T>},
         ProductTracking: pallet_product_tracking::{Module, Call, Storage, Event<T>},
+        Erc741: pallet_erc741::{Module, Call, Storage, Event<T>},
     }
 );
 

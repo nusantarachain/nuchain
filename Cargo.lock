@@ -4446,6 +4446,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "node-primitives",
+ "pallet-assetip",
  "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -4661,6 +4662,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
 dependencies = [
  "stable_deref_trait",
+]
+
+[[package]]
+name = "pallet-assetip"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support 3.0.0",
+ "frame-system 3.0.0",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-core 3.0.0",
+ "sp-io 3.0.0",
+ "sp-runtime 3.0.0",
+ "sp-std 3.0.0",
 ]
 
 [[package]]
@@ -5015,22 +5032,6 @@ dependencies = [
  "sp-runtime 3.0.0",
  "sp-std 3.0.0",
  "substrate-test-utils",
-]
-
-[[package]]
-name = "pallet-erc741"
-version = "3.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support 3.0.0",
- "frame-system 3.0.0",
- "pallet-balances",
- "parity-scale-codec",
- "serde",
- "sp-core 3.0.0",
- "sp-io 3.0.0",
- "sp-runtime 3.0.0",
- "sp-std 3.0.0",
 ]
 
 [[package]]
