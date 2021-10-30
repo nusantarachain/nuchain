@@ -1108,7 +1108,7 @@ parameter_types! {
     pub const AssetIpMetadataDepositPerByte: Balance = 100 * CENTS;
 }
 
-impl pallet_erc741::Config for Runtime {
+impl pallet_assetip::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Balance = u64;
