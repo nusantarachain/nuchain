@@ -175,8 +175,6 @@ pub mod pallet {
         Destroyed(T::CollectionId, T::AssetId),
         /// Some asset class was force-created. \[collection_id, asset_id, owner\]
         ForceCreated(T::CollectionId, T::AssetId, T::AccountId),
-        /// The maximum amount of zombies allowed has changed. \[collection_id, max_zombies\]
-        MaxZombiesChanged(T::CollectionId, T::AssetId, u32),
         /// New metadata has been set for an asset. \[collection_id, asset_id, ip_owner\]
         MetadataSet(T::CollectionId, T::AssetId, Vec<u8>, Vec<u8>, T::AccountId),
         /// Some account received share distribution from asset via dist_shares. \[collection_id, asset_id, account_id, share_amount\]
@@ -206,8 +204,8 @@ pub mod pallet {
         Frozen,
         /// The asset ID is already taken.
         InUse,
-        /// Too many zombie accounts in use.
-        TooManyZombies,
+        /// Account has no balance (dead account).
+        DeadAccount,
         /// Attempt to destroy an asset class when non-zombie, reference-bearing accounts exist.
         RefsLeft,
         /// Attempt to destroy collection when there is assets exists
@@ -404,8 +402,6 @@ pub mod pallet {
                     min_balance: meta.min_balance,
                     accounts: Zero::zero(),
                     is_frozen: false,
-                    max_zombies: meta.max_zombies,
-                    zombies: 0,
                 },
             );
 
@@ -630,8 +626,6 @@ pub mod pallet {
         /// - `owner`: The owner of this class of assets. The owner has full superuser permissions
         /// over this asset, but may later change and configure the permissions using `transfer_ownership`
         /// and `set_team`.
-        /// - `max_zombies`: The total number of accounts which may hold assets in this class yet
-        /// have no existential deposit.
         /// - `min_balance`: The minimum balance of this new asset that any single account must
         /// have. If an account's balance is reduced below this, then it collapses to zero.
         ///
@@ -796,6 +790,11 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
+            ensure!(
+                MetadataOfAsset::<T>::contains_key(collection_id, asset_id),
+                Error::<T>::NotFound
+            );
+
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 // let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
@@ -842,7 +841,7 @@ pub mod pallet {
 
             ensure!(
                 MetadataOfAsset::<T>::contains_key(collection_id, asset_id),
-                Error::<T>::Unknown
+                Error::<T>::NotFound
             );
 
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
@@ -1216,7 +1215,7 @@ pub mod pallet {
                             let new_balance = t.balance.saturating_add(amount);
                             ensure!(new_balance >= meta.min_balance, Error::<T>::TokenBalanceLow);
                             if t.balance.is_zero() {
-                                t.is_zombie = Self::new_account(&beneficiary, meta)?;
+                                Self::new_account(&beneficiary, meta)?;
                             }
                             t.balance = new_balance;
                             Ok(().into())
@@ -1291,7 +1290,7 @@ pub mod pallet {
                         let is_balance_zero = account.balance.is_zero();
                         *maybe_account = if account.balance < meta.min_balance {
                             burned = burned.saturating_add(account.balance);
-                            Self::dead_account(&who, meta, account.is_zombie);
+                            Self::dead_account(&who, meta);
                             None
                         } else {
                             Some(account)
@@ -1581,7 +1580,6 @@ pub mod pallet {
                 ensure!(supply > 0, Error::<T>::Overflow);
 
                 for holder in ow.token_holders.iter() {
-
                     if holder == &origin {
                         continue;
                     }
@@ -1593,7 +1591,7 @@ pub mod pallet {
                     let shares = BalanceOf::<T>::from(
                         // (shares * amount.saturated_into::<u32>() as f64) as u32,
                         // Percent::from_percent(shares) * amount,
-                        shares * amount
+                        shares * amount,
                     );
 
                     T::Currency::transfer(
@@ -1617,7 +1615,10 @@ pub mod pallet {
     }
 }
 
-use frame_support::{dispatch::DispatchResultWithPostInfo, traits::Get};
+use frame_support::{
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    traits::Get,
+};
 
 // The main implementation block for the module.
 impl<T: Config> Pallet<T> {
@@ -1725,6 +1726,8 @@ impl<T: Config> Pallet<T> {
             .checked_add(1)
             .ok_or(Error::<T>::Overflow)?;
 
+        // meta.accounts = meta.accounts.checked_add(1).ok_or(Error::<T>::Overflow)?;
+
         let mut asset_ownership = AssetOwnership {
             owner: who.clone(),
             approved_to_transfer: None,
@@ -1764,9 +1767,13 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
-        OwnedAssetCount::<T>::mutate(collection_id, &who, |count| {
+        OwnedAssetCount::<T>::try_mutate(collection_id, &who, |count| -> DispatchResult {
             *count = count.saturating_add(1);
-        });
+            if *count == 1 {
+                Self::new_account(&who, meta)?;
+            }
+            Ok(())
+        })?;
 
         // calculate deposit
         let mut deposit = T::MetadataDepositPerByte::get()
@@ -1828,8 +1835,14 @@ impl<T: Config> Pallet<T> {
                 maybe_holder_meta.take().ok_or(Error::<T>::Unknown)
             })?;
 
-        OwnedAssetCount::<T>::mutate(collection_id, &meta.owner, |count| {
+        let owner = meta.owner.clone();
+
+        OwnedAssetCount::<T>::mutate(collection_id, &owner, |count| {
             *count = count.saturating_sub(1);
+
+            if (*count).is_zero() {
+                Self::dead_account(&owner, meta);
+            }
         });
 
         MetadataOfAsset::<T>::try_mutate_exists(collection_id, asset_id, |maybe_asset_meta| {
@@ -1915,11 +1928,11 @@ impl<T: Config> Pallet<T> {
 
         match source_account.balance.is_zero() {
             false => {
-                Self::dezombify(&source, meta, &mut source_account.is_zombie);
+                // Self::dezombify(&source, meta, &mut source_account.is_zombie);
                 Account::<T>::insert(collection_id, &key_b, &source_account)
             }
             true => {
-                Self::dead_account(&source, meta, source_account.is_zombie);
+                Self::dead_account(&source, meta);
                 Account::<T>::remove(collection_id, &key_b);
             }
         }
@@ -1934,56 +1947,48 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 
-    /// Check the number of zombies allow yet for an asset.
-    pub fn zombie_allowance(collection_id: T::CollectionId) -> u32 {
-        Collection::<T>::get(collection_id)
-            .map(|x| x.max_zombies - x.zombies)
-            .unwrap_or_else(Zero::zero)
-    }
-
     fn new_account(
         who: &T::AccountId,
         d: &mut CollectionMetadata<T::Balance, T::AccountId, BalanceOf<T>>,
-    ) -> Result<bool, DispatchError> {
+    ) -> Result<(), DispatchError> {
         let accounts = d.accounts.checked_add(1).ok_or(Error::<T>::Overflow)?;
-        let r = Ok(if frame_system::Module::<T>::account_exists(who) {
-            frame_system::Module::<T>::inc_consumers(who).map_err(|_| Error::<T>::BadState)?;
-            false
-        } else {
-            ensure!(d.zombies < d.max_zombies, Error::<T>::TooManyZombies);
-            // d.zombies += 1;
-            d.zombies = d.zombies.saturating_add(1);
-            true
-        });
+
+        ensure!(
+            frame_system::Module::<T>::account_exists(who),
+            Error::<T>::DeadAccount
+        );
+        frame_system::Module::<T>::inc_consumers(who).map_err(|_| Error::<T>::BadState)?;
+
         d.accounts = accounts;
-        r
+
+        Ok(())
     }
 
-    /// If `who`` exists in system and it's a zombie, dezombify it.
-    fn dezombify(
-        who: &T::AccountId,
-        d: &mut CollectionMetadata<T::Balance, T::AccountId, BalanceOf<T>>,
-        is_zombie: &mut bool,
-    ) {
-        if *is_zombie && frame_system::Module::<T>::account_exists(who) {
-            // If the account exists, then it should have at least one provider
-            // so this cannot fail... but being defensive anyway.
-            let _ = frame_system::Module::<T>::inc_consumers(who);
-            *is_zombie = false;
-            d.zombies = d.zombies.saturating_sub(1);
-        }
-    }
+    // /// If `who`` exists in system and it's a zombie, dezombify it.
+    // fn dezombify(
+    //     who: &T::AccountId,
+    //     d: &mut CollectionMetadata<T::Balance, T::AccountId, BalanceOf<T>>,
+    //     is_zombie: &mut bool,
+    // ) {
+    //     if *is_zombie && frame_system::Module::<T>::account_exists(who) {
+    //         // If the account exists, then it should have at least one provider
+    //         // so this cannot fail... but being defensive anyway.
+    //         let _ = frame_system::Module::<T>::inc_consumers(who);
+    //         *is_zombie = false;
+    //         d.zombies = d.zombies.saturating_sub(1);
+    //     }
+    // }
 
     fn dead_account(
         who: &T::AccountId,
         d: &mut CollectionMetadata<T::Balance, T::AccountId, BalanceOf<T>>,
-        is_zombie: bool,
+        // is_zombie: bool,
     ) {
-        if is_zombie {
-            d.zombies = d.zombies.saturating_sub(1);
-        } else {
-            frame_system::Module::<T>::dec_consumers(who);
-        }
+        // if is_zombie {
+        //     d.zombies = d.zombies.saturating_sub(1);
+        // } else {
+        frame_system::Module::<T>::dec_consumers(who);
+        // }
         d.accounts = d.accounts.saturating_sub(1);
     }
 

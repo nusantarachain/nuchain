@@ -17,7 +17,7 @@ pub struct NewCollectionParam<
     /// Code symbol of the asset
     symbol: Vec<u8>,
 
-    /// Can change `owner`, `issuer`, `freezer` and `admin` accounts.
+    /// Collection owner.
     owner: AccountId,
 
     /// Max supply of unique token that will be appeared in this collection.
@@ -43,19 +43,8 @@ pub struct NewCollectionParam<
     /// List of allowed accounts to mint if `public_mintable` == false.
     allowed_mint_accounts: Vec<AllowedMintAccount<AccountId>>,
 
-    // /// Can thaw tokens, force transfers and burn tokens from any account.
-    // admin: AccountId,
-    // /// Can freeze tokens.
-    // freezer: AccountId,
-    /// The total circulating supply across all accounts.
-    // supply: u32,
-
     /// Max limit holding token per account.
     max_asset_per_account: u32,
-
-    /// The number of balance-holding accounts that this asset may have, excluding those that were
-    /// created when they had a system-level ED.
-    max_zombies: u32,
 }
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
@@ -82,18 +71,17 @@ pub struct CollectionMetadata<
     /// Max token supply when `has_token` is true.
     max_token_supply: Balance,
 
+    /// The ED for virtual accounts.
+    min_balance: Balance,
+
     // /// Whether only eligible account cant mint
     // allowed_mint_only: bool,
     /// anyone from public origin can mint tokens.
     public_mintable: bool,
 
-    /// The ED for virtual accounts.
-    min_balance: Balance,
+    /// Max limit holding token per account.
+    max_asset_per_account: u32,
 
-    // /// Can thaw tokens, force transfers and burn tokens from any account.
-    // admin: AccountId,
-    // /// Can freeze tokens.
-    // freezer: AccountId,
     /// The total asset across all accounts.
     asset_count: u64,
 
@@ -108,21 +96,11 @@ pub struct CollectionMetadata<
     /// This pays for the data stored here together with any virtual accounts.
     deposit: DepositBalance,
 
-    /// The number of balance-holding accounts that this asset may have, excluding those that were
-    /// created when they had a system-level ED.
-    max_zombies: u32,
-
-    /// The current number of zombie accounts.
-    zombies: u32,
-
     /// The total number of accounts.
     accounts: u32,
 
     /// Whether the asset is frozen for permissionless transfers.
-    is_frozen: bool,
-
-    /// Max limit holding token per account.
-    max_asset_per_account: u32,
+    is_frozen: bool,    
 }
 
 
@@ -183,7 +161,5 @@ pub struct TokenBalance<Balance: Encode + Decode + Clone + Debug + Eq + PartialE
     /// The balance.
     balance: Balance,
     /// Whether the account is frozen.
-    is_frozen: bool,
-    /// Whether the account is a zombie. If not, then it has a reference.
-    is_zombie: bool,
+    is_frozen: bool
 }

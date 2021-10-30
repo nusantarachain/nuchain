@@ -133,7 +133,6 @@ fn create_collection_should_work() {
                 public_mintable: true,
                 allowed_mint_accounts: Vec::new(),
                 max_asset_per_account: 0,
-                max_zombies: 5
             }
         ));
         assert_eq!(Assets::total_asset_count(COLLECTION_ID), 0);
@@ -158,7 +157,6 @@ fn invalid_name_and_symbol() {
                     public_mintable: true,
                     allowed_mint_accounts: Vec::new(),
                     max_asset_per_account: 0,
-                    max_zombies: 5
                 }
             ),
             Error::<Test>::BadMetadata
@@ -178,7 +176,6 @@ fn invalid_name_and_symbol() {
                     public_mintable: true,
                     allowed_mint_accounts: Vec::new(),
                     max_asset_per_account: 0,
-                    max_zombies: 5
                 }
             ),
             Error::<Test>::BadMetadata
@@ -206,7 +203,6 @@ fn with_collection<F: FnOnce() -> ()>(cb: F) {
                 public_mintable: true,
                 allowed_mint_accounts: Vec::new(),
                 max_asset_per_account: 0,
-                max_zombies: 5,
             },
         )
         .expect("Cannot create asset");
@@ -231,7 +227,6 @@ fn with_collection_plus_token<F: FnOnce() -> ()>(cb: F) {
                 public_mintable: true,
                 allowed_mint_accounts: Vec::new(),
                 max_asset_per_account: 0,
-                max_zombies: 5,
             },
         )
         .expect("Cannot create asset");
@@ -256,7 +251,6 @@ fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
                 public_mintable: true,
                 allowed_mint_accounts: Vec::new(),
                 max_asset_per_account: 0,
-                max_zombies: 5,
             },
         )
         .expect("Cannot create asset");
@@ -292,7 +286,6 @@ fn with_minted_asset_plus_token<F: FnOnce() -> ()>(cb: F) {
                 public_mintable: true,
                 allowed_mint_accounts: Vec::new(),
                 max_asset_per_account: 0,
-                max_zombies: 5,
             },
         )
         .expect("Cannot create asset");
@@ -338,7 +331,6 @@ fn basic_destroy_collection() {
                     },
                 ],
                 max_asset_per_account: 0,
-                max_zombies: 5
             }
         ));
         assert_eq!(MintAllowed::<Test>::get(COLLECTION_ID, 3), Some(1));
@@ -378,6 +370,9 @@ fn basic_asset_minting_should_work() {
             10
         ));
 
+        // make account 2 alive
+        Balances::make_free_balance_be(&2, 1);
+
         // 1 (initial mint asset) + 10 (minted) = 11
         assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 1), 11);
         assert_ok!(Assets::mint_token(
@@ -406,6 +401,16 @@ fn basic_asset_minting_should_work() {
 
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &1), 2);
         assert_eq!(OwnedAssetCount::<Test>::get(COLLECTION_ID, &2), 0);
+    });
+}
+
+#[test]
+fn cannot_mint_token_to_dead_account() {
+    with_collection_plus_token(|| {
+        assert_err!(
+            Assets::mint_token(Origin::signed(1), COLLECTION_ID, ASSET_ID, 2, 10),
+            Error::<Test>::DeadAccount
+        );
     });
 }
 
@@ -671,7 +676,6 @@ fn allowed_minting_mechanism_should_work() {
                     },
                 ],
                 max_asset_per_account: 0,
-                max_zombies: 5
             }
         ));
         assert_ok!(Assets::mint_asset(
@@ -1145,7 +1149,6 @@ fn asset_token_support_cannot_greater_than_token_supply() {
                 public_mintable: true,
                 allowed_mint_accounts: Vec::new(),
                 max_asset_per_account: 0,
-                max_zombies: 5,
             },
         )
         .expect("Cannot create asset");
@@ -1585,6 +1588,71 @@ fn transfer_from_frozen_user_should_not_work() {
         ));
     });
 }
+
+#[test]
+fn mint_and_destroy_asset_affect_accounts_count() {
+    with_collection(|| {
+        let meta = Collection::<Test>::get(COLLECTION_ID).expect("get collection meta");
+        assert_eq!(meta.accounts, 0);
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None,
+            None
+        ));
+        let meta = Collection::<Test>::get(COLLECTION_ID).expect("get collection meta");
+        assert_eq!(meta.accounts, 1);
+        Balances::make_free_balance_be(&2, 100);
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID + 1,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None,
+            None
+        ));
+        let meta = Collection::<Test>::get(COLLECTION_ID).expect("get collection meta");
+        assert_eq!(meta.accounts, 2);
+        assert_ok!(Assets::destroy_asset(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+        ));
+        let meta = Collection::<Test>::get(COLLECTION_ID).expect("get collection meta");
+        assert_eq!(meta.accounts, 1);
+        assert_ok!(Assets::destroy_asset(
+            Origin::signed(2),
+            COLLECTION_ID,
+            ASSET_ID + 1,
+        ));
+        let meta = Collection::<Test>::get(COLLECTION_ID).expect("get collection meta");
+        assert_eq!(meta.accounts, 0);
+    });
+}
+
+#[test]
+fn cannot_destroy_non_existing_asset() {
+    with_collection(|| {
+        assert_noop!(
+            Assets::destroy_asset(Origin::signed(1), COLLECTION_ID, ASSET_ID,),
+            Error::<Test>::NotFound
+        );
+        assert_noop!(
+            Assets::force_destroy_asset(Origin::root(), COLLECTION_ID, ASSET_ID,),
+            Error::<Test>::NotFound
+        );
+    });
+}
+
+// @TODO(Robin): add unittest for dead account
 
 // #[test]
 // fn transfer_owner_should_work() {
