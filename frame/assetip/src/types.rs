@@ -123,14 +123,16 @@ pub struct AssetMetadata<
     // /// The number of decimals this asset uses to represent one unit.
     // decimals: u8,
 
+    // @TODO(Robin): change naming to token_uri
     /// Asset's image URI
     image_uri: Vec<u8>,
 
+    // @TODO(Robin): refactor this: base uri should in collection not asset per asset.
     /// Base URI
     /// based on https://docs.openzeppelin.com/contracts/2.x/api/token/erc721#ERC721Metadata
     base_uri: Vec<u8>,
 
-    /// Intelectual property owner
+    /// Intelectual property owner, this point to the original creator of this asset.
     ip_owner: AccountId,
 
     /// The balance deposited for this metadata.
