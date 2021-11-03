@@ -236,6 +236,8 @@ pub mod pallet {
         InsufficientBalance,
         /// Collection contains minted tokens.
         MintedTokenExists,
+        /// Cannot dispatch restricted methods after collection has been released.
+        AlreadyReleased,
     }
 
     #[pallet::storage]
@@ -404,6 +406,7 @@ pub mod pallet {
                     min_balance: meta.min_balance,
                     accounts: Zero::zero(),
                     is_frozen: false,
+                    released: false,
                 },
             );
 
@@ -496,6 +499,7 @@ pub mod pallet {
                 let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
 
                 ensure!(meta.owner == who, Error::<T>::Unauthorized);
+                ensure!(!meta.released, Error::<T>::AlreadyReleased);
 
                 if let Some(public_mintable) = public_mintable {
                     meta.public_mintable = public_mintable;
@@ -523,6 +527,8 @@ pub mod pallet {
             })
         }
 
+        // @TODO(Robin): add force_update_collection method.
+
         /// Disallow further unprivileged transfers for the asset class.
         ///
         /// Origin must be Signed and the sender should be the Freezer of the asset `id`.
@@ -542,6 +548,7 @@ pub mod pallet {
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
                 ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
+                ensure!(!meta.released, Error::<T>::AlreadyReleased);
 
                 meta.is_frozen = true;
 
@@ -595,6 +602,7 @@ pub mod pallet {
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
                 ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
+                ensure!(!meta.released, Error::<T>::AlreadyReleased);
 
                 meta.is_frozen = false;
 
@@ -692,6 +700,7 @@ pub mod pallet {
 
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 let mut meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(!meta.is_frozen, Error::<T>::Frozen);
 
                 // check is user allowed to mint this token's asset
                 if !meta.public_mintable {
@@ -834,6 +843,7 @@ pub mod pallet {
                 // Ok(().into())
 
                 let mut meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+                ensure!(!meta.is_frozen, Error::<T>::Frozen);
                 Self::do_destroy_asset(collection_id, asset_id, &mut meta)
             })
         }
@@ -969,7 +979,8 @@ pub mod pallet {
 
         /// Change the Owner of collection.
         ///
-        /// Origin must be Signed and the sender should be the Owner of the asset `id`.
+        /// Origin must be Signed and the sender should be the Owner of the asset `id`
+        /// and the collection is not released.
         ///
         /// - `id`: The identifier of the asset to be frozen.
         /// - `owner`: The new Owner of this asset.
@@ -989,6 +1000,7 @@ pub mod pallet {
             Collection::<T>::try_mutate(collection_id, |maybe_meta| {
                 let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
                 ensure!(&origin == &meta.owner, Error::<T>::Unauthorized);
+                ensure!(!meta.released, Error::<T>::AlreadyReleased);
 
                 if meta.owner == new_owner {
                     return Ok(().into());
@@ -1088,12 +1100,9 @@ pub mod pallet {
             origin: OriginFor<T>,
             #[pallet::compact] collection_id: T::CollectionId,
             #[pallet::compact] asset_id: T::AssetId,
-            // name: Vec<u8>,
-            // description: Vec<u8>,
             image_uri: Option<Vec<u8>>,
             base_uri: Option<Vec<u8>>,
             ip_owner: Option<T::AccountId>,
-            // approved_for_transfer: Option<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let origin = ensure_signed(origin)?;
 
@@ -1126,10 +1135,6 @@ pub mod pallet {
                     Error::<T>::BadMetadata
                 );
             }
-
-            // let owner =
-            //     OwnershipOfAsset::<T>::get(collection_id, asset_id).ok_or(Error::<T>::Unknown)?;
-            // ensure!(&origin == &owner, Error::<T>::Unauthorized);
 
             MetadataOfAsset::<T>::try_mutate(collection_id, asset_id, |metadata| {
                 let meta = metadata.as_mut().ok_or(Error::<T>::Unknown)?;

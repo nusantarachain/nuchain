@@ -441,6 +441,65 @@ fn public_asset_minting_should_work() {
 }
 
 #[test]
+fn cannot_mint_or_destroy_assets_when_collection_is_frozen() {
+    with_collection(|| {
+        Balances::make_free_balance_be(&1, 100);
+
+        assert_ok!(Assets::freeze_collection(Origin::signed(1), COLLECTION_ID));
+
+        assert_noop!(
+            Assets::mint_asset(
+                Origin::signed(1),
+                COLLECTION_ID,
+                ASSET_ID,
+                Vec::new(),
+                Vec::new(),
+                None,
+                None,
+                None,
+                None
+            ),
+            Error::<Test>::Frozen
+        );
+
+        assert_ok!(Assets::unfreeze_collection(
+            Origin::signed(1),
+            COLLECTION_ID
+        ));
+
+        assert_ok!(Assets::mint_asset(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            Vec::new(),
+            Vec::new(),
+            None,
+            None,
+            None,
+            None
+        ));
+
+        assert_ok!(Assets::freeze_collection(Origin::signed(1), COLLECTION_ID));
+
+        assert_noop!(
+            Assets::destroy_asset(Origin::signed(1), COLLECTION_ID, ASSET_ID,),
+            Error::<Test>::Frozen
+        );
+
+        assert_ok!(Assets::unfreeze_collection(
+            Origin::signed(1),
+            COLLECTION_ID
+        ));
+
+        assert_ok!(Assets::destroy_asset(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+        ));
+    });
+}
+
+#[test]
 fn asset_minting_deposit_calculation_works() {
     with_collection(|| {
         Balances::make_free_balance_be(&2, 100);
@@ -633,7 +692,7 @@ fn approved_to_transfer_token_works() {
 }
 
 #[test]
-fn transfer_collection_ownership() {
+fn transfer_collection_ownership_should_works() {
     with_minted_asset(|| {
         Balances::make_free_balance_be(&2, 1);
         assert_eq!(Assets::is_collection_owner(&1, COLLECTION_ID), true);

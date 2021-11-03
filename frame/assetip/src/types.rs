@@ -101,6 +101,10 @@ pub struct CollectionMetadata<
 
     /// Whether the asset is frozen for permissionless transfers.
     is_frozen: bool,
+
+    /// When this set to `true`, the owner has unable to dispatch several methods on this collection
+    /// including: freeze/unfreeze collection, update collection metadata, transfer collection ownership.
+    released: bool,
 }
 
 
