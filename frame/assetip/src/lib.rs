@@ -234,6 +234,8 @@ pub mod pallet {
         MaxTokenHolder,
         /// When origin balance less than amount to share
         InsufficientBalance,
+        /// Collection contains minted tokens.
+        MintedTokenExists,
     }
 
     #[pallet::storage]
@@ -453,6 +455,15 @@ pub mod pallet {
         ///
         /// The origin must be Signed and the sender must be the collection owner.
         ///
+        /// Will no op when all Option params is None.
+        ///
+        /// - `collection_id` - The ID of collection.
+        /// - `public_mintable`: Whether the collection is publicly mintable (anyone can mint).
+        /// - `max_asset_per_account`: Setting max asset per account.
+        /// - `min_balance`: Setting minimum balance per account.
+        /// - `has_token`: Whether the collection has asset's token or not.
+        ///                Once this set to `true` and there is already minted token in the collection
+        ///                this settings cannot be changed to `false`, unless all available token is burned.
         ///
         #[pallet::weight(100_000_000)]
         pub(super) fn update_collection(
@@ -499,6 +510,12 @@ pub mod pallet {
                 }
 
                 if let Some(has_token) = has_token {
+                    // don't allow to set this flag to false when
+                    // there is already minted token.
+                    if !has_token {
+                        ensure!(meta.token_supply.is_zero(), Error::<T>::MintedTokenExists);
+                    }
+
                     meta.has_token = has_token;
                 }
 
@@ -1207,21 +1224,21 @@ pub mod pallet {
                     .checked_add(&meta.token_supply.into())
                     .ok_or(Error::<T>::Overflow)?;
 
-                if meta.has_token {
-                    Account::<T>::try_mutate(
-                        collection_id,
-                        (asset_id, &beneficiary),
-                        |t| -> DispatchResultWithPostInfo {
-                            let new_balance = t.balance.saturating_add(amount);
-                            ensure!(new_balance >= meta.min_balance, Error::<T>::TokenBalanceLow);
-                            if t.balance.is_zero() {
-                                Self::new_account(&beneficiary, meta)?;
-                            }
-                            t.balance = new_balance;
-                            Ok(().into())
-                        },
-                    )?;
-                }
+                // if meta.has_token {
+                Account::<T>::try_mutate(
+                    collection_id,
+                    (asset_id, &beneficiary),
+                    |t| -> DispatchResultWithPostInfo {
+                        let new_balance = t.balance.saturating_add(amount);
+                        ensure!(new_balance >= meta.min_balance, Error::<T>::TokenBalanceLow);
+                        if t.balance.is_zero() {
+                            Self::new_account(&beneficiary, meta)?;
+                        }
+                        t.balance = new_balance;
+                        Ok(().into())
+                    },
+                )?;
+                // }
 
                 // update asset's metadata
                 let max_token_supply = meta.max_token_supply;

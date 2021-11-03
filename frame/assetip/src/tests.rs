@@ -370,6 +370,9 @@ fn basic_asset_minting_should_work() {
             10
         ));
 
+        let meta = Collection::<Test>::get(COLLECTION_ID).expect("cannot get collection");
+        assert_eq!(meta.token_supply, 10);
+
         // make account 2 alive
         Balances::make_free_balance_be(&2, 1);
 
@@ -383,6 +386,9 @@ fn basic_asset_minting_should_work() {
             10
         ));
         assert_eq!(Assets::balance(COLLECTION_ID, ASSET_ID, 2), 10);
+
+        let meta = Collection::<Test>::get(COLLECTION_ID).expect("cannot get collection");
+        assert_eq!(meta.token_supply, 20);
 
         // check token holdings
         assert_ok!(Assets::mint_asset(
@@ -802,6 +808,60 @@ fn update_collection_should_works() {
         assert_eq!(meta.max_asset_per_account, 7);
         assert_eq!(meta.min_balance, 9);
         assert_eq!(meta.has_token, false);
+    });
+}
+
+#[test]
+fn cannot_update_collection_has_token_false_when_already_has_token_minted() {
+    with_minted_asset_plus_token(|| {
+        assert_ok!(Assets::update_collection(
+            Origin::signed(1),
+            COLLECTION_ID,
+            Some(true),
+            Some(7),
+            Some(9),
+            Some(true)
+        ));
+
+        let meta = Collection::<Test>::get(COLLECTION_ID).expect("cannot get collection");
+        assert_eq!(meta.has_token, true);
+
+        assert_ok!(Assets::mint_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            20
+        ));
+
+        assert_noop!(
+            Assets::update_collection(
+                Origin::signed(1),
+                COLLECTION_ID,
+                Some(true),
+                None,
+                None,
+                Some(false)
+            ),
+            Error::<Test>::MintedTokenExists
+        );
+
+        assert_ok!(Assets::burn_token(
+            Origin::signed(1),
+            COLLECTION_ID,
+            ASSET_ID,
+            1,
+            120
+        ));
+
+        assert_ok!(Assets::update_collection(
+            Origin::signed(1),
+            COLLECTION_ID,
+            Some(true),
+            None,
+            None,
+            Some(false)
+        ));
     });
 }
 
@@ -1689,6 +1749,8 @@ fn cannot_destroy_non_existing_asset() {
 //         assert_eq!(Balances::reserved_balance(&2), 0);
 //     });
 // }
+
+// @TODO(Robin): add test for account unable to burn asset on frozen collection
 
 // #[test]
 // fn set_team_should_work() {

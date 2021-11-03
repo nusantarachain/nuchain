@@ -100,7 +100,7 @@ pub struct CollectionMetadata<
     accounts: u32,
 
     /// Whether the asset is frozen for permissionless transfers.
-    is_frozen: bool,    
+    is_frozen: bool,
 }
 
 
