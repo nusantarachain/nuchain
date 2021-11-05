@@ -244,6 +244,7 @@ impl pallet_timestamp::Config for Test {
 impl pallet_utility::Config for Test {
 	type Event = Event;
 	type Call = Call;
+	type PalletsOrigin = OriginCaller;
 	type WeightInfo = ();
 }
 parameter_types! {
@@ -444,6 +445,11 @@ fn instantiate_and_call_and_deposit_event() {
 		assert_eq!(
 			System::events(),
 			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: Event::Balances(pallet_balances::Event::Deposit(ALICE, 1_000_000)),
+					topics: vec![],
+				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: Event::System(frame_system::Event::NewAccount(ALICE.clone())),

@@ -22,7 +22,7 @@ use crate::{
 	error, utils, with_crypto_scheme, CryptoSchemeFlag, NetworkSchemeFlag, OutputTypeFlag,
 };
 use rand::{rngs::OsRng, RngCore};
-use sp_core::crypto::{Ss58AddressFormat, Ss58Codec};
+use sp_core::crypto::{unwrap_or_default_ss58_version, Ss58AddressFormat, Ss58Codec};
 use sp_runtime::traits::IdentifyAccount;
 use structopt::StructOpt;
 use utils::print_from_uri;
@@ -59,8 +59,8 @@ impl VanityCmd {
 			self.crypto_scheme.scheme,
 			generate_key(
 				&self.pattern,
-				self.network_scheme.network.clone().unwrap_or_default(),
-				self.as_regex
+				unwrap_or_default_ss58_version(self.network_scheme.network),
+                self.as_regex
 			),
 		)?;
 
@@ -177,7 +177,10 @@ fn assert_non_empty_string(pattern: &str) -> Result<String, &'static str> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::{crypto::Ss58Codec, sr25519, Pair};
+	use sp_core::{
+		crypto::{default_ss58_version, Ss58AddressFormatRegistry, Ss58Codec},
+		sr25519, Pair,
+	};
 	use structopt::StructOpt;
 	#[cfg(feature = "bench")]
 	use test::Bencher;
@@ -190,7 +193,7 @@ mod tests {
 
 	#[test]
 	fn test_generation_with_single_char() {
-		let seed = generate_key::<sr25519::Pair>("ab", Default::default(), false).unwrap();
+		let seed = generate_key::<sr25519::Pair>("ab", default_ss58_version()).unwrap();
 		assert!(sr25519::Pair::from_seed_slice(&hex::decode(&seed[2..]).unwrap())
 			.unwrap()
 			.public()
@@ -201,11 +204,12 @@ mod tests {
 	#[test]
 	fn generate_key_respects_network_override() {
 		let seed =
-			generate_key::<sr25519::Pair>("ab", Ss58AddressFormat::PolkadotAccount, false).unwrap();
+			generate_key::<sr25519::Pair>("ab", Ss58AddressFormatRegistry::PolkadotAccount.into(), false)
+				.unwrap();
 		assert!(sr25519::Pair::from_seed_slice(&hex::decode(&seed[2..]).unwrap())
 			.unwrap()
 			.public()
-			.to_ss58check_with_version(Ss58AddressFormat::PolkadotAccount)
+			.to_ss58check_with_version(Ss58AddressFormatRegistry::PolkadotAccount.into())
 			.contains("ab"));
 	}
 
