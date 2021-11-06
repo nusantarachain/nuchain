@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use crate as pallet_erc741;
+use crate as pallet_assetip;
 
 use frame_support::{
     assert_err_ignore_postinfo as assert_err, assert_noop, assert_ok, parameter_types,
@@ -39,7 +39,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-        Assets: pallet_erc741::{Module, Call, Storage, Event<T>},
+        Assets: pallet_assetip::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -115,6 +115,23 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
         .into()
 }
 
+type AssetipEvent = pallet_assetip::Event<Test>;
+
+fn last_event() -> AssetipEvent {
+    System::events()
+        .into_iter()
+        .map(|r| r.event)
+        .filter_map(|e| {
+            if let Event::pallet_assetip(inner) = e {
+                Some(inner)
+            } else {
+                None
+            }
+        })
+        .last()
+        .expect("Event expected")
+}
+
 #[test]
 fn create_collection_should_work() {
     new_test_ext().execute_with(|| {
@@ -188,6 +205,7 @@ const ASSET_ID: u32 = 1;
 
 fn with_collection<F: FnOnce() -> ()>(cb: F) {
     new_test_ext().execute_with(|| {
+        System::set_block_number(1);
         Balances::make_free_balance_be(&1, 100);
         Assets::create_collection(
             Origin::signed(1),
@@ -212,6 +230,7 @@ fn with_collection<F: FnOnce() -> ()>(cb: F) {
 
 fn with_collection_plus_token<F: FnOnce() -> ()>(cb: F) {
     new_test_ext().execute_with(|| {
+        System::set_block_number(1);
         Balances::make_free_balance_be(&1, 100);
         Assets::create_collection(
             Origin::signed(1),
@@ -236,6 +255,7 @@ fn with_collection_plus_token<F: FnOnce() -> ()>(cb: F) {
 
 fn with_minted_asset<F: FnOnce() -> ()>(cb: F) {
     new_test_ext().execute_with(|| {
+        System::set_block_number(1);
         Balances::make_free_balance_be(&1, 100);
         Assets::create_collection(
             Origin::signed(1),
@@ -712,6 +732,7 @@ fn transfer_collection_ownership_should_works() {
 #[test]
 fn allowed_minting_mechanism_should_work() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(1);
         Balances::make_free_balance_be(&1, 25); // owner
         Balances::make_free_balance_be(&2, 10); // not allowed
         Balances::make_free_balance_be(&3, 11); // allowed
@@ -816,6 +837,15 @@ fn allowed_minting_mechanism_should_work() {
             None,
             None
         ));
+
+        assert_eq!(
+            match last_event() {
+                AssetipEvent::CollectionUpdated(collection_id) => collection_id,
+                _ => 0,
+            },
+            COLLECTION_ID
+        );
+
         // now everybody can mint
         Balances::make_free_balance_be(&10, 100);
         assert_ok!(Assets::mint_asset(
@@ -917,6 +947,14 @@ fn force_update_collection_should_works() {
             Some(9),
             Some(false)
         ));
+
+        assert_eq!(
+            match last_event() {
+                AssetipEvent::ForceCollectionUpdated(collection_id) => collection_id,
+                _ => 0,
+            },
+            COLLECTION_ID
+        );
 
         let meta = Collection::<Test>::get(COLLECTION_ID).expect("cannot get collection");
         assert_eq!(meta.public_mintable, true);

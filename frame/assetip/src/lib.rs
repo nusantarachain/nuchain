@@ -123,6 +123,10 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// Some collection was created. \[collection_id, owner\]
         CollectionCreated(T::CollectionId, T::AccountId),
+        /// Some collection was updated. \[collection_id\]
+        CollectionUpdated(T::CollectionId),
+        /// Some collection was updated forcefully. \[collection_id\]
+        ForceCollectionUpdated(T::CollectionId),
         /// Some asset class was created. \[collection_id, asset_id, owner\]
         AssetMinted(T::CollectionId, T::AssetId, T::AccountId),
         /// Some asset class was created. \[collection_id, asset_id, creator, owner\]
@@ -145,7 +149,6 @@ pub mod pallet {
             T::AccountId,
             T::Balance,
         ),
-
         /// Some assets were destroyed. \[collection_id, owner, balance\]
         Burned(T::CollectionId, T::AssetId, T::AccountId, T::Balance),
         /// The management team changed \[collection_id, admin, freezer\]
@@ -523,6 +526,8 @@ pub mod pallet {
                     meta.has_token = has_token;
                 }
 
+                Self::deposit_event(Event::CollectionUpdated(collection_id));
+
                 Ok(().into())
             })
         }
@@ -592,6 +597,8 @@ pub mod pallet {
 
                     meta.has_token = has_token;
                 }
+
+                Self::deposit_event(Event::ForceCollectionUpdated(collection_id));
 
                 Ok(().into())
             })
