@@ -1,0 +1,56 @@
+{
+    "CollectionId": "u32",
+    "AssetId": "u32",
+    "AllowedMintAccount": {
+        "account": "AccountId",
+        "amount": "u32"
+    },
+    "NewCollectionParam": {
+        "name": "Vec<u8>",
+        "symbol": "Vec<u8>",
+        "owner": "AccountId",
+        "max_asset_count": "u32",
+        "has_token": "bool",
+        "max_token_supply": "Balance",
+        "min_balance": "Balance",
+        "public_mintable": "bool",
+        "allowed_mint_accounts": "Vec<AllowedMintAccount<AccountId>>",
+        "max_asset_per_account": "u32"
+    },
+    "CollectionMetadata": {
+        "name": "Vec<u8>",
+        "symbol": "Vec<u8>",
+        "owner": "AccountId",
+        "max_asset_count": "u32",
+        "has_token": "bool",
+        "max_token_supply": "Balance",
+        "min_balance": "Balance",
+        "public_mintable": "bool",
+        "max_asset_per_account": "u32",
+        "asset_count": "u64",
+        "asset_index": "u64",
+        "token_supply": "Balance",
+        "deposit": "DepositBalance",
+        "accounts": "u32",
+        "is_frozen": "bool"
+    },
+    "AssetMetadata": {
+        "name": "Vec<u8>",
+        "description": "Vec<u8>",
+        "image_uri": "Vec<u8>",
+        "base_uri": "Vec<u8>",
+        "ip_owner": "AccountId",
+        "deposit": "DepositBalance",
+        "token_supply": "Balance"
+    },
+    "AssetOwnership": {
+        "owner": "AccountId",
+        "approved_to_transfer": "Option<bool>",
+        "approved_to_transfer_token": "Option<bool>",
+        "token_holders": "Vec<AccountId>"
+    },
+    "TokenBalance": {
+        "balance": "Balance",
+        "is_frozen": "bool"
+    }
+}
