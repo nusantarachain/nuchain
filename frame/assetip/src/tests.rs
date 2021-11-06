@@ -871,6 +871,62 @@ fn update_collection_should_works() {
 }
 
 #[test]
+fn force_update_collection_should_works() {
+    with_minted_asset(|| {
+        // change to public mintable
+        assert_noop!(
+            Assets::force_update_collection(
+                Origin::signed(1),
+                COLLECTION_ID,
+                None,
+                Some(0),
+                None,
+                None
+            ),
+            DispatchError::BadOrigin
+        );
+        assert_noop!(
+            Assets::force_update_collection(
+                Origin::signed(2),
+                COLLECTION_ID,
+                None,
+                Some(0),
+                None,
+                None
+            ),
+            DispatchError::BadOrigin
+        );
+        assert_noop!(
+            Assets::force_update_collection(
+                Origin::root(),
+                COLLECTION_ID,
+                None,
+                Some(MAX_ASSET_PER_ACCOUNT + 1),
+                None,
+                None
+            ),
+            Error::<Test>::MaxLimitPerAccount
+        );
+
+        // change to public mintable
+        assert_ok!(Assets::force_update_collection(
+            Origin::root(),
+            COLLECTION_ID,
+            Some(true),
+            Some(7),
+            Some(9),
+            Some(false)
+        ));
+
+        let meta = Collection::<Test>::get(COLLECTION_ID).expect("cannot get collection");
+        assert_eq!(meta.public_mintable, true);
+        assert_eq!(meta.max_asset_per_account, 7);
+        assert_eq!(meta.min_balance, 9);
+        assert_eq!(meta.has_token, false);
+    });
+}
+
+#[test]
 fn cannot_update_collection_has_token_false_when_already_has_token_minted() {
     with_minted_asset_plus_token(|| {
         assert_ok!(Assets::update_collection(

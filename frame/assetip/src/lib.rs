@@ -527,7 +527,75 @@ pub mod pallet {
             })
         }
 
-        // @TODO(Robin): add force_update_collection method.
+        /// Force update collection metadata.
+        ///
+        /// The origin must be `ForceOrigin`.
+        ///
+        /// Will no op when all Option params is None.
+        ///
+        /// - `collection_id` - The ID of collection.
+        /// - `public_mintable`: Whether the collection is publicly mintable (anyone can mint).
+        /// - `max_asset_per_account`: Setting max asset per account.
+        /// - `min_balance`: Setting minimum balance per account.
+        /// - `has_token`: Whether the collection has asset's token or not.
+        ///                Once this set to `true` and there is already minted token in the collection
+        ///                this settings cannot be changed to `false`, unless all available token is burned.
+        ///
+        #[pallet::weight(100_000_000)]
+        pub(super) fn force_update_collection(
+            origin: OriginFor<T>,
+            collection_id: T::CollectionId,
+            public_mintable: Option<bool>,
+            max_asset_per_account: Option<u32>,
+            min_balance: Option<T::Balance>,
+            has_token: Option<bool>,
+        ) -> DispatchResultWithPostInfo {
+            T::ForceOrigin::ensure_origin(origin)?;
+
+            if let Some(max_asset_per_account) = max_asset_per_account {
+                ensure!(max_asset_per_account > 0, Error::<T>::BadMetadata);
+                ensure!(
+                    max_asset_per_account <= MAX_ASSET_PER_ACCOUNT,
+                    Error::<T>::MaxLimitPerAccount
+                );
+            }
+
+            if public_mintable.is_none()
+                && max_asset_per_account.is_none()
+                && min_balance.is_none()
+                && has_token.is_none()
+            {
+                return Ok(().into());
+            }
+
+            Collection::<T>::try_mutate(collection_id, |maybe_meta| {
+                let meta = maybe_meta.as_mut().ok_or(Error::<T>::Unknown)?;
+
+                if let Some(public_mintable) = public_mintable {
+                    meta.public_mintable = public_mintable;
+                }
+
+                if let Some(max_asset_per_account) = max_asset_per_account {
+                    meta.max_asset_per_account = max_asset_per_account;
+                }
+
+                if let Some(min_balance) = min_balance {
+                    meta.min_balance = min_balance;
+                }
+
+                if let Some(has_token) = has_token {
+                    // don't allow to set this flag to false when
+                    // there is already minted token.
+                    if !has_token {
+                        ensure!(meta.token_supply.is_zero(), Error::<T>::MintedTokenExists);
+                    }
+
+                    meta.has_token = has_token;
+                }
+
+                Ok(().into())
+            })
+        }
 
         /// Disallow further unprivileged transfers for the asset class.
         ///
