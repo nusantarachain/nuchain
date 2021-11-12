@@ -182,7 +182,7 @@ cli = [
 #	["../../../etc/script/nuchain.service", "/etc/systemd/system/", "644"]
 #]
 
-try-runtime = ["node-runtime/try-runtime", "try-runtime-cli"]
+try-runtime = ["nuchain-runtime/try-runtime", "try-runtime-cli"]
 
 [[bench]]
 name = "transaction_pool"
