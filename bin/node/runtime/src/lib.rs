@@ -1085,13 +1085,13 @@ impl pallet_did::Config for Runtime {
     type WeightInfo = pallet_did::weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_product_registry::Config for Runtime {
-    type Event = Event;
-}
+// impl pallet_product_registry::Config for Runtime {
+//     type Event = Event;
+// }
 
-impl pallet_product_tracking::Config for Runtime {
-    type Event = Event;
-}
+// impl pallet_product_tracking::Config for Runtime {
+//     type Event = Event;
+// }
 
 // // COMMODITIES / NFTs
 // parameter_types! {
@@ -1144,8 +1144,8 @@ construct_runtime!(
         Did: pallet_did::{Module, Call, Storage, Event<T>},
         Organization: pallet_organization::{Module, Call, Storage, Event<T>},
         Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
-        ProductRegistry: pallet_product_registry::{Module, Call, Storage, Event<T>},
-        ProductTracking: pallet_product_tracking::{Module, Call, Storage, Event<T>},
+        // ProductRegistry: pallet_product_registry::{Module, Call, Storage, Event<T>},
+        // ProductTracking: pallet_product_tracking::{Module, Call, Storage, Event<T>},
     }
 );
 

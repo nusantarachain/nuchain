@@ -23,6 +23,7 @@ build-wasm-runtime:
 	@@cargo build --release -p nuchain-runtime
 	@@cd target/release/wbuild/nuchain-runtime && \
 		cp nuchain_runtime.compact.wasm nuchain_runtime-$(RUNTIME_SPEC_VER).compact.wasm
+	@@echo runtime build: nuchain_runtime-$(RUNTIME_SPEC_VER).compact.wasm
 
 build-benchmark:
 	@@echo Building binary for benchmark...
