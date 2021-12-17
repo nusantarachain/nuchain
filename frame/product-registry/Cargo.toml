@@ -20,7 +20,7 @@ serde = {version = "1.0.101", optional = true}
 [dev-dependencies]
 pallet-balances = {version = "4.0.0-dev", path = "../balances"}
 pallet-did = { default-features = false, path = "../did" }
-sp-core = {version = "4.0.0-dev", default-features = false, path = "../../primitives/core"}
+sp-core = {version = "4.1.0-dev", default-features = false, path = "../../primitives/core"}
 sp-io = {version = "4.0.0-dev", default-features = false, path = "../../primitives/io"}
 sp-keyring = {version = "4.0.0-dev", path = "../../primitives/keyring"}
 sp-runtime = {version = "4.0.0-dev", default-features = false, path = "../../primitives/runtime"}

@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 ansi_term = "0.12.1"
 sc-keystore = { version = "4.0.0-dev", path = "../../../client/keystore" }
 sc-chain-spec = { version = "4.0.0-dev", path = "../../../client/chain-spec" }
-nuchain-node = { path = "../../node/cli" }
-sp-core = { version = "4.0.0-dev", path = "../../../primitives/core" }
-sp-keystore = { version = "0.10.0-dev", path = "../../../primitives/keystore" }
+nuchain-node = { version = "0.2.6", path = "../../node/cli" }
+sp-core = { version = "4.1.0-dev", path = "../../../primitives/core" }
+sp-keystore = { version = "0.10.0", path = "../../../primitives/keystore" }
 rand = "0.7.2"
-structopt = "0.3.8"
+structopt = "0.3.25"

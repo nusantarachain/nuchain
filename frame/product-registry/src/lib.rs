@@ -198,9 +198,8 @@ pub mod pallet {
             <pallet_organization::Pallet<T>>::ensure_access_active_id(&who, &org_id)?;
 
             // Create a product instance
-            let product = Self::new_product()
+            let product = Self::new_product(org_id.clone())
                 .identified_by(id.clone())
-                .owned_by(org_id.clone())
                 .registered_on(<pallet_timestamp::Pallet<T>>::now())
                 .with_props(props)
                 .build();
@@ -257,8 +256,9 @@ pub use pallet::*;
 
 impl<T: Config> Pallet<T> {
     // Helper methods
-    pub fn new_product() -> ProductBuilder<T::AccountId, T::Moment> {
-        ProductBuilder::<T::AccountId, T::Moment>::default()
+    pub fn new_product(owner: T::AccountId) -> ProductBuilder<T::AccountId, T::Moment> {
+        // ProductBuilder::<T::AccountId, T::Moment>::default()
+        ProductBuilder::<T::AccountId, T::Moment>::new(owner)
     }
 
     pub fn validate_product_id(id: &[u8]) -> Result<(), Error<T>> {
@@ -303,7 +303,7 @@ impl<T: Config> Pallet<T> {
 #[derive(Default)]
 pub struct ProductBuilder<AccountId, Moment>
 where
-    AccountId: Default,
+    // AccountId: Default,
     Moment: Default,
 {
     id: ProductId,
@@ -314,9 +314,19 @@ where
 
 impl<AccountId, Moment> ProductBuilder<AccountId, Moment>
 where
-    AccountId: Default,
+    // AccountId: Default,
     Moment: Default,
 {
+
+    pub fn new(owner: AccountId) -> Self {
+        Self {
+            id: ProductId::default(),
+            owner,
+            props: None,
+            registered: Moment::default(),
+        }
+    }
+
     pub fn identified_by(mut self, id: ProductId) -> Self {
         self.id = id;
         self

@@ -45,7 +45,7 @@ use sp_consensus_slots::Slot;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, HashFor, Header as HeaderT, NumberFor},
+	traits::{Block as BlockT, HashFor, Header as HeaderT},
 };
 use sp_timestamp::Timestamp;
 use std::{fmt::Debug, ops::Deref, time::Duration};
@@ -54,7 +54,7 @@ use std::{fmt::Debug, ops::Deref, time::Duration};
 ///
 /// See [`sp_state_machine::StorageChanges`] for more information.
 pub type StorageChanges<Transaction, Block> =
-	sp_state_machine::StorageChanges<Transaction, HashFor<Block>, NumberFor<Block>>;
+	sp_state_machine::StorageChanges<Transaction, HashFor<Block>>;
 
 /// The result of [`SlotWorker::on_slot`].
 #[derive(Debug, Clone)]
@@ -141,31 +141,20 @@ pub trait SimpleSlotWorker<B: BlockT> {
 	fn notify_slot(&self, _header: &B::Header, _slot: Slot, _epoch_data: &Self::EpochData) {}
 
 	/// Return the pre digest data to include in a block authored with the given claim.
-	fn pre_digest_data(
-		&self,
-		slot: Slot,
-		claim: &Self::Claim,
-	) -> Vec<sp_runtime::DigestItem<B::Hash>>;
+	fn pre_digest_data(&self, slot: Slot, claim: &Self::Claim) -> Vec<sp_runtime::DigestItem>;
 
 	/// Returns a function which produces a `BlockImportParams`.
-	fn block_import_params(
+	async fn block_import_params(
 		&self,
-	) -> Box<
-		dyn Fn(
-				B::Header,
-				&B::Hash,
-				Vec<B::Extrinsic>,
-				StorageChanges<<Self::BlockImport as BlockImport<B>>::Transaction, B>,
-				Self::Claim,
-				Self::EpochData,
-			) -> Result<
-				sc_consensus::BlockImportParams<
-					B,
-					<Self::BlockImport as BlockImport<B>>::Transaction,
-				>,
-				sp_consensus::Error,
-			> + Send
-			+ 'static,
+		header: B::Header,
+		header_hash: &B::Hash,
+		body: Vec<B::Extrinsic>,
+		storage_changes: StorageChanges<<Self::BlockImport as BlockImport<B>>::Transaction, B>,
+		public: Self::Claim,
+		epoch: Self::EpochData,
+	) -> Result<
+		sc_consensus::BlockImportParams<B, <Self::BlockImport as BlockImport<B>>::Transaction>,
+		sp_consensus::Error,
 	>;
 
 	/// Whether to force authoring if offline.
@@ -346,23 +335,23 @@ pub trait SimpleSlotWorker<B: BlockT> {
 			},
 		};
 
-		let block_import_params_maker = self.block_import_params();
-		let block_import = self.block_import();
-
 		let (block, storage_proof) = (proposal.block, proposal.proof);
 		let (header, body) = block.deconstruct();
 		let header_num = *header.number();
 		let header_hash = header.hash();
 		let parent_hash = *header.parent_hash();
 
-		let block_import_params = match block_import_params_maker(
-			header,
-			&header_hash,
-			body.clone(),
-			proposal.storage_changes,
-			claim,
-			epoch_data,
-		) {
+		let block_import_params = match self
+			.block_import_params(
+				header,
+				&header_hash,
+				body.clone(),
+				proposal.storage_changes,
+				claim,
+				epoch_data,
+			)
+			.await
+		{
 			Ok(bi) => bi,
 			Err(err) => {
 				warn!(target: logging_target, "Failed to create block import params: {:?}", err);
@@ -389,7 +378,7 @@ pub trait SimpleSlotWorker<B: BlockT> {
 		);
 
 		let header = block_import_params.post_header();
-		match block_import.import_block(block_import_params, Default::default()).await {
+		match self.block_import().import_block(block_import_params, Default::default()).await {
 			Ok(res) => {
 				res.handle_justification(
 					&header.hash(),

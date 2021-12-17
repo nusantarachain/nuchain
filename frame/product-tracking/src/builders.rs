@@ -7,7 +7,7 @@ use pallet_product_registry::ProductId;
 #[derive(Default)]
 pub struct TrackingBuilder<AccountId, Moment>
 where
-    AccountId: Default,
+    // AccountId: Default,
     Moment: Default,
 {
     id: TrackingId,
@@ -20,18 +20,30 @@ where
 
 impl<AccountId, Moment> TrackingBuilder<AccountId, Moment>
 where
-    AccountId: Default,
+    // AccountId: Default,
     Moment: Default,
 {
+
+    pub fn new(owner: AccountId) -> Self {
+        Self {
+            id: TrackingId::default(),
+            owner,
+            products: Default::default(),
+            registered: Default::default(),
+            parent_id: Default::default(),
+            props: Default::default(),
+        }
+    }
+
     pub fn identified_by(mut self, id: TrackingId) -> Self {
         self.id = id;
         self
     }
 
-    pub fn owned_by(mut self, owner: AccountId) -> Self {
-        self.owner = owner;
-        self
-    }
+    // pub fn owned_by(mut self, owner: AccountId) -> Self {
+    //     self.owner = owner;
+    //     self
+    // }
 
     pub fn with_products(mut self, products: Vec<ProductId>) -> Self {
         self.products = products;

@@ -192,9 +192,9 @@ pub mod pallet {
             <pallet_organization::Pallet<T>>::ensure_access_active_id(&who, &org_id)?;
 
             // Create a tracking instance
-            let mut tracking_builder = Self::new_tracking()
+            let mut tracking_builder = Self::new_tracking(org_id.clone())
                 .identified_by(id.clone())
-                .owned_by(org_id.clone())
+                // .owned_by(org_id.clone())
                 .registered_at(<pallet_timestamp::Pallet<T>>::now())
                 .with_products(products);
 
@@ -338,8 +338,8 @@ pub use pallet::*;
 use codec::alloc::vec;
 
 impl<T: Config> Pallet<T> {
-    fn new_tracking() -> TrackingBuilder<T::AccountId, T::Moment> {
-        TrackingBuilder::<T::AccountId, T::Moment>::default()
+    fn new_tracking(owner: T::AccountId) -> TrackingBuilder<T::AccountId, T::Moment> {
+        TrackingBuilder::<T::AccountId, T::Moment>::new(owner)
     }
 
     fn new_tracking_event() -> TrackingEventBuilder<T::Moment> {

@@ -29,7 +29,7 @@ use structopt::StructOpt;
 use nuchain_node::chain_spec::{self, AccountId};
 use sc_keystore::LocalKeystore;
 use sp_core::{
-	crypto::{Public, Ss58Codec},
+	crypto::{ByteArray, Ss58Codec},
 	sr25519,
 };
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};

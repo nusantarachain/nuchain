@@ -88,12 +88,12 @@ pub enum EcdsaVerifyError {
 }
 
 /// The outcome of calling `storage_kill`. Returned value is the number of storage items
-/// removed from the trie from making the `storage_kill` call.
+/// removed from the backend from making the `storage_kill` call.
 #[derive(PassByCodec, Encode, Decode)]
 pub enum KillStorageResult {
-	/// No key remains in the child trie.
+	/// All key to remove were removed, return number of key removed from backend.
 	AllRemoved(u32),
-	/// At least one key still resides in the child trie due to the supplied limit.
+	/// Not all key to remove were removed, return number of key removed from backend.
 	SomeRemaining(u32),
 }
 
@@ -195,16 +195,9 @@ pub trait Storage {
 		self.storage_root()
 	}
 
-	/// "Commit" all existing operations and get the resulting storage change root.
-	/// `parent_hash` is a SCALE encoded hash.
-	///
-	/// The hashing algorithm is defined by the `Block`.
-	///
-	/// Returns `Some(Vec<u8>)` which holds the SCALE encoded hash or `None` when
-	/// changes trie is disabled.
-	fn changes_root(&mut self, parent_hash: &[u8]) -> Option<Vec<u8>> {
-		self.storage_changes_root(parent_hash)
-			.expect("Invalid `parent_hash` given to `changes_root`.")
+	/// Always returns `None`. This function exists for compatibility reasons.
+	fn changes_root(&mut self, _parent_hash: &[u8]) -> Option<Vec<u8>> {
+		None
 	}
 
 	/// Get the next key in storage after the given one in lexicographic order.
@@ -716,6 +709,22 @@ pub trait Crypto {
 			.map(|sig| ecdsa::Signature::from_slice(sig.as_slice()))
 	}
 
+	/// Sign the given a pre-hashed `msg` with the `ecdsa` key that corresponds to the given public
+	/// key and key type in the keystore.
+	///
+	/// Returns the signature.
+	fn ecdsa_sign_prehashed(
+		&mut self,
+		id: KeyTypeId,
+		pub_key: &ecdsa::Public,
+		msg: &[u8; 32],
+	) -> Option<ecdsa::Signature> {
+		let keystore = &***self
+			.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!");
+		SyncCryptoStore::ecdsa_sign_prehashed(keystore, id, pub_key, msg).ok().flatten()
+	}
+
 	/// Verify `ecdsa` signature.
 	///
 	/// Returns `true` when the verification was successful.
@@ -729,6 +738,17 @@ pub trait Crypto {
 	#[version(2)]
 	fn ecdsa_verify(sig: &ecdsa::Signature, msg: &[u8], pub_key: &ecdsa::Public) -> bool {
 		ecdsa::Pair::verify(sig, msg, pub_key)
+	}
+
+	/// Verify `ecdsa` signature with pre-hashed `msg`.
+	///
+	/// Returns `true` when the verification was successful.
+	fn ecdsa_verify_prehashed(
+		sig: &ecdsa::Signature,
+		msg: &[u8; 32],
+		pub_key: &ecdsa::Public,
+	) -> bool {
+		ecdsa::Pair::verify_prehashed(sig, msg, pub_key)
 	}
 
 	/// Register a `ecdsa` signature for batch verification.
@@ -1501,7 +1521,7 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 
 /// Type alias for Externalities implementation used in tests.
 #[cfg(feature = "std")]
-pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher, u64>;
+pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher>;
 
 /// The host functions Substrate provides for the Wasm runtime environment.
 ///
@@ -1527,7 +1547,10 @@ pub type SubstrateHostFunctions = (
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::{map, storage::Storage, testing::TaskExecutor, traits::TaskExecutorExt};
+	use sp_core::{
+		crypto::UncheckedInto, map, storage::Storage, testing::TaskExecutor,
+		traits::TaskExecutorExt,
+	};
 	use sp_state_machine::BasicExternalities;
 	use std::any::TypeId;
 
@@ -1628,7 +1651,7 @@ mod tests {
 			}
 
 			// push invlaid
-			crypto::sr25519_batch_verify(&Default::default(), &Vec::new(), &Default::default());
+			crypto::sr25519_batch_verify(&zero_sr_sig(), &Vec::new(), &zero_sr_pub());
 			assert!(!crypto::finish_batch_verify());
 
 			crypto::start_batch_verify();
@@ -1641,14 +1664,31 @@ mod tests {
 		});
 	}
 
+	fn zero_ed_pub() -> ed25519::Public {
+		[0u8; 32].unchecked_into()
+	}
+
+	fn zero_ed_sig() -> ed25519::Signature {
+		ed25519::Signature::from_raw([0u8; 64])
+	}
+
+	fn zero_sr_pub() -> sr25519::Public {
+		[0u8; 32].unchecked_into()
+	}
+
+	fn zero_sr_sig() -> sr25519::Signature {
+		sr25519::Signature::from_raw([0u8; 64])
+	}
+
 	#[test]
 	fn batching_works() {
 		let mut ext = BasicExternalities::default();
 		ext.register_extension(TaskExecutorExt::new(TaskExecutor::new()));
+
 		ext.execute_with(|| {
 			// invalid ed25519 signature
 			crypto::start_batch_verify();
-			crypto::ed25519_batch_verify(&Default::default(), &Vec::new(), &Default::default());
+			crypto::ed25519_batch_verify(&zero_ed_sig(), &Vec::new(), &zero_ed_pub());
 			assert!(!crypto::finish_batch_verify());
 
 			// 2 valid ed25519 signatures
@@ -1674,7 +1714,7 @@ mod tests {
 			let signature = pair.sign(msg);
 			crypto::ed25519_batch_verify(&signature, msg, &pair.public());
 
-			crypto::ed25519_batch_verify(&Default::default(), &Vec::new(), &Default::default());
+			crypto::ed25519_batch_verify(&zero_ed_sig(), &Vec::new(), &zero_ed_pub());
 
 			assert!(!crypto::finish_batch_verify());
 
@@ -1706,7 +1746,7 @@ mod tests {
 			let signature = pair.sign(msg);
 			crypto::sr25519_batch_verify(&signature, msg, &pair.public());
 
-			crypto::sr25519_batch_verify(&Default::default(), &Vec::new(), &Default::default());
+			crypto::sr25519_batch_verify(&zero_sr_sig(), &Vec::new(), &zero_sr_pub());
 
 			assert!(!crypto::finish_batch_verify());
 		});

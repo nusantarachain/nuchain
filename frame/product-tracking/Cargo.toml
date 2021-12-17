@@ -34,7 +34,7 @@ version = "=0.5.6"
 
 [dev-dependencies]
 hex =  { default-features = false, version = '0.4.2' }
-sp-core = { version = "4.0.0-dev", default-features = false, path = "../../primitives/core" }
+sp-core = { version = "4.1.0-dev", default-features = false, path = "../../primitives/core" }
 sp-keyring = {version = "4.0.0-dev", path = "../../primitives/keyring"}
 
 pallet-balances = {version = "4.0.0-dev", path = "../balances"}

@@ -47,7 +47,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Authority identifier type
-		type BeefyId: Member + Parameter + RuntimeAppPublic + Default + MaybeSerializeDeserialize;
+		type BeefyId: Member + Parameter + RuntimeAppPublic + MaybeSerializeDeserialize;
 	}
 
 	#[pallet::pallet]
@@ -110,7 +110,7 @@ impl<T: Config> Pallet<T> {
 			let next_id = Self::validator_set_id() + 1u64;
 			<ValidatorSetId<T>>::put(next_id);
 
-			let log: DigestItem<T::Hash> = DigestItem::Consensus(
+			let log = DigestItem::Consensus(
 				BEEFY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(ValidatorSet { validators: new, id: next_id })
 					.encode(),
@@ -163,7 +163,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	}
 
 	fn on_disabled(i: u32) {
-		let log: DigestItem<T::Hash> = DigestItem::Consensus(
+		let log = DigestItem::Consensus(
 			BEEFY_ENGINE_ID,
 			ConsensusLog::<T::BeefyId>::OnDisabled(i as AuthorityIndex).encode(),
 		);

@@ -52,12 +52,8 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{
-		ensure,
-		pallet_prelude::*,
-		traits::{EnsureOrigin, Get},
-	};
-	use frame_system::{ensure_signed, pallet_prelude::*};
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -89,16 +85,16 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A name was set. \[who\]
-		NameSet(T::AccountId),
-		/// A name was forcibly set. \[target\]
-		NameForced(T::AccountId),
-		/// A name was changed. \[who\]
-		NameChanged(T::AccountId),
-		/// A name was cleared, and the given balance returned. \[who, deposit\]
-		NameCleared(T::AccountId, BalanceOf<T>),
-		/// A name was removed and the given balance slashed. \[target, deposit\]
-		NameKilled(T::AccountId, BalanceOf<T>),
+		/// A name was set.
+		NameSet { who: T::AccountId },
+		/// A name was forcibly set.
+		NameForced { target: T::AccountId },
+		/// A name was changed.
+		NameChanged { who: T::AccountId },
+		/// A name was cleared, and the given balance returned.
+		NameCleared { who: T::AccountId, deposit: BalanceOf<T> },
+		/// A name was removed and the given balance slashed.
+		NameKilled { target: T::AccountId, deposit: BalanceOf<T> },
 	}
 
 	/// Error for the nicks pallet.
@@ -147,12 +143,12 @@ pub mod pallet {
 			ensure!(name.len() <= T::MaxLength::get() as usize, Error::<T>::TooLong);
 
 			let deposit = if let Some((_, deposit)) = <NameOf<T>>::get(&sender) {
-				Self::deposit_event(Event::<T>::NameChanged(sender.clone()));
+				Self::deposit_event(Event::<T>::NameChanged { who: sender.clone() });
 				deposit
 			} else {
 				let deposit = T::ReservationFee::get();
 				T::Currency::reserve(&sender, deposit.clone())?;
-				Self::deposit_event(Event::<T>::NameSet(sender.clone()));
+				Self::deposit_event(Event::<T>::NameSet { who: sender.clone() });
 				deposit
 			};
 
@@ -179,7 +175,7 @@ pub mod pallet {
 			let err_amount = T::Currency::unreserve(&sender, deposit.clone());
 			debug_assert!(err_amount.is_zero());
 
-			Self::deposit_event(Event::<T>::NameCleared(sender, deposit));
+			Self::deposit_event(Event::<T>::NameCleared { who: sender, deposit });
 			Ok(())
 		}
 
@@ -210,7 +206,7 @@ pub mod pallet {
 			// Slash their deposit from them.
 			T::Slashed::on_unbalanced(T::Currency::slash_reserved(&target, deposit.clone()).0);
 
-			Self::deposit_event(Event::<T>::NameKilled(target, deposit));
+			Self::deposit_event(Event::<T>::NameKilled { target, deposit });
 			Ok(())
 		}
 
@@ -238,7 +234,7 @@ pub mod pallet {
 			let deposit = <NameOf<T>>::get(&target).map(|x| x.1).unwrap_or_else(Zero::zero);
 			<NameOf<T>>::insert(&target, (name, deposit));
 
-			Self::deposit_event(Event::<T>::NameForced(target));
+			Self::deposit_event(Event::<T>::NameForced { target });
 			Ok(())
 		}
 	}
@@ -249,7 +245,10 @@ mod tests {
 	use super::*;
 	use crate as pallet_nicks;
 
-	use frame_support::{assert_noop, assert_ok, ord_parameter_types, parameter_types};
+	use frame_support::{
+		assert_noop, assert_ok, ord_parameter_types, parameter_types,
+		traits::{ConstU32, ConstU64},
+	};
 	use frame_system::EnsureSignedBy;
 	use sp_core::H256;
 	use sp_runtime::{
@@ -273,7 +272,6 @@ mod tests {
 	);
 
 	parameter_types! {
-		pub const BlockHashCount: u64 = 250;
 		pub BlockWeights: frame_system::limits::BlockWeights =
 			frame_system::limits::BlockWeights::simple_max(1024);
 	}
@@ -292,7 +290,7 @@ mod tests {
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Header = Header;
 		type Event = Event;
-		type BlockHashCount = BlockHashCount;
+		type BlockHashCount = ConstU64<250>;
 		type Version = ();
 		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
@@ -301,10 +299,9 @@ mod tests {
 		type SystemWeightInfo = ();
 		type SS58Prefix = ();
 		type OnSetCode = ();
+		type MaxConsumers = ConstU32<16>;
 	}
-	parameter_types! {
-		pub const ExistentialDeposit: u64 = 1;
-	}
+
 	impl pallet_balances::Config for Test {
 		type MaxLocks = ();
 		type MaxReserves = ();
@@ -312,26 +309,22 @@ mod tests {
 		type Balance = u64;
 		type Event = Event;
 		type DustRemoval = ();
-		type ExistentialDeposit = ExistentialDeposit;
+		type ExistentialDeposit = ConstU64<1>;
 		type AccountStore = System;
 		type WeightInfo = ();
 	}
-	parameter_types! {
-		pub const ReservationFee: u64 = 2;
-		pub const MinLength: u32 = 3;
-		pub const MaxLength: u32 = 16;
-	}
+
 	ord_parameter_types! {
 		pub const One: u64 = 1;
 	}
 	impl Config for Test {
 		type Event = Event;
 		type Currency = Balances;
-		type ReservationFee = ReservationFee;
+		type ReservationFee = ConstU64<2>;
 		type Slashed = ();
 		type ForceOrigin = EnsureSignedBy<One, u64>;
-		type MinLength = MinLength;
-		type MaxLength = MaxLength;
+		type MinLength = ConstU32<3>;
+		type MaxLength = ConstU32<16>;
 	}
 
 	fn new_test_ext() -> sp_io::TestExternalities {
