@@ -37,7 +37,7 @@ benchmarks! {
       let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
       let _ = T::Currency::make_free_balance_be(&owner, BalanceOf::<T>::max_value());
 
-      let id:u64 = Liquidity::<T>::next_index().unwrap() + 10001u64;
+      let id:u64 = Liquidity::<T>::next_txin_index().unwrap() + 10001u64;
       let amount = T::Currency::minimum_balance().saturating_add(10u32.into());
 
     }: _(RawOrigin::Signed(caller.clone()), id, amount, owner_lookup, NETWORK_1)
@@ -53,7 +53,7 @@ benchmarks! {
 
       let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
-      let id:u64 = Liquidity::<T>::next_index().unwrap() + 10001u64;
+      let id:u64 = Liquidity::<T>::next_txout_index().unwrap() + 10001u64;
       let amount = T::Currency::minimum_balance().saturating_add(10u32.into());
     }: _(RawOrigin::Signed(caller.clone()), id, amount, NETWORK_1)
     verify {

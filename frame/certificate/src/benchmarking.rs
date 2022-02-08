@@ -24,22 +24,22 @@
 use super::*;
 
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
-use frame_support::assert_ok;
+// use frame_support::assert_ok;
 use frame_system::{EventRecord, RawOrigin};
 use sp_core::crypto::UncheckedFrom;
-use sp_runtime::traits::{Bounded, One};
+use sp_runtime::traits::One;
 use sp_std::vec;
 
 use crate::Module as Certificate;
-use pallet_organization::Module as Organization;
+// use pallet_organization::Module as Organization;
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
-    let events = frame_system::Module::<T>::events();
-    let system_event: <T as frame_system::Config>::Event = generic_event.into();
-    // compare to the last event record
-    let EventRecord { event, .. } = &events[events.len() - 1];
-    assert_eq!(event, &system_event);
-}
+// fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
+//     let events = frame_system::Module::<T>::events();
+//     let system_event: <T as frame_system::Config>::Event = generic_event.into();
+//     // compare to the last event record
+//     let EventRecord { event, .. } = &events[events.len() - 1];
+//     assert_eq!(event, &system_event);
+// }
 
 const ORG_NAME: &[u8] = b"org1";
 const ORG_DESC: &[u8] = b"org1 desc";
@@ -48,7 +48,7 @@ const EMAIL: &[u8] = b"info@some.org";
 
 fn setup_org<T: Config>(caller: &T::AccountId) -> T::AccountId
 where
-    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>
+    T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
     // assert_ok!(Organization::<T>::create(
     //     RawOrigin::Signed(caller.clone()).into(),
