@@ -122,6 +122,15 @@ pub mod pallet {
 
         /// New transfer out \[id, amount, owner, network id\]
         TransferOut(ProofId, BalanceOf<T>, T::AccountId, u32),
+
+        /// Operator set \[operator\]
+        OperatorSet(T::AccountId),
+
+        /// Pallet is locked
+        PalletLock(),
+
+        /// Pallet is unlocked
+        PalletUnlock(),
     }
 
     /// Index of id -> data
@@ -262,9 +271,11 @@ pub mod pallet {
             origin: OriginFor<T>,
             key: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            let _root = ensure_root(origin)?;
+            ensure_root(origin)?;
 
-            OperatorKey::<T>::put(key);
+            OperatorKey::<T>::put(&key);
+
+            Self::deposit_event(Event::OperatorSet(key));
 
             Ok(().into())
         }
@@ -275,9 +286,11 @@ pub mod pallet {
         ///
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub(crate) fn lock(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            let _root = ensure_root(origin)?;
+            ensure_root(origin)?;
 
             Locked::<T>::put(true);
+
+            Self::deposit_event(Event::PalletLock());
 
             Ok(().into())
         }
@@ -288,9 +301,11 @@ pub mod pallet {
         ///
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
         pub(crate) fn unlock(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            let _root = ensure_root(origin)?;
+            ensure_root(origin.clone())?;
 
             Locked::<T>::put(false);
+
+            Self::deposit_event(Event::PalletUnlock());
 
             Ok(().into())
         }
@@ -821,5 +836,20 @@ mod tests {
             assert_eq!(Liquidity::proof_txin_index(), Some(2));
             assert_eq!(TxInProofLink::<Test>::get(2), Some(0x124));
         });
+    }
+
+    // test event emits
+    #[test]
+    fn event_emits() {
+        ready(|_operator| {
+            assert_ok!(Liquidity::lock(Origin::root()));
+            assert_eq!(last_event(), LEvent::PalletLock());
+            assert_ok!(Liquidity::unlock(Origin::root()));
+            assert_eq!(last_event(), LEvent::PalletUnlock());
+
+            // test operator set
+            assert_ok!(Liquidity::set_operator(Origin::root(), TWO));
+            assert_eq!(last_event(), LEvent::OperatorSet(TWO));
+        })
     }
 }
