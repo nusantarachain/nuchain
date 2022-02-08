@@ -1,4 +1,4 @@
-//! # liquidity
+//! # Pallet Liquidity
 //!
 //! - [`Liquidity::Config`](./trait.Config.html)
 //!
@@ -132,9 +132,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type ProofTxOuts<T: Config> = StorageMap<_, Blake2_128Concat, ProofId, ProofTx<T>>;
 
+    /// Map index to ProofId
     #[pallet::storage]
     pub type TxInProofLink<T: Config> = StorageMap<_, Blake2_128Concat, u64, ProofId>;
 
+    /// Map index to ProofId
     #[pallet::storage]
     pub type TxOutProofLink<T: Config> = StorageMap<_, Blake2_128Concat, u64, ProofId>;
 
