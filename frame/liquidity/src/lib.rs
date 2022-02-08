@@ -133,11 +133,18 @@ pub mod pallet {
     pub type ProofTxOuts<T: Config> = StorageMap<_, Blake2_128Concat, ProofId, ProofTx<T>>;
 
     #[pallet::storage]
-    pub type ProofLink<T: Config> = StorageMap<_, Blake2_128Concat, u64, ProofId>;
+    pub type TxInProofLink<T: Config> = StorageMap<_, Blake2_128Concat, u64, ProofId>;
 
     #[pallet::storage]
-    #[pallet::getter(fn proof_index)]
-    pub type ProofIdIndex<T> = StorageValue<_, u64>;
+    pub type TxOutProofLink<T: Config> = StorageMap<_, Blake2_128Concat, u64, ProofId>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn proof_txin_index)]
+    pub type ProofTxInIndex<T> = StorageValue<_, u64>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn proof_txout_index)]
+    pub type ProofTxOutIndex<T> = StorageValue<_, u64>;
 
     #[pallet::storage]
     pub type OperatorKey<T: Config> = StorageValue<_, T::AccountId>;
@@ -149,12 +156,10 @@ pub mod pallet {
     /// Liquidity module declaration.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Transfer new liquidity from external network to internal network.
+        /// Transfer from external to internal network.
         ///
-        /// The dispatch origin for this call must be _Signed_.
+        /// The dispatch origin for this call must be _Operator_.
         ///
-        /// # <weight>
-        /// # </weight>
         #[pallet::weight(T::WeightInfo::transfer_in())]
         pub(crate) fn transfer_in(
             origin: OriginFor<T>,
@@ -173,7 +178,7 @@ pub mod pallet {
             );
 
             let owner = T::Lookup::lookup(owner)?;
-            let index = Self::next_index()?;
+            let index = Self::next_txin_index()?;
 
             ProofTxIns::<T>::insert(
                 id as ProofId,
@@ -190,14 +195,16 @@ pub mod pallet {
 
             imbalance.subsume(T::Currency::deposit_creating(&owner, amount));
 
-            ProofLink::<T>::insert(index, id);
+            TxInProofLink::<T>::insert(index, id);
 
             Self::deposit_event(Event::TransferIn(id, amount, owner, network));
 
             Ok(().into())
         }
 
-        /// transfer_out
+        /// Transfer from internal to external network.
+        ///
+        /// The dispatch origin for this call must be _Signed_.
         ///
         #[pallet::weight(T::WeightInfo::transfer_out())]
         pub(crate) fn transfer_out(
@@ -215,7 +222,7 @@ pub mod pallet {
                 Error::<T>::AlreadyExists
             );
 
-            let index = Self::next_index()?;
+            let index = Self::next_txout_index()?;
 
             ProofTxOuts::<T>::insert(
                 id as ProofId,
@@ -237,7 +244,7 @@ pub mod pallet {
                 ExistenceRequirement::AllowDeath,
             )?);
 
-            ProofLink::<T>::insert(index, id);
+            TxOutProofLink::<T>::insert(index, id);
 
             Self::deposit_event(Event::TransferOut(id, amount, who, network));
 
@@ -370,13 +377,23 @@ impl<T: Config> Pallet<T> {
         ProofTxOuts::<T>::get(id)
     }
 
-    /// Get next liquidity ID
-    pub fn next_index() -> Result<u64, Error<T>> {
-        let index = <ProofIdIndex<T>>::try_get()
+    /// Get next txin index
+    pub fn next_txin_index() -> Result<u64, Error<T>> {
+        let index = <ProofTxInIndex<T>>::try_get()
             .unwrap_or(0)
             .checked_add(1)
             .ok_or(Error::<T>::Overflow)?;
-        <ProofIdIndex<T>>::put(index);
+        <ProofTxInIndex<T>>::put(index);
+        Ok(index)
+    }
+
+    /// Get next txout index
+    pub fn next_txout_index() -> Result<u64, Error<T>> {
+        let index = <ProofTxOutIndex<T>>::try_get()
+            .unwrap_or(0)
+            .checked_add(1)
+            .ok_or(Error::<T>::Overflow)?;
+        <ProofTxOutIndex<T>>::put(index);
         Ok(index)
     }
 
@@ -674,7 +691,7 @@ mod tests {
             ));
 
             // ensure index increased
-            assert_eq!(Liquidity::proof_index(), Some(1));
+            assert_eq!(Liquidity::proof_txin_index(), Some(1));
             assert_ok!(Liquidity::transfer_in(
                 Origin::signed(operator),
                 0x124,
@@ -684,7 +701,7 @@ mod tests {
             ));
 
             // ensure index increased
-            assert_eq!(Liquidity::proof_index(), Some(2));
+            assert_eq!(Liquidity::proof_txin_index(), Some(2));
         });
     }
 
@@ -700,7 +717,9 @@ mod tests {
             ));
 
             // ensure index increased
-            assert_eq!(Liquidity::proof_index(), Some(1));
+            assert_eq!(Liquidity::proof_txout_index(), Some(1));
+            assert_eq!(Liquidity::proof_txin_index(), None); // not changed
+
             assert_ok!(Liquidity::transfer_out(
                 Origin::signed(TWO),
                 0x124,
@@ -709,7 +728,7 @@ mod tests {
             ));
 
             // ensure index increased
-            assert_eq!(Liquidity::proof_index(), Some(2));
+            assert_eq!(Liquidity::proof_txout_index(), Some(2));
         });
     }
 
@@ -764,6 +783,11 @@ mod tests {
 
             // ensure operator set
             assert_eq!(Liquidity::operator(), Some(TWO));
+
+            assert_noop!(
+                Liquidity::set_operator(Origin::signed(operator), TWO),
+                DispatchError::BadOrigin
+            );
         });
     }
 
@@ -771,7 +795,7 @@ mod tests {
     #[test]
     fn check_proof_index() {
         ready(|operator| {
-            assert_eq!(Liquidity::proof_index(), None);
+            assert_eq!(Liquidity::proof_txin_index(), None);
 
             assert_ok!(Liquidity::transfer_in(
                 Origin::signed(operator),
@@ -781,8 +805,8 @@ mod tests {
                 NETWORK_1
             ));
 
-            assert_eq!(Liquidity::proof_index(), Some(1));
-            assert_eq!(ProofLink::<Test>::get(1), Some(0x123));
+            assert_eq!(Liquidity::proof_txin_index(), Some(1));
+            assert_eq!(TxInProofLink::<Test>::get(1), Some(0x123));
 
             assert_ok!(Liquidity::transfer_in(
                 Origin::signed(operator),
@@ -792,8 +816,8 @@ mod tests {
                 NETWORK_1
             ));
 
-            assert_eq!(Liquidity::proof_index(), Some(2));
-            assert_eq!(ProofLink::<Test>::get(2), Some(0x124));
+            assert_eq!(Liquidity::proof_txin_index(), Some(2));
+            assert_eq!(TxInProofLink::<Test>::get(2), Some(0x124));
         });
     }
 }
