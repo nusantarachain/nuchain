@@ -153,7 +153,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn is_locked)]
-    pub type Locked<T: Config> = StorageValue<_, bool>;
+    pub type Locked<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     /// Liquidity module declaration.
     #[pallet::call]
@@ -407,7 +407,7 @@ impl<T: Config> Pallet<T> {
     /// Get current locked status, if locked will return error
     pub fn ensure_not_locked() -> Result<(), Error<T>> {
         match Self::is_locked() {
-            Some(false) => Ok(()),
+            false => Ok(()),
             _ => Err(Error::<T>::Locked),
         }
     }
@@ -738,12 +738,12 @@ mod tests {
     #[test]
     fn only_root_can_lock() {
         ready(|_operator| {
-            assert_eq!(Liquidity::is_locked().unwrap(), false);
+            assert_eq!(Liquidity::is_locked(), false);
 
             assert_ok!(Liquidity::lock(Origin::root()));
 
             // ensure locked
-            assert_eq!(Liquidity::is_locked().unwrap(), true);
+            assert_eq!(Liquidity::is_locked(), true);
 
             assert_noop!(
                 Liquidity::lock(Origin::signed(TWO)),
@@ -756,17 +756,17 @@ mod tests {
     #[test]
     fn only_root_can_unlock() {
         ready(|_operator| {
-            assert_eq!(Liquidity::is_locked().unwrap(), false);
+            assert_eq!(Liquidity::is_locked(), false);
 
             assert_ok!(Liquidity::lock(Origin::root()));
 
             // ensure locked
-            assert_eq!(Liquidity::is_locked().unwrap(), true);
+            assert_eq!(Liquidity::is_locked(), true);
 
             assert_ok!(Liquidity::unlock(Origin::root()));
 
             // ensure unlocked
-            assert_eq!(Liquidity::is_locked().unwrap(), false);
+            assert_eq!(Liquidity::is_locked(), false);
 
             assert_noop!(
                 Liquidity::unlock(Origin::signed(TWO)),
