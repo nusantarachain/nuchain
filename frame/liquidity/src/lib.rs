@@ -766,4 +766,34 @@ mod tests {
             assert_eq!(Liquidity::operator(), Some(TWO));
         });
     }
+
+    // test check proof index
+    #[test]
+    fn check_proof_index() {
+        ready(|operator| {
+            assert_eq!(Liquidity::proof_index(), None);
+
+            assert_ok!(Liquidity::transfer_in(
+                Origin::signed(operator),
+                0x123,
+                2003,
+                TWO,
+                NETWORK_1
+            ));
+
+            assert_eq!(Liquidity::proof_index(), Some(1));
+            assert_eq!(ProofLink::<Test>::get(1), Some(0x123));
+
+            assert_ok!(Liquidity::transfer_in(
+                Origin::signed(operator),
+                0x124,
+                22,
+                TWO,
+                NETWORK_1
+            ));
+
+            assert_eq!(Liquidity::proof_index(), Some(2));
+            assert_eq!(ProofLink::<Test>::get(2), Some(0x124));
+        });
+    }
 }
