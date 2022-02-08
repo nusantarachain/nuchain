@@ -80,7 +80,6 @@ members = [
 	"frame/identity",
 	"frame/im-online",
 	"frame/indices",
-	"frame/lottery",
 	"frame/membership",
 	"frame/merkle-mountain-range",
 	"frame/merkle-mountain-range/primitives",
@@ -123,6 +122,7 @@ members = [
 	"frame/product-registry",	# -- supply chain
 	"frame/product-tracking",	# -- supply chain
 	"frame/commodities", # -- commodities / NFTs
+  "frame/liquidity",
 	"primitives/allocator",
 	"primitives/api",
 	"primitives/api/proc-macro",

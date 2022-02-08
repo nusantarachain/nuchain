@@ -3691,6 +3691,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "liquidity"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support 3.0.0",
+ "frame-system 3.0.0",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-core 3.0.0",
+ "sp-io 3.0.0",
+ "sp-runtime 3.0.0",
+ "sp-std 3.0.0",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4465,7 +4481,6 @@ dependencies = [
  "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
- "pallet-lottery",
  "pallet-membership",
  "pallet-mmr",
  "pallet-multisig",
@@ -5092,22 +5107,6 @@ dependencies = [
  "sp-core 3.0.0",
  "sp-io 3.0.0",
  "sp-keyring",
- "sp-runtime 3.0.0",
- "sp-std 3.0.0",
-]
-
-[[package]]
-name = "pallet-lottery"
-version = "3.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support 3.0.0",
- "frame-system 3.0.0",
- "pallet-balances",
- "parity-scale-codec",
- "serde",
- "sp-core 3.0.0",
- "sp-io 3.0.0",
  "sp-runtime 3.0.0",
  "sp-std 3.0.0",
 ]
