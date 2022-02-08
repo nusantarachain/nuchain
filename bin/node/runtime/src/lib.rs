@@ -1084,7 +1084,7 @@ impl pallet_did::Config for Runtime {
 impl pallet_liquidity::Config for Runtime {
     type Event = Event;
     type Currency = Balances;
-    type OperatorOrigin = pallet_liquidity::EnsureLiquidityOperator<Runtime>;
+    type OperatorOrigin = pallet_liquidity::EnsureOperator<Runtime>;
     type WeightInfo = pallet_liquidity::weights::SubstrateWeight<Runtime>;
 }
 

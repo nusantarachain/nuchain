@@ -10,8 +10,8 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! * `transfer_in` - Transfer in tokens from an external network.
-//! * `transfer_out` - Transfer out tokens to an external network.
+//! * `transfer_in` - Transfer in tokens from external network.
+//! * `transfer_out` - Transfer out tokens to external network.
 //! * `set_operator` - Set operator key.
 //! * `lock` - Lock pallet to prevent any further transfers.
 //! * `unlock` - Unlock pallet to allow transfers.
@@ -211,13 +211,13 @@ pub mod pallet {
             Self::ensure_not_locked()?;
 
             ensure!(
-                !ProofTxIns::<T>::contains_key(id),
+                !ProofTxOuts::<T>::contains_key(id),
                 Error::<T>::AlreadyExists
             );
 
             let index = Self::next_index()?;
 
-            ProofTxIns::<T>::insert(
+            ProofTxOuts::<T>::insert(
                 id as ProofId,
                 ProofTx {
                     id,
@@ -334,16 +334,9 @@ pub mod pallet {
     }
 }
 
-// /// Origin for Liquidity pallet.
-// #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
-// pub enum Origin<AccountId> {
-//     Operator,
-//     Signed(AccountId),
-// }
+pub struct EnsureOperator<T>(sp_std::marker::PhantomData<T>);
 
-pub struct EnsureLiquidityOperator<T>(sp_std::marker::PhantomData<T>);
-
-impl<T: Config> EnsureOrigin<T::Origin> for EnsureLiquidityOperator<T> {
+impl<T: Config> EnsureOrigin<T::Origin> for EnsureOperator<T> {
     type Success = ();
 
     fn try_origin(o: T::Origin) -> Result<Self::Success, T::Origin> {
@@ -483,7 +476,7 @@ mod tests {
         type Event = Event;
         type Currency = Balances;
         // type OperatorOrigin = EnsureSignedBy<One, u64>;
-        type OperatorOrigin = EnsureLiquidityOperator<Test>;
+        type OperatorOrigin = EnsureOperator<Test>;
         type WeightInfo = weights::SubstrateWeight<Test>;
     }
 
@@ -551,7 +544,7 @@ mod tests {
     }
 
     #[test]
-    fn force_origin_able_to_create_proof_tx_in() {
+    fn operator_origin_able_to_create_proof_tx_in() {
         ready(|operator| {
             let issuance = Balances::total_issuance();
 
@@ -566,6 +559,10 @@ mod tests {
             ));
             assert_eq!(Balances::total_balance(&TWO), 10 + 2003);
             assert_eq!(Balances::total_balance(&operator), 10); // dispatcher balance unchanged
+
+            // check proofs
+            assert!(ProofTxIns::<Test>::get(0x123).is_some());
+            assert!(ProofTxOuts::<Test>::get(0x123).is_none());
 
             // total issuance should be updated
             assert_eq!(Balances::total_issuance(), issuance + 2003);
@@ -626,6 +623,10 @@ mod tests {
                 NETWORK_1
             ));
             assert_eq!(Balances::total_balance(&TWO), 10 - 3);
+
+            // check proofs
+            assert!(ProofTxIns::<Test>::get(0x123).is_none());
+            assert!(ProofTxOuts::<Test>::get(0x123).is_some());
 
             // total issuance should be updated
             assert_eq!(Balances::total_issuance(), issuance - 3);
