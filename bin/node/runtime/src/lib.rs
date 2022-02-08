@@ -464,19 +464,19 @@ pallet_staking_reward_curve::build! {
 }
 
 parameter_types! {
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-	pub const BondingDuration: pallet_staking::EraIndex = 30; // days
-	pub const SlashDeferDuration: pallet_staking::EraIndex = 22; // 1/4 the bonding duration.
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-	pub const MaxNominatorRewardedPerValidator: u32 = 256;
-	pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
-	pub const MaxIterations: u32 = 10;
-	// 0.05%. The higher the value, the more strict solution acceptance becomes.
-	pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
-	pub OffchainSolutionWeightLimit: Weight = RuntimeBlockWeights::get()
-		.get(DispatchClass::Normal)
-		.max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
-		.saturating_sub(BlockExecutionWeight::get());
+    pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+    pub const BondingDuration: pallet_staking::EraIndex = 30; // days
+    pub const SlashDeferDuration: pallet_staking::EraIndex = 22; // 1/4 the bonding duration.
+    pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
+    pub const MaxNominatorRewardedPerValidator: u32 = 256;
+    pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
+    pub const MaxIterations: u32 = 10;
+    // 0.05%. The higher the value, the more strict solution acceptance becomes.
+    pub MinSolutionScoreBump: Perbill = Perbill::from_rational_approximation(5u32, 10_000);
+    pub OffchainSolutionWeightLimit: Weight = RuntimeBlockWeights::get()
+        .get(DispatchClass::Normal)
+        .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
+        .saturating_sub(BlockExecutionWeight::get());
 }
 
 impl pallet_staking::Config for Runtime {
@@ -728,6 +728,7 @@ impl pallet_tips::Config for Runtime {
     type TipReportDepositBase = TipReportDepositBase;
     type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
 }
+
 
 parameter_types! {
     pub const TombstoneDeposit: Balance = deposit(
@@ -1080,6 +1081,13 @@ impl pallet_did::Config for Runtime {
 //     pub const MaxCommoditiesPerUser: u64 = 2;
 // }
 
+impl pallet_liquidity::Config for Runtime {
+    type Event = Event;
+    type Currency = Balances;
+    type OperatorOrigin = pallet_liquidity::EnsureLiquidityOperator<Runtime>;
+    type WeightInfo = pallet_liquidity::weights::SubstrateWeight<Runtime>;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -1127,6 +1135,7 @@ construct_runtime!(
         Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
         // ProductRegistry: pallet_product_registry::{Module, Call, Storage, Event<T>},
         // ProductTracking: pallet_product_tracking::{Module, Call, Storage, Event<T>},
+        Liquidity: pallet_liquidity::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -1222,15 +1231,15 @@ impl_runtime_apis! {
            RandomnessCollectiveFlip::random_seed()
        }
     }
-	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
-		fn validate_transaction(
-			source: TransactionSource,
-			tx: <Block as BlockT>::Extrinsic,
-			block_hash: <Block as BlockT>::Hash,
-		) -> TransactionValidity {
-			Executive::validate_transaction(source, tx, block_hash)
-		}
-	}
+    impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
+        fn validate_transaction(
+            source: TransactionSource,
+            tx: <Block as BlockT>::Extrinsic,
+            block_hash: <Block as BlockT>::Hash,
+        ) -> TransactionValidity {
+            Executive::validate_transaction(source, tx, block_hash)
+        }
+    }
 
     // impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
     //     fn validate_transaction(
@@ -1247,41 +1256,41 @@ impl_runtime_apis! {
         }
     }
 
-	impl fg_primitives::GrandpaApi<Block> for Runtime {
-		fn grandpa_authorities() -> GrandpaAuthorityList {
-			Grandpa::grandpa_authorities()
-		}
+    impl fg_primitives::GrandpaApi<Block> for Runtime {
+        fn grandpa_authorities() -> GrandpaAuthorityList {
+            Grandpa::grandpa_authorities()
+        }
 
-		// fn current_set_id() -> fg_primitives::SetId {
-		// 	Grandpa::current_set_id()
-		// }
+        // fn current_set_id() -> fg_primitives::SetId {
+        // 	Grandpa::current_set_id()
+        // }
 
-		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: fg_primitives::EquivocationProof<
-				<Block as BlockT>::Hash,
-				NumberFor<Block>,
-			>,
-			key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
-		) -> Option<()> {
-			let key_owner_proof = key_owner_proof.decode()?;
+        fn submit_report_equivocation_unsigned_extrinsic(
+            equivocation_proof: fg_primitives::EquivocationProof<
+                <Block as BlockT>::Hash,
+                NumberFor<Block>,
+            >,
+            key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+        ) -> Option<()> {
+            let key_owner_proof = key_owner_proof.decode()?;
 
-			Grandpa::submit_unsigned_equivocation_report(
-				equivocation_proof,
-				key_owner_proof,
-			)
-		}
+            Grandpa::submit_unsigned_equivocation_report(
+                equivocation_proof,
+                key_owner_proof,
+            )
+        }
 
-		fn generate_key_ownership_proof(
-			_set_id: fg_primitives::SetId,
-			authority_id: GrandpaId,
-		) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
-			use codec::Encode;
+        fn generate_key_ownership_proof(
+            _set_id: fg_primitives::SetId,
+            authority_id: GrandpaId,
+        ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
+            use codec::Encode;
 
-			Historical::prove((fg_primitives::KEY_TYPE, authority_id))
-				.map(|p| p.encode())
-				.map(fg_primitives::OpaqueKeyOwnershipProof::new)
-		}
-	}
+            Historical::prove((fg_primitives::KEY_TYPE, authority_id))
+                .map(|p| p.encode())
+                .map(fg_primitives::OpaqueKeyOwnershipProof::new)
+        }
+    }
 
     impl sp_consensus_babe::BabeApi<Block> for Runtime {
         fn configuration() -> sp_consensus_babe::BabeGenesisConfiguration {
@@ -1406,7 +1415,7 @@ impl_runtime_apis! {
             proof: mmr::Proof<mmr::Hash>
         ) -> Result<(), mmr::Error> {
             let node = mmr::DataOrHash::Data(leaf);
-			pallet_mmr::verify_leaf_proof::<mmr::Hashing, _>(root, node, proof)
+            pallet_mmr::verify_leaf_proof::<mmr::Hashing, _>(root, node, proof)
         }
     }
 

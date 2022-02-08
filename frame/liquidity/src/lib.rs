@@ -10,25 +10,23 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! * `transfer_in` -
-//! * `transfer_out` -
-//! * `lock` -
+//! * `transfer_in` - Transfer in tokens from an external network.
+//! * `transfer_out` - Transfer out tokens to an external network.
+//! * `set_operator` - Set the operator of this liquidity pallet.
+//! * `lock` - Lock pallet to prevent any further transfers.
+//! * `unlock` - Unlock pallet to allow transfers.
 //!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-    dispatch::DispatchError,
     ensure,
-    traits::{Currency, EnsureOrigin, Get, OnUnbalanced, ReservableCurrency, UnixTime},
+    traits::{Currency, EnsureOrigin, Get, ReservableCurrency},
 };
 use frame_system::ensure_signed;
+use sp_runtime::traits::StaticLookup;
 use sp_runtime::RuntimeDebug;
-use sp_runtime::{
-    traits::{StaticLookup, Zero},
-    SaturatedConversion,
-};
-use sp_std::{fmt::Debug, prelude::*, vec};
+use sp_std::prelude::*;
 
 pub use pallet::*;
 
@@ -37,7 +35,7 @@ mod benchmarking;
 pub mod weights;
 pub use weights::WeightInfo;
 
-use codec::{Decode, Encode, HasCompact};
+use codec::{Decode, Encode};
 
 type ProofId = u64;
 type BalanceOf<T> =
@@ -432,8 +430,10 @@ mod tests {
     use super::*;
     use crate as pallet_liquidity;
 
-    use frame_support::{assert_noop, assert_ok, ord_parameter_types, parameter_types};
-    use frame_system::EnsureSignedBy;
+    use frame_support::{
+        assert_noop, assert_ok, dispatch::DispatchError, ord_parameter_types, parameter_types,
+    };
+
     use sp_core::H256;
     use sp_runtime::{
         testing::Header,
@@ -508,14 +508,12 @@ mod tests {
         type Currency = Balances;
         // type OperatorOrigin = EnsureSignedBy<One, u64>;
         type OperatorOrigin = EnsureLiquidityOperator<Test>;
-        type MinProofNameLength = MinProofNameLength;
-        type MaxProofNameLength = MaxProofNameLength;
         type WeightInfo = weights::SubstrateWeight<Test>;
     }
 
     const NETWORK_1: u32 = 1;
-    const NETWORK_2: u32 = 2;
-    const NETWORK_3: u32 = 3;
+    // const NETWORK_2: u32 = 2;
+    // const NETWORK_3: u32 = 3;
 
     // mock user
     const ONE: u64 = 1;

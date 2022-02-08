@@ -19,19 +19,22 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
     assert_eq!(event, &system_event);
 }
 
-// benchmarks! {
-//     transfer_in {
+const NETWORK_1: u32 = 1;
 
-//     }: _()
-//     verify {
-//     }
+benchmarks! {
+    transfer_in {
+      let caller: T::AccountId = whitelisted_caller();
+      let id = Liquidity::next_index() + 10001;
+      let amount = 1;
+      let owner = 2;
+    }: _(RawOrigin::Signed(caller.clone()), id, amount, owner, NETWORK_1)
 
-//     transfer_out {
-//     }: _()
-//     verify {
-//     }
+    // transfer_out {
+    // }: _()
+    // verify {
+    // }
 
 //     lock {
 //     }: _()
 //     verify {}
-// }
+}
