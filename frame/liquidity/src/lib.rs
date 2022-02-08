@@ -124,7 +124,7 @@ pub mod pallet {
         TransferOut(ProofId, BalanceOf<T>, T::AccountId, u32),
 
         /// Operator set \[operator\]
-        OperatorSet(T::AccountId),
+        OperatorChanged(T::AccountId),
 
         /// Pallet is locked
         PalletLock(),
@@ -275,7 +275,7 @@ pub mod pallet {
 
             OperatorKey::<T>::put(&key);
 
-            Self::deposit_event(Event::OperatorSet(key));
+            Self::deposit_event(Event::OperatorChanged(key));
 
             Ok(().into())
         }
@@ -849,7 +849,7 @@ mod tests {
 
             // test operator set
             assert_ok!(Liquidity::set_operator(Origin::root(), TWO));
-            assert_eq!(last_event(), LEvent::OperatorSet(TWO));
+            assert_eq!(last_event(), LEvent::OperatorChanged(TWO));
         })
     }
 }
