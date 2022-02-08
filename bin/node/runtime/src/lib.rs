@@ -1475,7 +1475,7 @@ impl_runtime_apis! {
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
 
-            // add_benchmark!(params, batches, pallet_assets, Assets);
+            add_benchmark!(params, batches, pallet_assets, Assets);
             add_benchmark!(params, batches, pallet_babe, Babe);
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_bounties, Bounties);
@@ -1506,6 +1506,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_did, Did);
             // add_benchmark!(params, batches, pallet_product_registry, ProductRegistry);
             // add_benchmark!(params, batches, pallet_product_tracking, ProductTracking);
+            add_benchmark!(params, batches, pallet_liquidity, Liquidity);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

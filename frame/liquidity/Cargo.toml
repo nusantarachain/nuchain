@@ -1,5 +1,5 @@
 [package]
-name = "liquidity"
+name = "pallet-liquidity"
 version = "0.0.1"
 authors = ["Robin Syihab <robin@nuchai.id>"]
 edition = "2018"

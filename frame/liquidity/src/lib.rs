@@ -4,7 +4,7 @@
 //!
 //! ## Overview
 //!
-//! Multichain liquidity bridge
+//! Multichain liquidity bridge.
 //!
 //! ## Interface
 //!
@@ -12,7 +12,7 @@
 //!
 //! * `transfer_in` - Transfer in tokens from an external network.
 //! * `transfer_out` - Transfer out tokens to an external network.
-//! * `set_operator` - Set the operator of this liquidity pallet.
+//! * `set_operator` - Set operator key.
 //! * `lock` - Lock pallet to prevent any further transfers.
 //! * `unlock` - Unlock pallet to allow transfers.
 //!
@@ -70,12 +70,6 @@ pub mod pallet {
         /// The origin which authorized to manage liquidity.
         type OperatorOrigin: EnsureOrigin<Self::Origin>;
 
-        /// Min proof name length
-        type MinProofNameLength: Get<usize>;
-
-        /// Max proof name length
-        type MaxProofNameLength: Get<usize>;
-
         /// Weight information
         type WeightInfo: WeightInfo;
     }
@@ -97,24 +91,6 @@ pub mod pallet {
         /// Owner of the token
         pub owner: T::AccountId,
     }
-
-    // #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
-    // pub struct ProofTxOut<AccountId: Encode + Decode + Clone + Debug + Eq + PartialEq> {
-    //     /// ID of proof
-    //     pub id: ProofId,
-
-    //     /// Block number where this proof is stored
-    //     pub block: T::BlockNumber,
-
-    //     /// Destination network ID
-    //     pub dest_network: u32,
-
-    //     /// Transfered amount
-    //     pub amount: T::Balance,
-
-    //     /// initiator of the proof
-    //     pub initiator: AccountId,
-    // }
 
     #[pallet::error]
     pub enum Error<T> {
@@ -358,12 +334,12 @@ pub mod pallet {
     }
 }
 
-/// Origin for Liquidity pallet.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
-pub enum Origin<AccountId> {
-    Operator,
-    Signed(AccountId),
-}
+// /// Origin for Liquidity pallet.
+// #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+// pub enum Origin<AccountId> {
+//     Operator,
+//     Signed(AccountId),
+// }
 
 pub struct EnsureLiquidityOperator<T>(sp_std::marker::PhantomData<T>);
 
@@ -384,8 +360,8 @@ impl<T: Config> EnsureOrigin<T::Origin> for EnsureLiquidityOperator<T> {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn successful_origin() -> Self::Success {
-        Origin::Operator
+    fn successful_origin() -> T::Origin {
+        frame_system::RawOrigin::Root.into()
     }
 }
 
