@@ -9,9 +9,11 @@ This is Substrate pallet generated using [Reframe](https://github.com/Ansvia/ref
 
 ### Dispatchable Functions
 
-* `transfer_in` - 
-* `transfer_out` - 
-* `lock` -
+* `transfer_in` - Transfer in tokens from external network.
+* `transfer_out` - Transfer out tokens to external network.
+* `set_operator` - Set operator key.
+* `lock` - Lock pallet to prevent any further transfers.
+* `unlock` - Unlock pallet to allow transfers.
 
 [`Call`]: ./enum.Call.html
 [`Config`]: ./trait.Config.html
