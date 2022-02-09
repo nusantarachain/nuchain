@@ -316,9 +316,6 @@ pub mod pallet {
     // ----------------------------------------------------------------
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        // fn offchain_worker(n: T::BlockNumber){
-        //     // @TODO(Robin): Your off-chain logic here
-        // }
     }
 
     // -------------------------------------------------------------------
@@ -327,20 +324,14 @@ pub mod pallet {
 
     // The genesis config type.
     #[pallet::genesis_config]
-    pub struct GenesisConfig<T: Config> {
-        pub dummy: u32,
-        pub bar: Vec<(T::AccountId, u32)>,
-        pub foo: u32,
-    }
+    pub struct GenesisConfig<T: Config> { _phantom: sp_std::marker::PhantomData<T> }
 
     // The default value for the genesis config type.
     #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
-                dummy: Default::default(),
-                bar: Default::default(),
-                foo: Default::default(),
+                _phantom: Default::default(),
             }
         }
     }
@@ -349,11 +340,6 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            // <Dummy<T>>::put(&self.dummy);
-            // for (a, b) in &self.bar {
-            // 	<Bar<T>>::insert(a, b);
-            // }
-            // <Foo<T>>::put(&self.foo);
         }
     }
 }
