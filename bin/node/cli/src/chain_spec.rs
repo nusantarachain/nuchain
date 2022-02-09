@@ -381,6 +381,13 @@ fn development_config_genesis() -> GenesisConfig {
 
 /// Development config (single validator Alice)
 pub fn development_config() -> ChainSpec {
+    let properties = serde_json::from_str(
+        r#"{
+            "ss58Format": 99,
+            "tokenDecimals": 10,
+            "tokenSymbol": "Dev"
+        }"#
+    ).unwrap();
     ChainSpec::from_genesis(
         "Development",
         "dev",
@@ -389,7 +396,7 @@ pub fn development_config() -> ChainSpec {
         vec![],
         None,
         None,
-        None,
+        Some(properties),
         Default::default(),
     )
 }
