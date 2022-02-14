@@ -73,7 +73,8 @@ pallet-grandpa = { version = "4.0.0-dev", default-features = false, path = "../.
 pallet-im-online = { version = "4.0.0-dev", default-features = false, path = "../../../frame/im-online" }
 pallet-indices = { version = "4.0.0-dev", default-features = false, path = "../../../frame/indices" }
 pallet-identity = { version = "4.0.0-dev", default-features = false, path = "../../../frame/identity" }
-pallet-lottery = { version = "4.0.0-dev", default-features = false, path = "../../../frame/lottery" }
+# pallet-lottery = { version = "4.0.0-dev", default-features = false, path = "../../../frame/lottery" }
+pallet-liquidity = { version = "0.0.1", default-features = false, path = "../../../frame/liquidity" }
 pallet-membership = { version = "4.0.0-dev", default-features = false, path = "../../../frame/membership" }
 pallet-mmr = { version = "4.0.0-dev", default-features = false, path = "../../../frame/merkle-mountain-range" }
 pallet-multisig = { version = "4.0.0-dev", default-features = false, path = "../../../frame/multisig" }
@@ -134,7 +135,7 @@ std = [
 	"pallet-im-online/std",
 	"pallet-indices/std",
 	"sp-inherents/std",
-	"pallet-lottery/std",
+	# "pallet-lottery/std",
 	"pallet-membership/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
@@ -203,7 +204,7 @@ runtime-benchmarks = [
 	"pallet-identity/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
-	"pallet-lottery/runtime-benchmarks",
+	# "pallet-lottery/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -247,7 +248,7 @@ try-runtime = [
 	"pallet-identity/try-runtime",
 	"pallet-im-online/try-runtime",
 	"pallet-indices/try-runtime",
-	"pallet-lottery/try-runtime",
+	# "pallet-lottery/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",

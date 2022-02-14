@@ -1256,23 +1256,30 @@ impl pallet_mmr::Config for Runtime {
 	type WeightInfo = ();
 }
 
-parameter_types! {
-	pub const LotteryPalletId: PalletId = PalletId(*b"py/lotto");
-	pub const MaxCalls: u32 = 10;
-	pub const MaxGenerateRandom: u32 = 10;
-}
+// parameter_types! {
+// 	pub const LotteryPalletId: PalletId = PalletId(*b"py/lotto");
+// 	pub const MaxCalls: u32 = 10;
+// 	pub const MaxGenerateRandom: u32 = 10;
+// }
 
-impl pallet_lottery::Config for Runtime {
-	type PalletId = LotteryPalletId;
-	type Call = Call;
-	type Currency = Balances;
-	type Randomness = RandomnessCollectiveFlip;
-	type Event = Event;
-	type ManagerOrigin = EnsureRoot<AccountId>;
-	type MaxCalls = MaxCalls;
-	type ValidateCall = Lottery;
-	type MaxGenerateRandom = MaxGenerateRandom;
-	type WeightInfo = pallet_lottery::weights::SubstrateWeight<Runtime>;
+// impl pallet_lottery::Config for Runtime {
+// 	type PalletId = LotteryPalletId;
+// 	type Call = Call;
+// 	type Currency = Balances;
+// 	type Randomness = RandomnessCollectiveFlip;
+// 	type Event = Event;
+// 	type ManagerOrigin = EnsureRoot<AccountId>;
+// 	type MaxCalls = MaxCalls;
+// 	type ValidateCall = Lottery;
+// 	type MaxGenerateRandom = MaxGenerateRandom;
+// 	type WeightInfo = pallet_lottery::weights::SubstrateWeight<Runtime>;
+// }
+
+impl pallet_liquidity::Config for Runtime {
+  type Event = Event;
+  type Currency = Balances;
+  type OperatorOrigin = pallet_liquidity::EnsureOperator<Runtime>;
+  type WeightInfo = pallet_liquidity::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1407,7 +1414,8 @@ construct_runtime!(
 		Tips: pallet_tips,
 		Assets: pallet_assets,
 		Mmr: pallet_mmr,
-		Lottery: pallet_lottery,
+		// Lottery: pallet_lottery,
+        Liquidity: pallet_liquidity,
 		Gilt: pallet_gilt,
 		Uniques: pallet_uniques,
 		TransactionStorage: pallet_transaction_storage,
@@ -1494,7 +1502,8 @@ mod benches {
 		[pallet_identity, Identity]
 		[pallet_im_online, ImOnline]
 		[pallet_indices, Indices]
-		[pallet_lottery, Lottery]
+		// [pallet_lottery, Lottery]
+		[pallet_liquidity, Liquidity]
 		[pallet_membership, TechnicalMembership]
 		[pallet_mmr, Mmr]
 		[pallet_multisig, Multisig]

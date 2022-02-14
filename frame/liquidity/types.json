@@ -1,0 +1,10 @@
+{
+  "ProofId": "u64",
+  "ProofTx": {
+    "id": "ProofId",
+    "block": "BlockNumber",
+    "network": "u32",
+    "amount": "Balance",
+    "owner": "AccountId"
+  }
+}
