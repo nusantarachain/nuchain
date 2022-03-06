@@ -1,7 +1,18 @@
 use crate::{did::Did, mock::*, AttributeTransaction, Error};
 use codec::Encode;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{BoundedVec, assert_noop, assert_ok};
 use sp_core::Pair;
+use std::convert::TryInto;
+
+macro_rules! to_bounded {
+	(*$name:ident) => {
+		let $name: BoundedVec<_, _> = $name.clone().try_into().unwrap();
+	};
+	($name:ident) => {
+		let $name: BoundedVec<_, _> = $name.try_into().unwrap();
+	};
+}
+
 
 #[test]
 fn validate_claim() {
@@ -103,18 +114,24 @@ fn add_on_chain_and_revoke_off_chain_attribute() {
         ));
 
         // Validate that the attribute contains_key and has not expired.
+        
+        to_bounded!(name);
+        to_bounded!(value);
+
         assert_ok!(DID::valid_attribute(&alice_public, &name, &value));
 
         // Revoke attribute off-chain
         // Set validity to 0 in order to revoke the attribute.
         validity = 0;
-        value = [0].to_vec();
+        let value = [0].to_vec();
         let mut encoded = name.encode();
         encoded.extend(value.encode());
         encoded.extend(validity.encode());
         encoded.extend(alice_public.encode());
 
         let revoke_sig = alice_pair.sign(&encoded);
+
+        to_bounded!(value);
 
         let revoke_transaction = AttributeTransaction {
             signature: revoke_sig,
@@ -133,7 +150,7 @@ fn add_on_chain_and_revoke_off_chain_attribute() {
 
         // Validate that the attribute was revoked.
         assert_noop!(
-            DID::valid_attribute(&alice_public, &name, &[1, 2, 3].to_vec()),
+            DID::valid_attribute(&alice_public, &name, &(vec![1u8, 2u8, 3u8]).try_into().unwrap()),
             Error::<Test>::InvalidAttribute
         );
     });
@@ -178,7 +195,7 @@ fn attacker_add_new_delegate_should_fail() {
     new_test_ext().execute_with(|| {
         // BadBoy is an invalid delegate previous to attack.
         assert_noop!(
-            DID::valid_delegate(&account_key("Alice"), &[7, 7, 7], &account_key("BadBoy")),
+            DID::valid_delegate(&account_key("Alice"), &[7, 7, 7].try_into().unwrap(), &account_key("BadBoy")),
             Error::<Test>::InvalidDelegate
         );
 
@@ -196,7 +213,7 @@ fn attacker_add_new_delegate_should_fail() {
 
         // BadBoy is an invalid delegate.
         assert_noop!(
-            DID::valid_delegate(&account_key("Alice"), &[7, 7, 7], &account_key("BadBoy")),
+            DID::valid_delegate(&account_key("Alice"), &vec![7, 7, 7].try_into().unwrap(), &account_key("BadBoy")),
             Error::<Test>::InvalidDelegate
         );
     });
@@ -295,7 +312,7 @@ fn non_owner_cannot_revoke_delegate() {
 fn add_remove_add_remove_attr() {
     new_test_ext().execute_with(|| {
         let acct = "Alice";
-        let vec = vec![7, 7, 7];
+        let vec:BoundedVec<_, _>= vec![7, 7, 7].try_into().unwrap();
         assert_eq!(DID::get_nonce(&account_key(acct), &vec), 0);
         assert_ok!(DID::add_attribute(
             Origin::signed(account_key(acct)),
