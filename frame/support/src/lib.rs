@@ -68,6 +68,7 @@ pub mod instances;
 pub mod migrations;
 pub mod traits;
 pub mod weights;
+pub mod types;
 
 #[doc(hidden)]
 pub mod unsigned {

@@ -1,9 +1,11 @@
 use crate::types::AttributedId;
 
 use frame_support::dispatch::DispatchResult;
+use scale_info::prelude::vec::Vec;
 
 pub trait Did<AccountId, BlockNumber, Moment, Signature, BoundedString> {
     fn is_owner(identity: &AccountId, actual_owner: &AccountId) -> DispatchResult;
+    fn set_owner(who: &AccountId, identity: &AccountId, new_owner: &AccountId);
     fn identity_owner(identity: &AccountId) -> AccountId;
     fn valid_delegate(
         identity: &AccountId,
@@ -22,6 +24,12 @@ pub trait Did<AccountId, BlockNumber, Moment, Signature, BoundedString> {
         delegate_type: &Vec<u8>,
         valid_for: Option<BlockNumber>,
     ) -> DispatchResult;
+    fn revoke_delegate_nocheck(
+		who: &AccountId,
+		identity: &AccountId,
+		delegate_type: &Vec<u8>,
+		delegate: &AccountId,
+	) -> DispatchResult;
     fn check_signature(signature: &Signature, msg: &Vec<u8>, signer: &AccountId) -> DispatchResult;
     fn valid_signer(
         identity: &AccountId,

@@ -213,7 +213,7 @@ pub mod pallet {
 			Self::valid_listed_delegate(&identity, &delegate_type, &delegate)?;
 			ensure!(delegate_type.len() <= 64, Error::<T>::InvalidDelegate);
 
-			Self::revoke_delegate_internal(&who, &identity, &delegate_type, &delegate)?;
+			Self::revoke_delegate_nocheck(&who, &identity, &delegate_type, &delegate)?;
 
 			Self::deposit_event(Event::DelegateRevoked(identity, delegate_type, delegate));
 			Ok(().into())
@@ -357,52 +357,6 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Set identity owner.
-	///
-	/// This function should not fail.
-	pub fn set_owner(who: &T::AccountId, identity: &T::AccountId, new_owner: &T::AccountId) {
-		let now_timestamp = T::Time::now().as_millis().saturated_into::<u64>();
-		let now_block_number = <frame_system::Pallet<T>>::block_number();
-
-		if <OwnerOf<T>>::contains_key(&identity) {
-			// Update to new owner.
-			<OwnerOf<T>>::mutate(&identity, |o| *o = Some(new_owner.clone()));
-		} else {
-			// Add to new owner.
-			<OwnerOf<T>>::insert(&identity, &new_owner);
-		}
-		// Save the update time and block.
-		<UpdatedBy<T>>::insert(&identity, (&who, &now_block_number, &now_timestamp));
-
-		Self::deposit_event(Event::<T>::OwnerChanged(
-			identity.clone(),
-			who.clone(),
-			new_owner.clone(),
-			now_block_number,
-		));
-	}
-
-	/// Revoke delegate without check
-	pub fn revoke_delegate_internal(
-		who: &T::AccountId,
-		identity: &T::AccountId,
-		delegate_type: &Vec<u8>,
-		delegate: &T::AccountId,
-	) -> DispatchResult {
-		let now_timestamp = T::Time::now().as_millis().saturated_into::<u64>();
-		let now_block_number = <frame_system::Pallet<T>>::block_number();
-
-		to_bounded!(*delegate_type, Error::<T>::DelegateTypeTooLong);
-
-		// Update only the validity period to revoke the delegate.
-		<DelegateOf<T>>::mutate((&identity, delegate_type, &delegate), |b| {
-			*b = Some(now_block_number)
-		});
-		<UpdatedBy<T>>::insert(&identity, (who, now_block_number, now_timestamp));
-
-		Ok(())
-	}
-
 	fn signed_attribute(
 		who: T::AccountId,
 		encoded: &Vec<u8>,
@@ -453,6 +407,31 @@ impl<T: Config>
 			true => Ok(()),
 			false => Err(Error::<T>::NotOwner.into()),
 		}
+	}
+
+	/// Set identity owner.
+	///
+	/// This function should not fail.
+	fn set_owner(who: &T::AccountId, identity: &T::AccountId, new_owner: &T::AccountId) {
+		let now_timestamp = T::Time::now().as_millis().saturated_into::<u64>();
+		let now_block_number = <frame_system::Pallet<T>>::block_number();
+
+		if <OwnerOf<T>>::contains_key(&identity) {
+			// Update to new owner.
+			<OwnerOf<T>>::mutate(&identity, |o| *o = Some(new_owner.clone()));
+		} else {
+			// Add to new owner.
+			<OwnerOf<T>>::insert(&identity, &new_owner);
+		}
+		// Save the update time and block.
+		<UpdatedBy<T>>::insert(&identity, (&who, &now_block_number, &now_timestamp));
+
+		Self::deposit_event(Event::<T>::OwnerChanged(
+			identity.clone(),
+			who.clone(),
+			new_owner.clone(),
+			now_block_number,
+		));
 	}
 
 	/// Get the identity owner if set.
@@ -528,6 +507,28 @@ impl<T: Config>
 		<DelegateOf<T>>::insert((&identity, delegate_type, delegate), &validity);
 		Ok(())
 	}
+
+	/// Revoke delegate without check
+	fn revoke_delegate_nocheck(
+		who: &T::AccountId,
+		identity: &T::AccountId,
+		delegate_type: &Vec<u8>,
+		delegate: &T::AccountId,
+	) -> DispatchResult {
+		let now_timestamp = T::Time::now().as_millis().saturated_into::<u64>();
+		let now_block_number = <frame_system::Pallet<T>>::block_number();
+
+		to_bounded!(*delegate_type, Error::<T>::DelegateTypeTooLong);
+
+		// Update only the validity period to revoke the delegate.
+		<DelegateOf<T>>::mutate((&identity, delegate_type, &delegate), |b| {
+			*b = Some(now_block_number)
+		});
+		<UpdatedBy<T>>::insert(&identity, (who, now_block_number, now_timestamp));
+
+		Ok(())
+	}
+
 
 	/// Checks if a signature is valid. Used to validate off-chain transactions.
 	fn check_signature(

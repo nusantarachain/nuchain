@@ -1,12 +1,12 @@
 [package]
-name = "pallet-did"
-version = "0.0.2"
-authors = ["Robin Syihab <robin.syihab@gmail.com>"]
+name = "pallet-organization"
+version = "0.0.1"
+authors = ["Robin Syihab <obin.mf@gmail.com>"]
 edition = "2018"
-license = "GPL-3"
+license = "Apache-2"
 homepage = ""
 repository = ""
-description = "Nuchain decentralized identifiers (DIDs) pallet."
+description = "Organization pallet for Nuchain"
 readme = "README.md"
 
 [package.metadata.docs.rs]
@@ -15,6 +15,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 # serde = { version = "1.0.101", optional = true }
 # codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+enumflags2 = { version = "0.7.1" }
 # sp-std = { version = "3.0.0", default-features = false, path = "../../primitives/std" }
 # sp-core = { version = "3.0.0", default-features = false, path = "../../primitives/core" }
 # sp-io = { version = "3.0.0", default-features = false, path = "../../primitives/io" }
@@ -22,23 +23,25 @@ targets = ["x86_64-unknown-linux-gnu"]
 # frame-benchmarking = { version = "3.0.0", default-features = false, path = "../benchmarking", optional = true }
 # frame-support = { version = "3.0.0", default-features = false, path = "../support" }
 # frame-system = { version = "3.0.0", default-features = false, path = "../system" }
-# pallet-timestamp = { version = "3.0.0", default-features = false, path = "../../frame/timestamp" }
+pallet-did = { version = "0.0.2", default-features = false, path = "../did" }
 
-sp-core = { version = "5.0.0", path = "../../primitives/core" }
+sp-core = { version = "5.0.0", default-features = false, path = "../../primitives/core" }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "1.0", default-features = false, features = ["derive"] }
 sp-std = { version = "4.0.0", default-features = false, path = "../../primitives/std" }
 sp-io = { version = "5.0.0", default-features = false, path = "../../primitives/io" }
 sp-runtime = { version = "5.0.0", default-features = false, path = "../../primitives/runtime" }
+# frame-benchmarking = { version = "3.0.0", default-features = false, path = "../benchmarking", optional = true }
 frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
 frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
-pallet-timestamp = { version = "4.0.0-dev", default-features = false, path = "../../frame/timestamp" }
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "../benchmarking", optional = true }
 
 
 [dev-dependencies]
-sp-core = { version = "5.0.0", path = "../../primitives/core" }
+sp-core = { version = "5.0.0", default-features = false, path = "../../primitives/core" }
 pallet-balances = { version = "4.0.0-dev", path = "../balances" }
+pallet-timestamp = { version = "4.0.0-dev", default-features = false, path = "../../frame/timestamp" }
+lazy_static = "1.4.0"
 
 [features]
 default = ["std"]
@@ -47,11 +50,10 @@ std = [
 	"sp-std/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-core/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-  "pallet-timestamp/std"
+  "pallet-did/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 

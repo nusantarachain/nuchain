@@ -97,6 +97,8 @@ members = [
 	"frame/indices",
 	# "frame/lottery",
 	"frame/liquidity",
+	"frame/did",
+	"frame/organization",
 	"frame/membership",
 	"frame/merkle-mountain-range",
 	"frame/merkle-mountain-range/primitives",
