@@ -185,7 +185,7 @@ pub mod pallet {
 		pub timestamp: u64,
 
 		/// Custom properties
-		pub props: Option<BoundedVec<Property, T::MaxLength>>,
+		pub props: Option<BoundedVec<Property<T::MaxLength>, T::MaxLength>>,
 	}
 
 	#[pallet::error]
@@ -310,7 +310,7 @@ pub mod pallet {
 
 	#[bitflags(default = Active)]
 	#[repr(u64)]
-	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug)]
+	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 	pub enum FlagDataBit {
 		Active = 0b0000000000000000000000000000000000000000000000000000000000000001,
 		Verified = 0b0000000000000000000000000000000000000000000000000000000000000010,
@@ -321,7 +321,7 @@ pub mod pallet {
 		Foundation = 0b0000000000000000000000000000000000000000000000000000000001000000,
 	}
 
-	#[derive(Clone, Copy, PartialEq, Default, RuntimeDebug)]
+	#[derive(Clone, Copy, PartialEq, Default, RuntimeDebug, TypeInfo)]
 	pub struct FlagDataBits(pub BitFlags<FlagDataBit>);
 
 	impl Eq for FlagDataBits {}
@@ -342,6 +342,13 @@ pub mod pallet {
 			))
 		}
 	}
+
+	impl MaxEncodedLen for FlagDataBits {
+		fn max_encoded_len() -> usize {
+			u64::max_encoded_len()
+		}
+	}
+
 	impl EncodeLike for FlagDataBits {}
 	impl core::ops::Deref for FlagDataBits {
 		type Target = BitFlags<FlagDataBit>;
@@ -414,7 +421,7 @@ pub mod pallet {
 			admin: T::AccountId,
 			website: Text,
 			email: Text,
-			props: Option<Vec<Property>>,
+			props: Option<Vec<Property<T::MaxLength>>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin.clone())?;
 
@@ -489,8 +496,8 @@ pub mod pallet {
 			);
 
 			// admin added as member first
-            let members: BoundedVec<T::AccountId, T::MaxMemberCount> =
-                vec![admin.clone()].try_into().unwrap();
+			let members: BoundedVec<T::AccountId, T::MaxMemberCount> =
+				vec![admin.clone()].try_into().unwrap();
 			<Members<T>>::insert(&org_id, members);
 
 			// DID add attribute
@@ -523,7 +530,7 @@ pub mod pallet {
 			description: Option<Text>,
 			website: Option<Text>,
 			email: Option<Text>,
-			props: Option<Vec<Property>>,
+			props: Option<Vec<Property<T::MaxLength>>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin.clone())?;
 
@@ -659,7 +666,10 @@ pub mod pallet {
 
 			let mut members = <Members<T>>::get(&org_id).unwrap_or_else(|| BoundedVec::default());
 
-			ensure!((members.len() as u32) < T::MaxMemberCount::get(), Error::<T>::MaxMemberReached);
+			ensure!(
+				(members.len() as u32) < T::MaxMemberCount::get(),
+				Error::<T>::MaxMemberReached
+			);
 			ensure!(
 				!members.iter().any(|a| accounts.iter().any(|b| *b == *a)),
 				Error::<T>::AlreadyExists
@@ -702,8 +712,9 @@ pub mod pallet {
 
 			ensure!(members.iter().any(|a| *a == account_id), Error::<T>::NotExists);
 
-			let _members:Vec<T::AccountId> = members.into_iter().filter(|a| *a != account_id).collect();
-            members = to_bounded!(_members, Error::<T>::MaxMemberReached);
+			let _members: Vec<T::AccountId> =
+				members.into_iter().filter(|a| *a != account_id).collect();
+			members = to_bounded!(_members, Error::<T>::MaxMemberReached);
 			Members::<T>::insert(org_id.clone(), members);
 
 			Self::deposit_event(Event::MemberRemoved(org_id, account_id));
@@ -878,7 +889,7 @@ macro_rules! method_is_flag {
 /// The main implementation of this Organization pallet.
 impl<T: Config> Pallet<T> {
 	/// Validasi properties
-	pub fn validate_props(props: &Option<Vec<Property>>) -> Result<(), Error<T>> {
+	pub fn validate_props(props: &Option<Vec<Property<T::MaxLength>>>) -> Result<(), Error<T>> {
 		if let Some(props) = props {
 			ensure!(props.len() <= MAX_PROPS, Error::<T>::TooManyProps);
 			for prop in props {

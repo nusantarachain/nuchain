@@ -1,27 +1,30 @@
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
+use scale_info::TypeInfo;
+
+use crate::{BoundedVec, traits::Get};
 
 pub type Text = Vec<u8>;
-pub type PropName = Vec<u8>;
-pub type PropValue = Vec<u8>;
+pub type PropName<LN> = BoundedVec<u8, LN>;
+pub type PropValue<LN> = BoundedVec<u8, LN>;
 
 
 // Contains a name-value pair for a product property e.g. description: Ingredient ABC
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
-pub struct Property {
+#[derive(Encode, Decode, Clone, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct Property<LN> where LN: Get<u32> {
     // Name of the product property e.g. desc or description
-    name: PropName,
+    name: PropName<LN>,
     // Value of the product property e.g. Ingredient ABC
-    value: PropValue,
+    value: PropValue<LN>,
 }
 
-impl Property {
-    pub fn new(name: &[u8], value: &[u8]) -> Self {
+impl<LN> Property<LN> where LN: Get<u32> {
+    pub fn new(name: PropName<LN>, value: PropValue<LN>) -> Self {
         Self {
-            name: name.to_vec(),
-            value: value.to_vec(),
+            name: name,
+            value: value,
         }
     }
 
