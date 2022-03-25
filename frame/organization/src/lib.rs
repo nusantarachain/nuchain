@@ -81,6 +81,8 @@ macro_rules! to_bounded {
 	};
 }
 
+
+
 #[frame_support::pallet]
 pub mod pallet {
 
@@ -281,10 +283,10 @@ pub mod pallet {
 	#[pallet::getter(fn organization_index)]
 	pub type OrganizationIndexOf<T: Config> = StorageMap<_, Blake2_128Concat, u64, T::AccountId>;
 
-	/// Pair user -> list of handled organizations
-	#[pallet::storage]
-	pub type OrganizationLink<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::AccountId, T::MaxLength>>;
+	// /// Pair user -> list of handled organizations
+	// #[pallet::storage]
+	// pub type OrganizationLink<T: Config> =
+	// 	StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::AccountId, T::MaxLength>, ValueQuery>;
 
 	/// Membership store, stored as an ordered Vec.
 	#[pallet::storage]
@@ -396,114 +398,129 @@ pub mod pallet {
 	where
 		T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 	{
-		// /// Add new Organization.
-		// ///
-		// /// The dispatch origin for this call must be _Signed_.
-		// ///
-		// /// # <weight>
-		// /// ## Weight
-		// /// - `O(N)` where:
-		// ///     - `N` length of properties * 100_000.
-		// /// # </weight>
-		// #[pallet::weight(
-		//     <T as Config>::WeightInfo::create()
-		//         .saturating_add((props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as
-		// Weight) )]
-		// pub fn create(
-		// 	origin: OriginFor<T>,
-		// 	name: Text,
-		// 	description: Text,
-		// 	admin: T::AccountId,
-		// 	website: Text,
-		// 	email: Text,
-		// 	props: Option<Vec<Property<Get<u32>>>>,
-		// ) -> DispatchResultWithPostInfo {
-		// 	let who = ensure_signed(origin.clone())?;
+		/// Add new Organization.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// # <weight>
+		/// ## Weight
+		/// - `O(N)` where:
+		///     - `N` length of properties * 100_000.
+		/// # </weight>
+		#[pallet::weight(
+		    <T as Config>::WeightInfo::create()
+		        .saturating_add((props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as
+		Weight) )]
+		pub fn create(
+			origin: OriginFor<T>,
+			name: Text,
+			description: Text,
+			admin: T::AccountId,
+			website: Text,
+			email: Text,
+			props: Option<Vec<Property< Text, Text >>>,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin.clone())?;
 
-		// 	ensure!(name.len() >= T::MinOrgNameLength::get(), Error::<T>::NameTooShort);
-		// 	ensure!(name.len() <= T::MaxOrgNameLength::get(), Error::<T>::NameTooLong);
+			ensure!(name.len() >= T::MinOrgNameLength::get(), Error::<T>::NameTooShort);
+			ensure!(name.len() <= T::MaxOrgNameLength::get(), Error::<T>::NameTooLong);
 
-		// 	Self::validate_props(&props)?;
+			Self::validate_props(&props)?;
 
-		// 	let index = Self::next_index()?;
+			let index = Self::next_index()?;
 
-		// 	ensure!(!OrganizationIndexOf::<T>::contains_key(index), Error::<T>::BadIndex);
+			ensure!(!OrganizationIndexOf::<T>::contains_key(index), Error::<T>::BadIndex);
 
-		// 	// let admin = T::Lookup::lookup(admin)?;
+			// let admin = T::Lookup::lookup(admin)?;
 
-		// 	// Process the payment
-		// 	let cost = T::CreationFee::get();
+			// Process the payment
+			let cost = T::CreationFee::get();
 
-		// 	// Process payment
-		// 	T::Payment::on_unbalanced(T::Currency::withdraw(
-		// 		&who,
-		// 		cost,
-		// 		WithdrawReasons::FEE,
-		// 		KeepAlive,
-		// 	)?);
+			// Process payment
+			T::Payment::on_unbalanced(T::Currency::withdraw(
+				&who,
+				cost,
+				WithdrawReasons::FEE,
+				KeepAlive,
+			)?);
 
-		// 	// generate organization id (hash)
-		// 	let org_id: T::AccountId = UncheckedFrom::unchecked_from(T::Hashing::hash(
-		// 		&index
-		// 			.to_le_bytes()
-		// 			.iter()
-		// 			.chain(name.iter())
-		// 			.chain(description.iter())
-		// 			.chain(website.iter())
-		// 			.chain(email.iter())
-		// 			.cloned()
-		// 			.collect::<Vec<u8>>(),
-		// 	));
+			// generate organization id (hash)
+			let org_id: T::AccountId = UncheckedFrom::unchecked_from(T::Hashing::hash(
+				&index
+					.to_le_bytes()
+					.iter()
+					.chain(name.iter())
+					.chain(description.iter())
+					.chain(website.iter())
+					.chain(email.iter())
+					.cloned()
+					.collect::<Vec<u8>>(),
+			));
 
-		// 	let block = <frame_system::Pallet<T>>::block_number();
+			let block = <frame_system::Pallet<T>>::block_number();
 
-		// 	Organizations::<T>::insert(
-		// 		org_id.clone(),
-		// 		Organization {
-		// 			id: org_id.clone(),
-		// 			name: to_bounded!(name, Error::<T>::NameTooLong),
-		// 			description: to_bounded!(description, Error::<T>::DescriptionTooLong),
-		// 			admin: admin.clone(),
-		// 			website: to_bounded!(website, Error::<T>::WebsiteTooLong),
-		// 			email: to_bounded!(email, Error::<T>::EmailTooLong),
-		// 			suspended: false,
-		// 			block,
-		// 			timestamp: T::Time::now().as_millis().saturated_into::<u64>(),
-		// 			props: props.and_then(|ps| ps.try_into().ok()),
-		// 		},
-		// 	);
+			Organizations::<T>::insert(
+				org_id.clone(),
+				Organization {
+					id: org_id.clone(),
+					name: to_bounded!(*name, Error::<T>::NameTooLong),
+					description: to_bounded!(description, Error::<T>::DescriptionTooLong),
+					admin: admin.clone(),
+					website: to_bounded!(website, Error::<T>::WebsiteTooLong),
+					email: to_bounded!(email, Error::<T>::EmailTooLong),
+					suspended: false,
+					block,
+					timestamp: T::Time::now().as_millis().saturated_into::<u64>(),
+					props: props.and_then(|ps| {
+						ps.into_iter()
+							.flat_map(|p| {
+								let x: Option<
+									Property<
+										BoundedVec<u8, T::MaxLength>,
+										BoundedVec<u8, T::MaxLength>,
+									>,
+								> = p.try_into().ok();
+								x
+							})
+							.collect::<Vec<_>>()
+							.try_into()
+							.ok()
+					})
+				},
+			);
 
-		// 	<OrganizationIndexOf<T>>::insert(index, org_id.clone());
+			<OrganizationIndexOf<T>>::insert(index, org_id.clone());
 
-		// 	if OrganizationLink::<T>::contains_key(&admin) {
-		// 		OrganizationLink::<T>::mutate(&admin, |ref mut vs| {
-		// 			vs.as_mut().map(|vsi| vsi.push(org_id.clone()))
-		// 		});
-		// 	} else {
-		// 		let orgs: BoundedVec<T::AccountId, T::MaxLength> =
-		// 			sp_std::vec![org_id.clone()].try_into().unwrap();
-		// 		OrganizationLink::<T>::insert(&admin, orgs);
-		// 	}
+			// if OrganizationLink::<T>::contains_key(&admin) {
+			// 	OrganizationLink::<T>::mutate(&admin, |ref mut vs| {
+			// 		// vs.as_mut().map(|vsi| vsi.try_push(org_id.clone()). )
+			// 		vs.try_push(org_id.clone()).map_err(|_| Error::<T>::TooManyOrgLink)
+			// 	});
+			// } else {
+			// 	let orgs: BoundedVec<T::AccountId, T::MaxLength> =
+			// 		sp_std::vec![org_id.clone()].try_into().unwrap();
+			// 	OrganizationLink::<T>::insert(&admin, orgs);
+			// }
 
-		// 	<OrganizationFlagData<T>>::insert::<_, FlagDataBits>(
-		// 		org_id.clone(),
-		// 		Default::default(),
-		// 	);
+			<OrganizationFlagData<T>>::insert::<_, FlagDataBits>(
+				org_id.clone(),
+				Default::default(),
+			);
 
-		// 	// admin added as member first
-		// 	let members: BoundedVec<T::AccountId, T::MaxMemberCount> =
-		// 		vec![admin.clone()].try_into().unwrap();
-		// 	<Members<T>>::insert(&org_id, members);
+			// admin added as member first
+			let members: BoundedVec<T::AccountId, T::MaxMemberCount> =
+				vec![admin.clone()].try_into().unwrap();
+			<Members<T>>::insert(&org_id, members);
 
-		// 	// DID add attribute
-		// 	T::Did::create_attribute(&org_id, &org_id, &b"Org".to_vec(), &name, None)?;
-		// 	// Set owner of this organization in DID
-		// 	T::Did::set_owner(&who, &org_id, &admin);
+			// DID add attribute
+			T::Did::create_attribute(&org_id, &org_id, &b"Org".to_vec(), &name, None)?;
+			// Set owner of this organization in DID
+			T::Did::set_owner(&who, &org_id, &admin);
 
-		// 	Self::deposit_event(Event::OrganizationAdded(org_id, admin));
+			Self::deposit_event(Event::OrganizationAdded(org_id, admin));
 
-		// 	Ok(().into())
-		// }
+			Ok(().into())
+		}
 
 		/// Update organization data.
 		///
@@ -566,7 +583,21 @@ pub mod pallet {
 						updated = true;
 					}
 					if props.is_some() {
-						org.props = props.and_then(|ps| ps.try_into().ok());
+						org.props = props.and_then(|ps| {
+							ps.into_iter()
+								.flat_map(|p| {
+									let x: Option<
+										Property<
+											BoundedVec<u8, T::MaxLength>,
+											BoundedVec<u8, T::MaxLength>,
+										>,
+									> = p.try_into().ok();
+									x
+								})
+								.collect::<Vec<_>>()
+								.try_into()
+								.ok()
+						});
 						updated = true;
 					}
 					if updated {
@@ -889,9 +920,7 @@ macro_rules! method_is_flag {
 /// The main implementation of this Organization pallet.
 impl<T: Config> Pallet<T> {
 	/// Validasi properties
-	pub fn validate_props(
-		props: &Option<Vec<Property<Text, Text>>>,
-	) -> Result<(), Error<T>> {
+	pub fn validate_props(props: &Option<Vec<Property<Text, Text>>>) -> Result<(), Error<T>> {
 		if let Some(props) = props {
 			ensure!(props.len() <= MAX_PROPS, Error::<T>::TooManyProps);
 			for prop in props {

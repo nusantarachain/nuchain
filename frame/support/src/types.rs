@@ -1,16 +1,17 @@
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::traits::ConstU32;
 use scale_info::TypeInfo;
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, DispatchError};
 use sp_std::vec::Vec;
 
-use crate::{traits::Get, BoundedVec};
+use crate::BoundedVec;
 
 pub type Text = Vec<u8>;
 pub type PropName<LN> = BoundedVec<u8, LN>;
 pub type PropValue<LN> = BoundedVec<u8, LN>;
 
 // Contains a name-value pair for a product property e.g. description: Ingredient ABC
-#[derive(Encode, Decode, Clone, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct Property<NameT, ValueT> {
 	// Name of the product property e.g. desc or description
 	name: NameT,
@@ -35,3 +36,40 @@ where
 		self.value.as_ref()
 	}
 }
+
+impl<NameT, ValueT> From<Property<Text, Text>>
+	for Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>
+where
+	BoundedVec<u8, NameT>: TryFrom<Text>,
+	BoundedVec<u8, ValueT>: TryFrom<Text>,
+{
+	fn from(prop: Property<Text, Text>) -> Self {
+		Self {
+			name: prop.name.clone().try_into().ok().unwrap_or_default(),
+			value: prop.value.clone().try_into().ok().unwrap_or_default(),
+		}
+	}
+}
+
+
+// impl<NameT, ValueT, LN>
+// 	TryInto<BoundedVec<Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>, LN>>
+// 	for Vec<Property<Text, Text>>
+// where
+// 	BoundedVec<u8, NameT>: TryFrom<Text>,
+// 	BoundedVec<u8, ValueT>: TryFrom<Text>,
+//     BoundedVec<Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>, LN>: TryFrom<Vec<Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>>>,
+// {
+//     type Error = frame_support::pallet_prelude::DispatchError;
+// 	fn try_into(self) -> Result<BoundedVec<Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>, LN>, Self::Error> {
+// 		self.into_iter()
+// 			.flat_map(|p| {
+// 				let x: Option<Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>> =
+// 					p.try_into().ok();
+// 				x
+// 			})
+// 			.collect::<Vec<_>>()
+// 			.try_into()
+// 	}
+// }
+

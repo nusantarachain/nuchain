@@ -150,7 +150,7 @@ impl Config for Test {
 	type Signature = sr25519::Signature;
     type Did = Did;
     type MaxLength = ConstU32<64>;
-    type MaxHandledOrgCount = ConstU32<32>;
+    // type MaxHandledOrgCount = ConstU32<32>;
 }
 
 fn new_test_ext() -> sp_io::TestExternalities {
@@ -272,10 +272,10 @@ fn org_id_incremented_correctly() {
         assert_eq!(Pallet::<Test>::next_index().unwrap(), 5);
         assert_eq!(Pallet::<Test>::organization(*EVE), None);
         assert!(Pallet::<Test>::organization(org_id1)
-            .map(|a| &a.name == b"ORG2")
+            .map(|a| &a.name.to_vec() == b"ORG2")
             .unwrap_or(false));
         assert!(Pallet::<Test>::organization(org_id2)
-            .map(|a| &a.name == b"ORG4")
+            .map(|a| &a.name.to_vec() == b"ORG4")
             .unwrap_or(false));
     });
 }
@@ -335,7 +335,7 @@ fn new_created_org_active() {
 #[test]
 fn create_organization_with_properties() {
     new_test_ext().execute_with(|| {
-        let props = vec![Property::new(b"satu", b"1")];
+        let props = vec![Property::new(b"satu".to_vec(), b"1".to_vec())];
         assert_ok!(Organization::create(
             Origin::signed(*ALICE),
             b"ORG1".to_vec(),
