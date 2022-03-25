@@ -45,13 +45,14 @@ use frame_support::{
 		Get, OnUnbalanced, ReservableCurrency, UnixTime, WithdrawReasons,
 	},
 	types::{Property, Text},
+	BoundedVec,
 };
 use frame_system::ensure_signed;
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::{Hash, StaticLookup};
 use sp_std::prelude::*;
 
-use enumflags2::{bitflags, BitFlags};
+use enumflags2::BitFlags;
 
 pub use pallet::*;
 
@@ -62,6 +63,10 @@ pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, EncodeLike};
 use pallet_did::{self as did, Did};
+
+mod types;
+
+use crate::types::Organization;
 
 pub const MAX_PROPS: usize = 10;
 pub const PROP_NAME_MAX_LENGTH: usize = 30;
@@ -82,12 +87,12 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use scale_info::TypeInfo;
+	use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 	use sp_runtime::{
 		traits::{IdentifyAccount, Verify},
 		SaturatedConversion,
 	};
-	use sp_std::vec;
+	// use sp_std::vec;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -123,6 +128,7 @@ pub mod pallet {
 		type MaxOrgNameLength: Get<usize>;
 
 		/// Max number of member for the organization
+		#[pallet::constant]
 		type MaxMemberCount: Get<u32>;
 
 		/// Weight information
@@ -144,8 +150,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxLength: Get<u32>;
 
-		#[pallet::constant]
-		type MaxHandledOrgCount: Get<u32>;
+		// #[pallet::constant]
+		// type MaxLength: Get<u32>;
 	}
 
 	pub(crate) type BalanceOf<T> =
@@ -154,39 +160,6 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId,
 	>>::NegativeImbalance;
 	// type Moment<T> = <<T as Config>::Time as Time>::Moment;
-
-	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	pub struct Organization<T: Config> {
-		/// Organization ID
-		pub id: T::AccountId,
-
-		/// object name
-		pub name: BoundedVec<u8, T::MaxLength>,
-
-		/// Description about the organization.
-		pub description: BoundedVec<u8, T::MaxLength>,
-
-		/// admin of the object
-		pub admin: T::AccountId,
-
-		/// Official website url
-		pub website: BoundedVec<u8, T::MaxLength>,
-
-		/// Official email address
-		pub email: BoundedVec<u8, T::MaxLength>,
-
-		/// Whether the organization suspended or not
-		pub suspended: bool,
-
-		/// Created at block
-		pub block: T::BlockNumber,
-
-		/// Creation timestamp
-		pub timestamp: u64,
-
-		/// Custom properties
-		pub props: Option<BoundedVec<Property<T::MaxLength>, T::MaxLength>>,
-	}
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -244,6 +217,9 @@ pub mod pallet {
 		/// Account is not member of the organization.
 		NotMember,
 
+		/// Too many members
+		TooManyMembers,
+
 		InvalidParameter,
 
 		/// Changes not made
@@ -284,8 +260,20 @@ pub mod pallet {
 	/// Pair organization hash -> Organization data
 	#[pallet::storage]
 	#[pallet::getter(fn organization)]
-	pub type Organizations<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, Organization<T>>;
+	pub type Organizations<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		Organization<
+			T::AccountId,
+			T::BlockNumber,
+			BoundedVec<u8, T::MaxLength>,
+			BoundedVec<
+				Property<BoundedVec<u8, T::MaxLength>, BoundedVec<u8, T::MaxLength>>,
+				T::MaxLength,
+			>,
+		>,
+	>;
 
 	/// Link organization index -> organization hash.
 	/// Useful for lookup organization from index.
@@ -295,12 +283,8 @@ pub mod pallet {
 
 	/// Pair user -> list of handled organizations
 	#[pallet::storage]
-	pub type OrganizationLink<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		T::AccountId,
-		BoundedVec<T::AccountId, T::MaxHandledOrgCount>,
-	>;
+	pub type OrganizationLink<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::AccountId, T::MaxLength>>;
 
 	/// Membership store, stored as an ordered Vec.
 	#[pallet::storage]
@@ -308,9 +292,9 @@ pub mod pallet {
 	pub type Members<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, BoundedVec<T::AccountId, T::MaxMemberCount>>;
 
-	#[bitflags(default = Active)]
+	// #[bitflags(default = Active)]
 	#[repr(u64)]
-	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Copy, PartialEq, Eq, BitFlags, RuntimeDebug, TypeInfo)]
 	pub enum FlagDataBit {
 		Active = 0b0000000000000000000000000000000000000000000000000000000000000001,
 		Verified = 0b0000000000000000000000000000000000000000000000000000000000000010,
@@ -321,7 +305,7 @@ pub mod pallet {
 		Foundation = 0b0000000000000000000000000000000000000000000000000000000001000000,
 	}
 
-	#[derive(Clone, Copy, PartialEq, Default, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Copy, PartialEq, Default, RuntimeDebug)]
 	pub struct FlagDataBits(pub BitFlags<FlagDataBit>);
 
 	impl Eq for FlagDataBits {}
@@ -359,6 +343,17 @@ pub mod pallet {
 	impl core::ops::DerefMut for FlagDataBits {
 		fn deref_mut(&mut self) -> &mut Self::Target {
 			&mut self.0
+		}
+	}
+
+	impl TypeInfo for FlagDataBits {
+		type Identity = Self;
+
+		fn type_info() -> Type {
+			Type::builder()
+				.path(Path::new("BitFlags", module_path!()))
+				.type_params(vec![TypeParameter::new("T", Some(meta_type::<FlagDataBits>()))])
+				.composite(Fields::unnamed().field(|f| f.ty::<u64>().type_name("FlagDataBit")))
 		}
 	}
 
@@ -401,114 +396,114 @@ pub mod pallet {
 	where
 		T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 	{
-		/// Add new Organization.
-		///
-		/// The dispatch origin for this call must be _Signed_.
-		///
-		/// # <weight>
-		/// ## Weight
-		/// - `O(N)` where:
-		///     - `N` length of properties * 100_000.
-		/// # </weight>
-		#[pallet::weight(
-            <T as Config>::WeightInfo::create()
-                .saturating_add((props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as Weight)
-        )]
-		pub fn create(
-			origin: OriginFor<T>,
-			name: Text,
-			description: Text,
-			admin: T::AccountId,
-			website: Text,
-			email: Text,
-			props: Option<Vec<Property<T::MaxLength>>>,
-		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin.clone())?;
+		// /// Add new Organization.
+		// ///
+		// /// The dispatch origin for this call must be _Signed_.
+		// ///
+		// /// # <weight>
+		// /// ## Weight
+		// /// - `O(N)` where:
+		// ///     - `N` length of properties * 100_000.
+		// /// # </weight>
+		// #[pallet::weight(
+		//     <T as Config>::WeightInfo::create()
+		//         .saturating_add((props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as
+		// Weight) )]
+		// pub fn create(
+		// 	origin: OriginFor<T>,
+		// 	name: Text,
+		// 	description: Text,
+		// 	admin: T::AccountId,
+		// 	website: Text,
+		// 	email: Text,
+		// 	props: Option<Vec<Property<Get<u32>>>>,
+		// ) -> DispatchResultWithPostInfo {
+		// 	let who = ensure_signed(origin.clone())?;
 
-			ensure!(name.len() >= T::MinOrgNameLength::get(), Error::<T>::NameTooShort);
-			ensure!(name.len() <= T::MaxOrgNameLength::get(), Error::<T>::NameTooLong);
+		// 	ensure!(name.len() >= T::MinOrgNameLength::get(), Error::<T>::NameTooShort);
+		// 	ensure!(name.len() <= T::MaxOrgNameLength::get(), Error::<T>::NameTooLong);
 
-			Self::validate_props(&props)?;
+		// 	Self::validate_props(&props)?;
 
-			let index = Self::next_index()?;
+		// 	let index = Self::next_index()?;
 
-			ensure!(!OrganizationIndexOf::<T>::contains_key(index), Error::<T>::BadIndex);
+		// 	ensure!(!OrganizationIndexOf::<T>::contains_key(index), Error::<T>::BadIndex);
 
-			// let admin = T::Lookup::lookup(admin)?;
+		// 	// let admin = T::Lookup::lookup(admin)?;
 
-			// Process the payment
-			let cost = T::CreationFee::get();
+		// 	// Process the payment
+		// 	let cost = T::CreationFee::get();
 
-			// Process payment
-			T::Payment::on_unbalanced(T::Currency::withdraw(
-				&who,
-				cost,
-				WithdrawReasons::FEE,
-				KeepAlive,
-			)?);
+		// 	// Process payment
+		// 	T::Payment::on_unbalanced(T::Currency::withdraw(
+		// 		&who,
+		// 		cost,
+		// 		WithdrawReasons::FEE,
+		// 		KeepAlive,
+		// 	)?);
 
-			// generate organization id (hash)
-			let org_id: T::AccountId = UncheckedFrom::unchecked_from(T::Hashing::hash(
-				&index
-					.to_le_bytes()
-					.iter()
-					.chain(name.iter())
-					.chain(description.iter())
-					.chain(website.iter())
-					.chain(email.iter())
-					.cloned()
-					.collect::<Vec<u8>>(),
-			));
+		// 	// generate organization id (hash)
+		// 	let org_id: T::AccountId = UncheckedFrom::unchecked_from(T::Hashing::hash(
+		// 		&index
+		// 			.to_le_bytes()
+		// 			.iter()
+		// 			.chain(name.iter())
+		// 			.chain(description.iter())
+		// 			.chain(website.iter())
+		// 			.chain(email.iter())
+		// 			.cloned()
+		// 			.collect::<Vec<u8>>(),
+		// 	));
 
-			let block = <frame_system::Pallet<T>>::block_number();
+		// 	let block = <frame_system::Pallet<T>>::block_number();
 
-			Organizations::<T>::insert(
-				org_id.clone(),
-				Organization {
-					id: org_id.clone(),
-					name: to_bounded!(name, Error::<T>::NameTooLong),
-					description: to_bounded!(description, Error::<T>::DescriptionTooLong),
-					admin: admin.clone(),
-					website: to_bounded!(website, Error::<T>::WebsiteTooLong),
-					email: to_bounded!(email, Error::<T>::EmailTooLong),
-					suspended: false,
-					block,
-					timestamp: T::Time::now().as_millis().saturated_into::<u64>(),
-					props: props.and_then(|ps| ps.try_into().ok()),
-				},
-			);
+		// 	Organizations::<T>::insert(
+		// 		org_id.clone(),
+		// 		Organization {
+		// 			id: org_id.clone(),
+		// 			name: to_bounded!(name, Error::<T>::NameTooLong),
+		// 			description: to_bounded!(description, Error::<T>::DescriptionTooLong),
+		// 			admin: admin.clone(),
+		// 			website: to_bounded!(website, Error::<T>::WebsiteTooLong),
+		// 			email: to_bounded!(email, Error::<T>::EmailTooLong),
+		// 			suspended: false,
+		// 			block,
+		// 			timestamp: T::Time::now().as_millis().saturated_into::<u64>(),
+		// 			props: props.and_then(|ps| ps.try_into().ok()),
+		// 		},
+		// 	);
 
-			<OrganizationIndexOf<T>>::insert(index, org_id.clone());
+		// 	<OrganizationIndexOf<T>>::insert(index, org_id.clone());
 
-			if OrganizationLink::<T>::contains_key(&admin) {
-				OrganizationLink::<T>::mutate(&admin, |ref mut vs| {
-					vs.as_mut().map(|vsi| vsi.push(org_id.clone()))
-				});
-			} else {
-				let orgs: BoundedVec<T::AccountId, T::MaxHandledOrgCount> =
-					sp_std::vec![org_id.clone()].try_into().unwrap();
-				OrganizationLink::<T>::insert(&admin, orgs);
-			}
+		// 	if OrganizationLink::<T>::contains_key(&admin) {
+		// 		OrganizationLink::<T>::mutate(&admin, |ref mut vs| {
+		// 			vs.as_mut().map(|vsi| vsi.push(org_id.clone()))
+		// 		});
+		// 	} else {
+		// 		let orgs: BoundedVec<T::AccountId, T::MaxLength> =
+		// 			sp_std::vec![org_id.clone()].try_into().unwrap();
+		// 		OrganizationLink::<T>::insert(&admin, orgs);
+		// 	}
 
-			<OrganizationFlagData<T>>::insert::<_, FlagDataBits>(
-				org_id.clone(),
-				Default::default(),
-			);
+		// 	<OrganizationFlagData<T>>::insert::<_, FlagDataBits>(
+		// 		org_id.clone(),
+		// 		Default::default(),
+		// 	);
 
-			// admin added as member first
-			let members: BoundedVec<T::AccountId, T::MaxMemberCount> =
-				vec![admin.clone()].try_into().unwrap();
-			<Members<T>>::insert(&org_id, members);
+		// 	// admin added as member first
+		// 	let members: BoundedVec<T::AccountId, T::MaxMemberCount> =
+		// 		vec![admin.clone()].try_into().unwrap();
+		// 	<Members<T>>::insert(&org_id, members);
 
-			// DID add attribute
-			T::Did::create_attribute(&org_id, &org_id, &b"Org".to_vec(), &name, None)?;
-			// Set owner of this organization in DID
-			T::Did::set_owner(&who, &org_id, &admin);
+		// 	// DID add attribute
+		// 	T::Did::create_attribute(&org_id, &org_id, &b"Org".to_vec(), &name, None)?;
+		// 	// Set owner of this organization in DID
+		// 	T::Did::set_owner(&who, &org_id, &admin);
 
-			Self::deposit_event(Event::OrganizationAdded(org_id, admin));
+		// 	Self::deposit_event(Event::OrganizationAdded(org_id, admin));
 
-			Ok(().into())
-		}
+		// 	Ok(().into())
+		// }
 
 		/// Update organization data.
 		///
@@ -520,9 +515,9 @@ pub mod pallet {
 		///     - `N` length of properties * 100_000.
 		/// # </weight>
 		#[pallet::weight(
-            <T as Config>::WeightInfo::update()
-                .saturating_add((props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as Weight)
-        )]
+		    <T as Config>::WeightInfo::update()
+		        .saturating_add((props.as_ref().map(|a| a.len()).unwrap_or(0) * 100_000) as
+		Weight) )]
 		pub fn update(
 			origin: OriginFor<T>,
 			org_id: T::AccountId,
@@ -530,7 +525,7 @@ pub mod pallet {
 			description: Option<Text>,
 			website: Option<Text>,
 			email: Option<Text>,
-			props: Option<Vec<Property<T::MaxLength>>>,
+			props: Option<Vec<Property<Text, Text>>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin.clone())?;
 
@@ -664,7 +659,7 @@ pub mod pallet {
 
 			ensure!(!org.suspended, Error::<T>::Suspended);
 
-			let mut members = <Members<T>>::get(&org_id).unwrap_or_else(|| BoundedVec::default());
+			let members = <Members<T>>::get(&org_id).unwrap_or_else(|| BoundedVec::default());
 
 			ensure!(
 				(members.len() as u32) < T::MaxMemberCount::get(),
@@ -675,11 +670,16 @@ pub mod pallet {
 				Error::<T>::AlreadyExists
 			);
 
+			let mut members: Vec<T::AccountId> = Vec::new();
+
 			for account_id in accounts.iter() {
 				members.push(account_id.clone());
 			}
 
 			members.sort();
+
+			let members: BoundedVec<T::AccountId, T::MaxMemberCount> =
+				members.clone().try_into().map_err(|_| Error::<T>::TooManyMembers)?;
 
 			<Members<T>>::insert(&org_id, members);
 
@@ -889,7 +889,9 @@ macro_rules! method_is_flag {
 /// The main implementation of this Organization pallet.
 impl<T: Config> Pallet<T> {
 	/// Validasi properties
-	pub fn validate_props(props: &Option<Vec<Property<T::MaxLength>>>) -> Result<(), Error<T>> {
+	pub fn validate_props(
+		props: &Option<Vec<Property<Text, Text>>>,
+	) -> Result<(), Error<T>> {
 		if let Some(props) = props {
 			ensure!(props.len() <= MAX_PROPS, Error::<T>::TooManyProps);
 			for prop in props {
@@ -909,7 +911,18 @@ impl<T: Config> Pallet<T> {
 	pub fn ensure_access(
 		origin: &T::AccountId,
 		org_id: &T::AccountId,
-	) -> Result<Organization<T>, Error<T>> {
+	) -> Result<
+		Organization<
+			T::AccountId,
+			T::BlockNumber,
+			BoundedVec<u8, T::MaxLength>,
+			BoundedVec<
+				Property<BoundedVec<u8, T::MaxLength>, BoundedVec<u8, T::MaxLength>>,
+				T::MaxLength,
+			>,
+		>,
+		Error<T>,
+	> {
 		let org = Self::organization(&org_id).ok_or(Error::<T>::NotExists)?;
 
 		if &org.admin != origin {
@@ -934,7 +947,15 @@ impl<T: Config> Pallet<T> {
 	/// bukan hanya akses, ini juga memastikan organisasi dalam posisi aktif (tidak suspended).
 	pub fn ensure_access_active(
 		origin: &T::AccountId,
-		org: &Organization<T>,
+		org: &Organization<
+			T::AccountId,
+			T::BlockNumber,
+			BoundedVec<u8, T::MaxLength>,
+			BoundedVec<
+				Property<BoundedVec<u8, T::MaxLength>, BoundedVec<u8, T::MaxLength>>,
+				T::MaxLength,
+			>,
+		>,
 	) -> Result<(), Error<T>> {
 		// ensure!(&org.admin == origin, Error::<T>::PermissionDenied);
 

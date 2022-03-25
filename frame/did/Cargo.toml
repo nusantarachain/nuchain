@@ -37,8 +37,8 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "
 
 
 [dev-dependencies]
-sp-core = { version = "5.0.0", path = "../../primitives/core" }
-pallet-balances = { version = "4.0.0-dev", path = "../balances" }
+sp-core = { version = "5.0.0", default-features = false, path = "../../primitives/core" }
+pallet-balances = { version = "4.0.0-dev", default-features = false, path = "../balances" }
 
 [features]
 default = ["std"]
