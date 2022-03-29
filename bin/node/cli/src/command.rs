@@ -24,7 +24,7 @@ use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Substrate Node".into()
+		"Nuchain Node".into()
 	}
 
 	fn impl_version() -> String {
