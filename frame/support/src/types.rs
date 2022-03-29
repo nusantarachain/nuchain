@@ -1,5 +1,4 @@
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::ConstU32;
 use scale_info::TypeInfo;
 use sp_runtime::{RuntimeDebug, DispatchError};
 use sp_std::vec::Vec;
@@ -50,26 +49,4 @@ where
 		}
 	}
 }
-
-
-// impl<NameT, ValueT, LN>
-// 	TryInto<BoundedVec<Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>, LN>>
-// 	for Vec<Property<Text, Text>>
-// where
-// 	BoundedVec<u8, NameT>: TryFrom<Text>,
-// 	BoundedVec<u8, ValueT>: TryFrom<Text>,
-//     BoundedVec<Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>, LN>: TryFrom<Vec<Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>>>,
-// {
-//     type Error = frame_support::pallet_prelude::DispatchError;
-// 	fn try_into(self) -> Result<BoundedVec<Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>, LN>, Self::Error> {
-// 		self.into_iter()
-// 			.flat_map(|p| {
-// 				let x: Option<Property<BoundedVec<u8, NameT>, BoundedVec<u8, ValueT>>> =
-// 					p.try_into().ok();
-// 				x
-// 			})
-// 			.collect::<Vec<_>>()
-// 			.try_into()
-// 	}
-// }
 
