@@ -62,7 +62,7 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, EncodeLike};
-use pallet_did::{self as did, Did};
+use pallet_did::Did;
 
 mod types;
 
@@ -80,8 +80,6 @@ macro_rules! to_bounded {
 		$name.try_into().map_err(|()| $error)?
 	};
 }
-
-
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -219,9 +217,6 @@ pub mod pallet {
 		/// Account is not member of the organization.
 		NotMember,
 
-		/// Too many members
-		TooManyMembers,
-
 		InvalidParameter,
 
 		/// Changes not made
@@ -286,7 +281,8 @@ pub mod pallet {
 	// /// Pair user -> list of handled organizations
 	// #[pallet::storage]
 	// pub type OrganizationLink<T: Config> =
-	// 	StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::AccountId, T::MaxLength>, ValueQuery>;
+	// 	StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<T::AccountId, T::MaxLength>,
+	// ValueQuery>;
 
 	/// Membership store, stored as an ordered Vec.
 	#[pallet::storage]
@@ -307,7 +303,7 @@ pub mod pallet {
 		Foundation = 0b0000000000000000000000000000000000000000000000000000000001000000,
 	}
 
-	#[derive(Clone, Copy, PartialEq, Default, RuntimeDebug)]
+	#[derive(Clone, Copy, PartialEq, RuntimeDebug)]
 	pub struct FlagDataBits(pub BitFlags<FlagDataBit>);
 
 	impl Eq for FlagDataBits {}
@@ -356,6 +352,12 @@ pub mod pallet {
 				.path(Path::new("BitFlags", module_path!()))
 				.type_params(vec![TypeParameter::new("T", Some(meta_type::<FlagDataBits>()))])
 				.composite(Fields::unnamed().field(|f| f.ty::<u64>().type_name("FlagDataBit")))
+		}
+	}
+
+	impl Default for FlagDataBits {
+		fn default() -> Self {
+			Self(FlagDataBit::Active.into())
 		}
 	}
 
@@ -418,7 +420,7 @@ pub mod pallet {
 			admin: T::AccountId,
 			website: Text,
 			email: Text,
-			props: Option<Vec<Property< Text, Text >>>,
+			props: Option<Vec<Property<Text, Text>>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin.clone())?;
 
@@ -485,7 +487,7 @@ pub mod pallet {
 							.collect::<Vec<_>>()
 							.try_into()
 							.ok()
-					})
+					}),
 				},
 			);
 
@@ -690,18 +692,23 @@ pub mod pallet {
 
 			ensure!(!org.suspended, Error::<T>::Suspended);
 
-			let members = <Members<T>>::get(&org_id).unwrap_or_else(|| BoundedVec::default());
+			let existing_members =
+				<Members<T>>::get(&org_id).unwrap_or_else(|| BoundedVec::default());
 
 			ensure!(
-				(members.len() as u32) < T::MaxMemberCount::get(),
+				(existing_members.len() as u32) < T::MaxMemberCount::get(),
 				Error::<T>::MaxMemberReached
 			);
 			ensure!(
-				!members.iter().any(|a| accounts.iter().any(|b| *b == *a)),
+				!existing_members.iter().any(|a| accounts.iter().any(|b| *b == *a)),
 				Error::<T>::AlreadyExists
 			);
 
 			let mut members: Vec<T::AccountId> = Vec::new();
+
+			for account_id in existing_members.into_iter() {
+				members.push(account_id);
+			}
 
 			for account_id in accounts.iter() {
 				members.push(account_id.clone());
@@ -710,7 +717,7 @@ pub mod pallet {
 			members.sort();
 
 			let members: BoundedVec<T::AccountId, T::MaxMemberCount> =
-				members.clone().try_into().map_err(|_| Error::<T>::TooManyMembers)?;
+				members.clone().try_into().map_err(|_| Error::<T>::MaxMemberReached)?;
 
 			<Members<T>>::insert(&org_id, members);
 

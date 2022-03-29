@@ -4,7 +4,6 @@ use frame_support::{
 	traits::{ConstU32, Get},
 };
 use sp_runtime::RuntimeDebug;
-use sp_std::vec::Vec;
 
 /// Attributes or properties that make an identity.
 #[derive(
