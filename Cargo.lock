@@ -4873,6 +4873,7 @@ dependencies = [
  "pallet-contracts-rpc-runtime-api",
  "pallet-conviction-voting",
  "pallet-democracy",
+ "pallet-did",
  "pallet-election-provider-multi-phase",
  "pallet-elections-phragmen",
  "pallet-gilt",
@@ -4886,6 +4887,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-organization",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-randomness-collective-flip",
@@ -5713,7 +5715,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-did"
-version = "0.0.2"
+version = "1.0.3"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6098,7 +6100,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-organization"
-version = "0.0.1"
+version = "1.0.3"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",

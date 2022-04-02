@@ -1,6 +1,6 @@
 [package]
 name = "pallet-did"
-version = "0.0.2"
+version = "1.0.3"
 authors = ["Robin Syihab <robin.syihab@gmail.com>"]
 edition = "2018"
 license = "GPL-3"

@@ -1368,6 +1368,41 @@ impl pallet_transaction_storage::Config for Runtime {
 	type WeightInfo = pallet_transaction_storage::weights::SubstrateWeight<Runtime>;
 }
 
+
+impl pallet_did::Config for Runtime {
+	type Event = Event;
+	type Public = <Signature as traits::Verify>::Signer;
+	type Signature = Signature;
+	type Time = Timestamp;
+	type WeightInfo = pallet_did::weights::SubstrateWeight<Runtime>;
+    type MaxLength = ConstU32<64>;
+}
+
+parameter_types! {
+	pub const MinOrgNameLength: usize = 3;
+	pub const MaxOrgNameLength: usize = 16;
+	pub const MaxMemberCount: u32 = 5;
+	pub const CreationFee: u64 = 20;
+}
+
+impl pallet_organization::Config for Runtime {
+	type Event = Event;
+	type Time = Timestamp;
+	type CreationFee = CreationFee;
+	type Currency = Balances;
+	type Payment = ();
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type MinOrgNameLength = MinOrgNameLength;
+	type MaxOrgNameLength = MaxOrgNameLength;
+	type MaxMemberCount = MaxMemberCount;
+	type WeightInfo = pallet_organization::weights::SubstrateWeight<Runtime>;
+	type Public = <Signature as traits::Verify>::Signer;
+	type Signature = Signature;
+	type Did = Did;
+	type MaxLength = ConstU32<64>;
+	// type MaxHandledOrgCount = ConstU32<32>;
+}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -1423,6 +1458,8 @@ construct_runtime!(
 		ChildBounties: pallet_child_bounties,
 		Referenda: pallet_referenda,
 		ConvictionVoting: pallet_conviction_voting,
+        Did: pallet_did,
+        Organization: pallet_organization,
 	}
 );
 
