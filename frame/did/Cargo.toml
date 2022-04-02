@@ -24,12 +24,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 # frame-system = { version = "3.0.0", default-features = false, path = "../system" }
 # pallet-timestamp = { version = "3.0.0", default-features = false, path = "../../frame/timestamp" }
 
-sp-core = { version = "5.0.0", path = "../../primitives/core" }
+sp-core = { version = "6.0.0", path = "../../primitives/core" }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "1.0", default-features = false, features = ["derive"] }
 sp-std = { version = "4.0.0", default-features = false, path = "../../primitives/std" }
-sp-io = { version = "5.0.0", default-features = false, path = "../../primitives/io" }
-sp-runtime = { version = "5.0.0", default-features = false, path = "../../primitives/runtime" }
+sp-io = { version = "6.0.0", default-features = false, path = "../../primitives/io" }
+sp-runtime = { version = "6.0.0", default-features = false, path = "../../primitives/runtime" }
 frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
 frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
 pallet-timestamp = { version = "4.0.0-dev", default-features = false, path = "../../frame/timestamp" }
@@ -37,7 +37,7 @@ frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "
 
 
 [dev-dependencies]
-sp-core = { version = "5.0.0", default-features = false, path = "../../primitives/core" }
+sp-core = { version = "6.0.0", default-features = false, path = "../../primitives/core" }
 pallet-balances = { version = "4.0.0-dev", default-features = false, path = "../balances" }
 
 [features]
@@ -54,4 +54,5 @@ std = [
   "pallet-timestamp/std"
 ]
 runtime-benchmarks = ["frame-benchmarking"]
+try-runtime = ["frame-support/try-runtime"]
 
