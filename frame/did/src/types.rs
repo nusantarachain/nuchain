@@ -1,8 +1,5 @@
 use codec::{Decode, Encode};
-use frame_support::{
-	pallet_prelude::{BoundedVec, MaxEncodedLen},
-	traits::{ConstU32, Get},
-};
+use frame_support::pallet_prelude::MaxEncodedLen;
 use sp_runtime::RuntimeDebug;
 
 /// Attributes or properties that make an identity.

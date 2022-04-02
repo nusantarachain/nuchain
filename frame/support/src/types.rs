@@ -1,6 +1,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime::{RuntimeDebug, DispatchError};
+use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
 
 use crate::BoundedVec;
@@ -49,4 +49,3 @@ where
 		}
 	}
 }
-

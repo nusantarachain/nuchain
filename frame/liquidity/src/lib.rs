@@ -22,7 +22,6 @@
 use frame_support::{
     ensure,
     traits::{Currency, EnsureOrigin, Get, ReservableCurrency},
-    pallet_prelude::MaxEncodedLen
 };
 use frame_system::ensure_signed;
 use sp_runtime::traits::StaticLookup;
@@ -36,7 +35,7 @@ mod benchmarking;
 pub mod weights;
 pub use weights::WeightInfo;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 
 type ProofId = u64;
 type BalanceOf<T> =
@@ -198,7 +197,7 @@ pub mod pallet {
                 id as ProofId,
                 ProofTx {
                     id,
-                    block: <frame_system::Module<T>>::block_number(),
+                    block: <frame_system::Pallet<T>>::block_number(),
                     network,
                     amount,
                     owner: owner.clone(),
@@ -242,7 +241,7 @@ pub mod pallet {
                 id as ProofId,
                 ProofTx {
                     id,
-                    block: <frame_system::Module<T>>::block_number(),
+                    block: <frame_system::Pallet<T>>::block_number(),
                     network,
                     amount,
                     owner: who.clone(),

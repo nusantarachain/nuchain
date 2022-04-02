@@ -1409,7 +1409,6 @@ impl pallet_state_trie_migration::Config for Runtime {
 	type WeightInfo = ();
 }
 
-
 impl pallet_did::Config for Runtime {
 	type Event = Event;
 	type Public = <Signature as traits::Verify>::Signer;
@@ -1491,6 +1490,8 @@ construct_runtime!(
 		Assets: pallet_assets,
 		Mmr: pallet_mmr,
 		// Lottery: pallet_lottery,
+		Did: pallet_did,
+        Organization: pallet_organization,
         Liquidity: pallet_liquidity,
 		Gilt: pallet_gilt,
 		Uniques: pallet_uniques,
@@ -1501,8 +1502,6 @@ construct_runtime!(
 		Referenda: pallet_referenda,
 		ConvictionVoting: pallet_conviction_voting,
 		Whitelist: pallet_whitelist,
-        Did: pallet_did,
-        Organization: pallet_organization,
 	}
 );
 
@@ -1583,6 +1582,7 @@ mod benches {
 		[pallet_im_online, ImOnline]
 		[pallet_indices, Indices]
 		// [pallet_lottery, Lottery]
+		[pallet_did, Did]
 		[pallet_liquidity, Liquidity]
 		[pallet_membership, TechnicalMembership]
 		[pallet_mmr, Mmr]
