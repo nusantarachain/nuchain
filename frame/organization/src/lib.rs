@@ -66,7 +66,7 @@ use pallet_did::Did;
 
 mod types;
 
-use crate::types::Organization;
+pub use crate::types::Organization;
 
 pub const MAX_PROPS: usize = 10;
 pub const PROP_NAME_MAX_LENGTH: usize = 30;

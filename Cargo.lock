@@ -429,6 +429,10 @@ checksum = "349a06037c7bf932dd7e7d1f653678b2038b9ad46a74102f1fc7bd7872678cce"
 
 [[package]]
 name = "base58"
+version = "0.1.0"
+
+[[package]]
+name = "base58"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6107fe1be6682a68940da878d9e9f5e90ca5745b3dec9fd1bb393c8777d4f581"
@@ -5666,6 +5670,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-certificate"
+version = "0.0.1"
+dependencies = [
+ "base58 0.1.0",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "lazy_static",
+ "pallet-balances",
+ "pallet-did",
+ "pallet-organization",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-child-bounties"
 version = "4.0.0-dev"
 dependencies = [
@@ -9906,7 +9933,7 @@ dependencies = [
 name = "sp-core"
 version = "6.0.0"
 dependencies = [
- "base58",
+ "base58 0.2.0",
  "bitflags",
  "blake2-rfc",
  "byteorder",

@@ -1,0 +1,58 @@
+[package]
+name = "pallet-certificate"
+version = "0.0.1"
+authors = ["Robin <obin.mf@gmail.com>"]
+edition = "2018"
+license = "Apache-2"
+homepage = ""
+repository = ""
+description = "Substrate pallet to manage online certificate"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+serde = { version = "1.0.101", optional = true }
+base58 = { path = "../../libs/base58" }
+sp-std = { version = "4.0.0", default-features = false, path = "../../primitives/std" }
+sp-io = { version = "6.0.0", default-features = false, path = "../../primitives/io" }
+sp-runtime = { version = "6.0.0", default-features = false, path = "../../primitives/runtime" }
+sp-core = { version = "6.0.0", default-features = false, path = "../../primitives/core" }
+frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "../benchmarking", optional = true }
+frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
+frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
+pallet-organization = { default-features = false, path = "../organization"}
+pallet-timestamp = { version = "4.0.0-dev", default-features = false, path = "../timestamp" }
+sp-keyring = { version = "6.0.0", path = "../../primitives/keyring" }
+
+# third-party dependencies
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
+	"derive",
+	"max-encoded-len",
+] }
+scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
+
+[dev-dependencies]
+sp-core = { version = "6.0.0", default-features = false, path = "../../primitives/core" }
+sp-keyring = { version = "6.0.0", path = "../../primitives/keyring" }
+pallet-balances = { version = "4.0.0-dev", path = "../balances" }
+pallet-did = { default-features = false, path = "../did"}
+pallet-timestamp = { default-features = false, path = "../timestamp"}
+lazy_static = "1.4.0"
+
+[features]
+default = ["std"]
+std = [
+	"serde",
+	"codec/std",
+	"sp-std/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-did/std",
+	"pallet-organization/std",
+]
+runtime-benchmarks = ["frame-benchmarking"]

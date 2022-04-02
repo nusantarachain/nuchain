@@ -101,6 +101,7 @@ members = [
 	"frame/liquidity",
 	"frame/did",
 	"frame/organization",
+	"frame/certificate",
 	"frame/membership",
 	"frame/merkle-mountain-range",
 	"frame/merkle-mountain-range/primitives",
