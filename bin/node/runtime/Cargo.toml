@@ -104,6 +104,7 @@ pallet-vesting = { version = "4.0.0-dev", default-features = false, path = "../.
 pallet-whitelist = { version = "4.0.0-dev", default-features = false, path = "../../../frame/whitelist" }
 pallet-did = { version = "1.0.3", default-features = false, path = "../../../frame/did" }
 pallet-organization = { version = "1.0.3", default-features = false, path = "../../../frame/organization" }
+pallet-certificate = { version = "1.0.3", default-features = false, path = "../../../frame/certificate" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", path = "../../../utils/wasm-builder" }
@@ -140,6 +141,7 @@ std = [
 	# "pallet-lottery/std",
   	"pallet-did/std",
   	"pallet-organization/std",
+	"pallet-certificate/std",
 	"pallet-liquidity/std",
 	"pallet-membership/std",
 	"pallet-mmr/std",
@@ -211,6 +213,7 @@ runtime-benchmarks = [
 	# "pallet-lottery/runtime-benchmarks",
   	"pallet-did/runtime-benchmarks",
   	"pallet-organization/runtime-benchmarks",
+	"pallet-certificate/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -259,6 +262,7 @@ try-runtime = [
 	# "pallet-lottery/try-runtime",
   	"pallet-did/try-runtime",
   	"pallet-organization/try-runtime",
+	# "pallet-certificate/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",

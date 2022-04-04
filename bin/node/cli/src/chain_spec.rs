@@ -365,6 +365,7 @@ pub fn testnet_genesis(
 		transaction_payment: Default::default(),
 		did: Default::default(),
 		organization: Default::default(),
+		certificate: Default::default(),
         liquidity: Default::default(),
 	}
 }

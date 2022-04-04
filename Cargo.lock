@@ -4984,6 +4984,7 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-bounties",
+ "pallet-certificate",
  "pallet-child-bounties",
  "pallet-collective",
  "pallet-contracts",
@@ -5671,7 +5672,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-certificate"
-version = "0.0.1"
+version = "1.0.3"
 dependencies = [
  "base58 0.1.0",
  "frame-benchmarking",
@@ -5679,15 +5680,10 @@ dependencies = [
  "frame-system",
  "lazy_static",
  "pallet-balances",
- "pallet-did",
  "pallet-organization",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-keyring",
  "sp-runtime",
  "sp-std",
 ]

@@ -20,7 +20,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{onchain, ExtendedBalance, SequentialPhragmen, VoteWeight};
@@ -1443,6 +1443,15 @@ impl pallet_organization::Config for Runtime {
 	// type MaxHandledOrgCount = ConstU32<32>;
 }
 
+
+impl pallet_certificate::Config for Runtime {
+	type Event = Event;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type Time = Timestamp;
+	type WeightInfo = pallet_certificate::weights::SubstrateWeight<Runtime>;
+	type MaxLength = ConstU32<64>;
+}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -1492,6 +1501,7 @@ construct_runtime!(
 		// Lottery: pallet_lottery,
 		Did: pallet_did,
         Organization: pallet_organization,
+		Certificate: pallet_certificate,
         Liquidity: pallet_liquidity,
 		Gilt: pallet_gilt,
 		Uniques: pallet_uniques,
@@ -1583,6 +1593,7 @@ mod benches {
 		[pallet_indices, Indices]
 		// [pallet_lottery, Lottery]
 		[pallet_did, Did]
+		[pallet_certificate, Certificate]
 		[pallet_liquidity, Liquidity]
 		[pallet_membership, TechnicalMembership]
 		[pallet_mmr, Mmr]

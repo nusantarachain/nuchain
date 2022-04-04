@@ -536,6 +536,30 @@ pub mod pallet {
 			Ok(().into())
 		}
 	}
+
+		// -------------------------------------------------------------------
+		//                      GENESIS CONFIGURATION
+		// -------------------------------------------------------------------
+
+		// The genesis config type.
+		#[pallet::genesis_config]
+		pub struct GenesisConfig<T: Config> {
+			_phantom: PhantomData<T>,
+		}
+
+		// The default value for the genesis config type.
+		#[cfg(feature = "std")]
+		impl<T: Config> Default for GenesisConfig<T> {
+			fn default() -> Self {
+				Self { _phantom: Default::default() }
+			}
+		}
+
+		// The build of genesis for the pallet.
+		#[pallet::genesis_build]
+		impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+			fn build(&self) {}
+		}
 }
 
 // use pallet_organization::Organization;
