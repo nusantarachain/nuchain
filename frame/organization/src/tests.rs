@@ -113,8 +113,8 @@ impl pallet_did::Config for Test {
 }
 
 parameter_types! {
-	pub const MinOrgNameLength: usize = 3;
-	pub const MaxOrgNameLength: usize = 16;
+	pub const MinOrgNameLength: u32 = 3;
+	pub const MaxOrgNameLength: u32 = 16;
 	pub const MaxMemberCount: u32 = 5;
 	pub const CreationFee: u64 = 20;
 }

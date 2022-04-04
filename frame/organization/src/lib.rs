@@ -66,7 +66,7 @@ use pallet_did::Did;
 
 mod types;
 
-pub use crate::types::Organization;
+// pub use crate::types::Organization;
 
 pub const MAX_PROPS: usize = 10;
 pub const PROP_NAME_MAX_LENGTH: usize = 30;
@@ -81,13 +81,26 @@ macro_rules! to_bounded {
 	};
 }
 
+pub type Organization<T> = types::Organization<
+	<T as frame_system::Config>::AccountId,
+	<T as frame_system::Config>::BlockNumber,
+	BoundedVec<u8, <T as Config>::MaxLength>,
+	BoundedVec<
+		Property<
+			BoundedVec<u8, <T as Config>::MaxLength>,
+			BoundedVec<u8, <T as Config>::MaxLength>,
+		>,
+		<T as Config>::MaxLength,
+	>,
+>;
+
 #[frame_support::pallet]
 pub mod pallet {
 
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter, prelude::vec};
+	use scale_info::{build::Fields, meta_type, prelude::vec, Path, Type, TypeInfo, TypeParameter};
 	use sp_runtime::{
 		traits::{IdentifyAccount, Verify},
 		SaturatedConversion,
@@ -122,10 +135,12 @@ pub mod pallet {
 		type ForceOrigin: EnsureOrigin<Self::Origin>;
 
 		/// Min organization name length
-		type MinOrgNameLength: Get<usize>;
+		#[pallet::constant]
+		type MinOrgNameLength: Get<u32>;
 
 		/// Max organization name length
-		type MaxOrgNameLength: Get<usize>;
+		#[pallet::constant]
+		type MaxOrgNameLength: Get<u32>;
 
 		/// Max number of member for the organization
 		#[pallet::constant]
@@ -257,20 +272,8 @@ pub mod pallet {
 	/// Pair organization hash -> Organization data
 	#[pallet::storage]
 	#[pallet::getter(fn organization)]
-	pub type Organizations<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		T::AccountId,
-		Organization<
-			T::AccountId,
-			T::BlockNumber,
-			BoundedVec<u8, T::MaxLength>,
-			BoundedVec<
-				Property<BoundedVec<u8, T::MaxLength>, BoundedVec<u8, T::MaxLength>>,
-				T::MaxLength,
-			>,
-		>,
-	>;
+	pub type Organizations<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, Organization<T>>;
 
 	/// Link organization index -> organization hash.
 	/// Useful for lookup organization from index.
@@ -424,8 +427,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin.clone())?;
 
-			ensure!(name.len() >= T::MinOrgNameLength::get(), Error::<T>::NameTooShort);
-			ensure!(name.len() <= T::MaxOrgNameLength::get(), Error::<T>::NameTooLong);
+			ensure!(name.len() as u32 >= T::MinOrgNameLength::get(), Error::<T>::NameTooShort);
+			ensure!(name.len() as u32 <= T::MaxOrgNameLength::get(), Error::<T>::NameTooLong);
 
 			Self::validate_props(&props)?;
 
@@ -463,7 +466,7 @@ pub mod pallet {
 
 			Organizations::<T>::insert(
 				org_id.clone(),
-				Organization {
+				Organization::<T> {
 					id: org_id.clone(),
 					name: to_bounded!(*name, Error::<T>::NameTooLong),
 					description: to_bounded!(description, Error::<T>::DescriptionTooLong),
@@ -549,8 +552,8 @@ pub mod pallet {
 			let who = ensure_signed(origin.clone())?;
 
 			if let Some(ref name) = name {
-				ensure!(name.len() >= T::MinOrgNameLength::get(), Error::<T>::NameTooShort);
-				ensure!(name.len() <= T::MaxOrgNameLength::get(), Error::<T>::NameTooLong);
+				ensure!(name.len() as u32 >= T::MinOrgNameLength::get(), Error::<T>::NameTooShort);
+				ensure!(name.len() as u32 <= T::MaxOrgNameLength::get(), Error::<T>::NameTooLong);
 			}
 
 			Self::validate_props(&props)?;
@@ -947,18 +950,7 @@ impl<T: Config> Pallet<T> {
 	pub fn ensure_access(
 		origin: &T::AccountId,
 		org_id: &T::AccountId,
-	) -> Result<
-		Organization<
-			T::AccountId,
-			T::BlockNumber,
-			BoundedVec<u8, T::MaxLength>,
-			BoundedVec<
-				Property<BoundedVec<u8, T::MaxLength>, BoundedVec<u8, T::MaxLength>>,
-				T::MaxLength,
-			>,
-		>,
-		Error<T>,
-	> {
+	) -> Result<Organization<T>, Error<T>> {
 		let org = Self::organization(&org_id).ok_or(Error::<T>::NotExists)?;
 
 		if &org.admin != origin {
@@ -983,15 +975,7 @@ impl<T: Config> Pallet<T> {
 	/// bukan hanya akses, ini juga memastikan organisasi dalam posisi aktif (tidak suspended).
 	pub fn ensure_access_active(
 		origin: &T::AccountId,
-		org: &Organization<
-			T::AccountId,
-			T::BlockNumber,
-			BoundedVec<u8, T::MaxLength>,
-			BoundedVec<
-				Property<BoundedVec<u8, T::MaxLength>, BoundedVec<u8, T::MaxLength>>,
-				T::MaxLength,
-			>,
-		>,
+		org: &Organization<T>,
 	) -> Result<(), Error<T>> {
 		// ensure!(&org.admin == origin, Error::<T>::PermissionDenied);
 

@@ -72,18 +72,19 @@ pub const PROP_VALUE_MAX_LENGTH: usize = 60;
 // 	BoundedVec<u8, <T as pallet::Config>::MaxLength>,
 // >;
 use frame_support::types::Property;
+use pallet_organization::Organization;
 
 type PropertyOrg<T> = frame_support::types::Property<
 	BoundedVec<u8, <T as pallet_organization::Config>::MaxLength>,
 	BoundedVec<u8, <T as pallet_organization::Config>::MaxLength>,
 >;
 
-type Organization<T> = pallet_organization::Organization<
-	<T as frame_system::Config>::AccountId,
-	<T as frame_system::Config>::BlockNumber,
-	BoundedVec<u8, <T as pallet_organization::Config>::MaxLength>,
-	BoundedVec<PropertyOrg<T>, <T as pallet_organization::Config>::MaxLength>,
->;
+// type Organization<T> = pallet_organization::Organization<
+// 	<T as frame_system::Config>::AccountId,
+// 	<T as frame_system::Config>::BlockNumber,
+// 	BoundedVec<u8, <T as pallet_organization::Config>::MaxLength>,
+// 	BoundedVec<PropertyOrg<T>, <T as pallet_organization::Config>::MaxLength>,
+// >;
 
 // type MaxLength<T> = <T as pallet::Config>::MaxLength;
 
