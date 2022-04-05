@@ -55,7 +55,7 @@ pub use weights::WeightInfo;
 use codec::{Decode, Encode, MaxEncodedLen};
 
 use core::convert::TryInto;
-use frame_support::{traits::Time, BoundedVec};
+use frame_support::BoundedVec;
 
 /// The current storage version.
 const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -74,10 +74,10 @@ pub const PROP_VALUE_MAX_LENGTH: usize = 60;
 use frame_support::types::Property;
 use pallet_organization::Organization;
 
-type PropertyOrg<T> = frame_support::types::Property<
-	BoundedVec<u8, <T as pallet_organization::Config>::MaxLength>,
-	BoundedVec<u8, <T as pallet_organization::Config>::MaxLength>,
->;
+// type PropertyOrg<T> = frame_support::types::Property<
+// 	BoundedVec<u8, <T as pallet_organization::Config>::MaxLength>,
+// 	BoundedVec<u8, <T as pallet_organization::Config>::MaxLength>,
+// >;
 
 // type Organization<T> = pallet_organization::Organization<
 // 	<T as frame_system::Config>::AccountId,
@@ -118,6 +118,10 @@ pub mod pallet {
 
 		/// Weight information
 		type WeightInfo: WeightInfo;
+
+		/// Maximum properties length
+		#[pallet::constant]
+		type MaxProps: Get<u32>;
 
 		/// The maximum length a name may be.
 		#[pallet::constant]
@@ -394,9 +398,9 @@ pub mod pallet {
 
 			let cert = Certificates::<T>::get(cert_id).ok_or(Error::<T>::NotExists)?;
 
-			// if let Some(ref props) = props {
-			//     ensure!(props.len() < 100, Error::<T>::TooLong);
-			// }
+			if let Some(ref props) = props {
+				ensure!((props.len() as u32) < T::MaxProps::get(), Error::<T>::TooManyProps);
+			}
 
 			ensure!(human_id.len() < 100, Error::<T>::TooLong);
 			ensure!(recipient.len() < 100, Error::<T>::TooLong);
@@ -538,29 +542,29 @@ pub mod pallet {
 		}
 	}
 
-		// -------------------------------------------------------------------
-		//                      GENESIS CONFIGURATION
-		// -------------------------------------------------------------------
+	// -------------------------------------------------------------------
+	//                      GENESIS CONFIGURATION
+	// -------------------------------------------------------------------
 
-		// The genesis config type.
-		#[pallet::genesis_config]
-		pub struct GenesisConfig<T: Config> {
-			_phantom: PhantomData<T>,
-		}
+	// The genesis config type.
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		_phantom: PhantomData<T>,
+	}
 
-		// The default value for the genesis config type.
-		#[cfg(feature = "std")]
-		impl<T: Config> Default for GenesisConfig<T> {
-			fn default() -> Self {
-				Self { _phantom: Default::default() }
-			}
+	// The default value for the genesis config type.
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self { _phantom: Default::default() }
 		}
+	}
 
-		// The build of genesis for the pallet.
-		#[pallet::genesis_build]
-		impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-			fn build(&self) {}
-		}
+	// The build of genesis for the pallet.
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {}
+	}
 }
 
 // use pallet_organization::Organization;

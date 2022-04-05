@@ -1449,6 +1449,7 @@ impl pallet_certificate::Config for Runtime {
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type Time = Timestamp;
 	type WeightInfo = pallet_certificate::weights::SubstrateWeight<Runtime>;
+    type MaxProps = ConstU32<10>;
 	type MaxLength = ConstU32<64>;
 }
 

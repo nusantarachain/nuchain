@@ -99,8 +99,8 @@ impl pallet_did::Config for Test {
 }
 
 parameter_types! {
-	pub const MinOrgNameLength: usize = 3;
-	pub const MaxOrgNameLength: usize = 16;
+	pub const MinOrgNameLength: u32 = 3;
+	pub const MaxOrgNameLength: u32 = 16;
 	pub const MaxMemberCount: u32 = 5;
 	pub const CreationFee: u64 = 20;
 }
@@ -131,6 +131,7 @@ impl Config for Test {
 	type ForceOrigin = EnsureSignedBy<Root, sr25519::Public>;
 	type Time = Timestamp;
 	type WeightInfo = ();
+	type MaxProps = ConstU32<5>;
 	type MaxLength = ConstU32<64>;
 }
 
@@ -247,6 +248,20 @@ impl CertDetail<<Test as frame_system::Config>::AccountId> {
 		self.description = description;
 		self
 	}
+}
+
+fn with_org<F>(func: F)
+where
+	F: FnOnce(<Test as frame_system::Config>::AccountId),
+{
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+
+		create_org!(b"ORG1", Bob.into());
+
+		let org_id = last_org_id();
+		func(org_id);
+	})
 }
 
 fn with_org_cert_issued<F>(func: F)
@@ -465,4 +480,39 @@ fn only_org_admin_can_revoke() {
 
 		assert_eq!(Certificate::valid_certificate(&issued_id), true);
 	});
+}
+
+#[test]
+fn test_max_props() {
+	with_org(|org_id| {
+		assert_ok!(Certificate::create(
+			Origin::signed(Bob.into()),
+			CertDetail::new(org_id).signer(b"Grohl".to_vec())
+		));
+
+		let cert_id = get_last_created_cert_id().expect("cert_id of new created cert");
+
+		let props: Vec<Property<Text, Text>> = (1..6)
+			.map(|i: i32| {
+				Property::new(
+					format!("key-{}", i).as_bytes().to_vec(),
+					format!("value-{}", i).as_bytes().to_vec(),
+				)
+			})
+			.collect();
+
+		assert_err_ignore_postinfo!(
+			Certificate::issue(
+				Origin::signed(Bob.into()),
+				org_id,
+				cert_id,
+				(*ORG_CERT_REF).clone(),
+				b"Dave Grohl".to_vec(),
+				Some(props),
+				None,
+				None
+			),
+			Error::<Test>::TooManyProps
+		);
+	})
 }
