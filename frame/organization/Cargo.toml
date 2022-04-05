@@ -2,7 +2,7 @@
 name = "pallet-organization"
 version = "1.0.3"
 authors = ["Robin Syihab <obin.mf@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "Apache-2"
 homepage = ""
 repository = ""

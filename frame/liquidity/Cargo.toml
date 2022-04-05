@@ -2,7 +2,7 @@
 name = "pallet-liquidity"
 version = "0.0.1"
 authors = ["Robin Syihab <robin@nuchai.id>"]
-edition = "2018"
+edition = "2021"
 license = "Apache-2"
 homepage = ""
 repository = ""
@@ -21,7 +21,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 ] }
 scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
 sp-std = { version = "4.0.0", default-features = false, path = "../../primitives/std" }
-sp-io = { version = "6.0.0", default-features = false, path = "../../primitives/io" }
+# sp-io = { version = "6.0.0", default-features = false, path = "../../primitives/io" }
 sp-runtime = { version = "6.0.0", default-features = false, path = "../../primitives/runtime" }
 # frame-benchmarking = { version = "3.0.0", default-features = false, path = "../benchmarking", optional = true }
 frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
@@ -40,7 +40,7 @@ std = [
 	"codec/std",
   	"scale-info/std",
 	"sp-std/std",
-	"sp-io/std",
+	# "sp-io/std",
 	"sp-runtime/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
