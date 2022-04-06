@@ -4995,7 +4995,6 @@ dependencies = [
  "pallet-did",
  "pallet-election-provider-multi-phase",
  "pallet-elections-phragmen",
- "pallet-gilt",
  "pallet-grandpa",
  "pallet-identity",
  "pallet-im-online",

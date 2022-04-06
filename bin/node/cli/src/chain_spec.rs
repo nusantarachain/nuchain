@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// This file is part of nuchain.
 
 // Copyright (C) 2018-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
@@ -44,7 +44,7 @@ pub use node_runtime::GenesisConfig;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+const STAGING_TELEMETRY_URL: &str = "wss://telemetry.nuchain.network/submit";
 
 /// Node `ChainSpec` extensions.
 ///
@@ -178,7 +178,7 @@ fn staging_testnet_config_genesis() -> GenesisConfig {
 
 	let endowed_accounts: Vec<AccountId> = vec![root_key.clone()];
 
-	testnet_genesis(initial_authorities, vec![], root_key, Some(endowed_accounts))
+	build_genesis(initial_authorities, vec![], root_key, Some(endowed_accounts))
 }
 
 /// Staging testnet config.
@@ -231,7 +231,7 @@ pub fn authority_keys_from_seed(
 }
 
 /// Helper function to create GenesisConfig for testing
-pub fn testnet_genesis(
+pub fn build_genesis(
 	initial_authorities: Vec<(
 		AccountId,
 		AccountId,
@@ -292,7 +292,7 @@ pub fn testnet_genesis(
 
 	let num_endowed_accounts = endowed_accounts.len();
 
-	const ENDOWMENT: Balance = 10_000_000 * DOLLARS;
+	const ENDOWMENT: Balance = 100_000 * DOLLARS;
 	const STASH: Balance = ENDOWMENT / 1000;
 
 	GenesisConfig {
@@ -360,7 +360,7 @@ pub fn testnet_genesis(
 		},
 		vesting: Default::default(),
 		assets: Default::default(),
-		gilt: Default::default(),
+		// gilt: Default::default(),
 		transaction_storage: Default::default(),
 		transaction_payment: Default::default(),
 		did: Default::default(),
@@ -371,7 +371,7 @@ pub fn testnet_genesis(
 }
 
 fn development_config_genesis() -> GenesisConfig {
-	testnet_genesis(
+	build_genesis(
 		vec![authority_keys_from_seed("Alice")],
 		vec![],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -396,7 +396,7 @@ pub fn development_config() -> ChainSpec {
 }
 
 fn local_testnet_genesis() -> GenesisConfig {
-	testnet_genesis(
+	build_genesis(
 		vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
 		vec![],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -420,6 +420,120 @@ pub fn local_testnet_config() -> ChainSpec {
 	)
 }
 
+/// Load main config
+pub fn main_config() -> Result<ChainSpec, String> {
+	ChainSpec::from_json_bytes(&include_bytes!("../res/nuchain.json")[..])
+}
+
+/// Production genesis
+fn prod_genesis() -> GenesisConfig {
+    let sudo_acc: AccountId =
+        hex!["18bff030bef78621b59562a9633d6c8ec358a96c070358de3fcd7fd8d2879e35"].into();
+    let authorities: Vec<(
+        AccountId,
+        AccountId,
+        GrandpaId,
+        BabeId,
+        ImOnlineId,
+        AuthorityDiscoveryId,
+    )> = vec![
+        // Stash AccountId (sr25519)
+        // Controller AccountId (sr25519)
+        // GradpadId (ed25519)
+        // BabeId (sr25519) / babe
+        // ImOnlineId (sr25519) / imon
+        // AuthorityDiscovery (sr25519) / audi
+        //----------------------------------------------------------------
+        (
+            // 5FxKovft7pM663rr4Smtbj4CZzt82TaykWFZP2H4rjCNTiJu
+            hex!["ac133e5ced8c63f4028be2f9f10da8b5d1f9d270ba03820723361da981a5dc18"].into(),
+            // 5HMsJCtxzvVHa458CxsVsuboP1Nee6sE7KjhfxbDXCP5j3aM
+            hex!["ea441e35c86bac239d3e40bb6ff0ed9008447d02d90e20c3044e06e301297965"].into(),
+            // GranpaId: 5F4wPxMnFGNGi5docWuMx7G7BfdKEx5wTiiDP3MFByACmNfR
+            hex!["84e24732c91231c3210fa6f2f3b9b777a92f61d5d1fede6f43c78620abfe855d"]
+                .unchecked_into(),
+            //---- SESSIONS ----
+            // 5Ca9DuynzqbXFUQZuEkuhVVZS7abaZQL2dADJ8U5oz4cXjxR
+            hex!["167381df0eec9c3fd442d130188150100ad11d00a9ca66e3d425409b1e083f3c"]
+                .unchecked_into(),
+            hex!["167381df0eec9c3fd442d130188150100ad11d00a9ca66e3d425409b1e083f3c"]
+                .unchecked_into(),
+            hex!["167381df0eec9c3fd442d130188150100ad11d00a9ca66e3d425409b1e083f3c"]
+                .unchecked_into(),
+        ),
+        (
+            // 5HGZ4bYs6dNBkv5FDm8vDnX6Dmu9BKMu5hnp4VQEvqpxKCmk
+            hex!["e63681f88b055258860b53f3e87c959c3da95d6b77becacb2fc5afcef021742e"].into(),
+            // 5GVmNGawT1CPERzsRGPXRqRAE94HBmY3mhJLsoMMMzdMc2CF
+            hex!["c40de2c66879a462f477c706db7aeb83b67f4076be7f6bdfd74f002afcf6e22e"].into(),
+            // GrandpaId: 5Cf1ayVSoxQ39XV44BWBVTjF4SSQE2CoTsxLR26gnkDpokFG
+            hex!["1a2a06ba1f03b6fa2591da9005f100053b24225f5231abce6d1547704ff740e9"]
+                .unchecked_into(),
+            //---- SESSIONS ----
+            // 5H6AKvZeTDkvZKVWxyqzGjgj4NezwomVYEi6KcjtsZN7dM8F
+            hex!["de4984b4344a796f989b34ab234adc64b6af022f069e33657937ca68665c547c"]
+                .unchecked_into(),
+            hex!["de4984b4344a796f989b34ab234adc64b6af022f069e33657937ca68665c547c"]
+                .unchecked_into(),
+            hex!["de4984b4344a796f989b34ab234adc64b6af022f069e33657937ca68665c547c"]
+                .unchecked_into(),
+        ),
+    ];
+    build_genesis(
+        authorities,
+		vec![],
+        sudo_acc.clone(),
+        Some(vec![
+            sudo_acc,
+            // reserved authorities
+            hex!["3af749c23d1c17bc0c822363b3e2620d6f473cb5e9631d10449bdb0dea683130"].into(),
+            hex!["ee735365ca9e1bdebe0b7fbb7e781ff88a63d8e7c60569a399d256497d618813"].into(),
+            hex!["4a8f386d7b8849e2be3a67a2182fefee87138b4b908e00e7386516a4f82bb576"].into(),
+            hex!["ee7c3224fe1d012e0c5cdf1eb1b1c6164752dff43bb8f0ca95e8521a6ed3a37a"].into(),
+            // for authority validators
+            hex!["c83104c7eba84373392336d71ef4915b7a45c4966d1dbc82eee146109b390e5f"].into(),
+            hex!["6671d91c741357a54eb81176d74bbf42445d4883b90148179a8b49aaa459b51e"].into(),
+        ]),
+        // false,
+        // Some(100_000 * DOLLARS),
+    )
+}
+
+use sc_chain_spec::Properties;
+
+/// Production configuration
+pub fn prod_config() -> ChainSpec {
+    let boot_nodes = vec![];
+    // let properties = serde_json::from_str(
+    //     r#"{
+    //         "ss58Format": 99,
+    //         "tokenDecimals": 10,
+    //         "tokenSymbol": "ARA"
+    //     }"#,
+    // )
+    // .unwrap();
+	let mut properties = Properties::new();
+	properties.insert("ss58Format".into(), 99.into());
+	properties.insert("tokenDecimals".into(), 10.into());
+	properties.insert("tokenSymbol".into(), "ARA".into());
+
+    ChainSpec::from_genesis(
+        "Nuchain Gama",
+        "nuc_gama",
+        ChainType::Live,
+        prod_genesis,
+        boot_nodes,
+        Some(
+            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+                .expect("Staging telemetry url is valid; qed"),
+        ),
+        None,
+		None,
+        Some(properties),
+        Default::default(),
+    )
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
@@ -428,7 +542,7 @@ pub(crate) mod tests {
 	use sp_runtime::BuildStorage;
 
 	fn local_testnet_genesis_instant_single() -> GenesisConfig {
-		testnet_genesis(
+		build_genesis(
 			vec![authority_keys_from_seed("Alice")],
 			vec![],
 			get_account_id_from_seed::<sr25519::Public>("Alice"),

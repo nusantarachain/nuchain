@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// This file is part of nuchain.
 
 // Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
@@ -43,7 +43,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/substrate/issues/new".into()
+		"https://github.com/nusantarachain/nuchain/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -61,6 +61,7 @@ impl SubstrateCli for Cli {
 			"local" => Box::new(chain_spec::local_testnet_config()),
 			"fir" | "flaming-fir" => Box::new(chain_spec::flaming_fir_config()?),
 			"staging" => Box::new(chain_spec::staging_testnet_config()),
+			"prod" => Box::new(chain_spec::prod_config()),
 			path =>
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 		};

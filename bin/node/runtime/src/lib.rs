@@ -1317,34 +1317,34 @@ impl pallet_assets::Config for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-	pub IgnoredIssuance: Balance = Treasury::pot();
-	pub const QueueCount: u32 = 300;
-	pub const MaxQueueLen: u32 = 1000;
-	pub const FifoQueueLen: u32 = 500;
-	pub const Period: BlockNumber = 30 * DAYS;
-	pub const MinFreeze: Balance = 100 * DOLLARS;
-	pub const IntakePeriod: BlockNumber = 10;
-	pub const MaxIntakeBids: u32 = 10;
-}
+// parameter_types! {
+// 	pub IgnoredIssuance: Balance = Treasury::pot();
+// 	pub const QueueCount: u32 = 300;
+// 	pub const MaxQueueLen: u32 = 1000;
+// 	pub const FifoQueueLen: u32 = 500;
+// 	pub const Period: BlockNumber = 30 * DAYS;
+// 	pub const MinFreeze: Balance = 100 * DOLLARS;
+// 	pub const IntakePeriod: BlockNumber = 10;
+// 	pub const MaxIntakeBids: u32 = 10;
+// }
 
-impl pallet_gilt::Config for Runtime {
-	type Event = Event;
-	type Currency = Balances;
-	type CurrencyBalance = Balance;
-	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
-	type Deficit = ();
-	type Surplus = ();
-	type IgnoredIssuance = IgnoredIssuance;
-	type QueueCount = QueueCount;
-	type MaxQueueLen = MaxQueueLen;
-	type FifoQueueLen = FifoQueueLen;
-	type Period = Period;
-	type MinFreeze = MinFreeze;
-	type IntakePeriod = IntakePeriod;
-	type MaxIntakeBids = MaxIntakeBids;
-	type WeightInfo = pallet_gilt::weights::SubstrateWeight<Runtime>;
-}
+// impl pallet_gilt::Config for Runtime {
+// 	type Event = Event;
+// 	type Currency = Balances;
+// 	type CurrencyBalance = Balance;
+// 	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+// 	type Deficit = ();
+// 	type Surplus = ();
+// 	type IgnoredIssuance = IgnoredIssuance;
+// 	type QueueCount = QueueCount;
+// 	type MaxQueueLen = MaxQueueLen;
+// 	type FifoQueueLen = FifoQueueLen;
+// 	type Period = Period;
+// 	type MinFreeze = MinFreeze;
+// 	type IntakePeriod = IntakePeriod;
+// 	type MaxIntakeBids = MaxIntakeBids;
+// 	type WeightInfo = pallet_gilt::weights::SubstrateWeight<Runtime>;
+// }
 
 parameter_types! {
 	pub const ClassDeposit: Balance = 100 * DOLLARS;
@@ -1504,7 +1504,7 @@ construct_runtime!(
         Organization: pallet_organization,
 		Certificate: pallet_certificate,
         Liquidity: pallet_liquidity,
-		Gilt: pallet_gilt,
+		// Gilt: pallet_gilt,
 		Uniques: pallet_uniques,
 		TransactionStorage: pallet_transaction_storage,
 		BagsList: pallet_bags_list,
@@ -1587,7 +1587,7 @@ mod benches {
 		[pallet_democracy, Democracy]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_elections_phragmen, Elections]
-		[pallet_gilt, Gilt]
+		// [pallet_gilt, Gilt]
 		[pallet_grandpa, Grandpa]
 		[pallet_identity, Identity]
 		[pallet_im_online, ImOnline]
