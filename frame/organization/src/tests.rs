@@ -1,6 +1,6 @@
 // This file is part of Nuchain.
 //
-// Copyright (C) 2021 Rantai Nusantara Foundation.
+// Copyright (C) 2021-2022 Rantai Nusantara Foundation..
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
 // This program is free software: you can redistribute it and/or modify
@@ -569,17 +569,23 @@ fn remove_member_non_admin_not_allowed() {
 	});
 }
 
+fn account(i: u32) -> AccountId {
+    AccountId::from_raw([i as u8; 32])
+}
+
 #[test]
 fn add_member_max_limit() {
 	new_test_ext().execute_with(|| {
 		with_org(|org_id, _index| {
+            let max_member_count = MaxMemberCount::get() + 3;
+            let members:Vec<AccountId> = (4..max_member_count).map(|a| account(a)).collect();
 			assert_ok!(Organization::add_members(
 				Origin::signed(*BOB),
 				org_id,
-				(6..10).map(|a| sr25519::Public::from_raw([a as u8; 32])).collect()
+				members
 			));
 			assert_err_ignore_postinfo!(
-				Organization::add_members(Origin::signed(*BOB), org_id, vec![*CHARLIE]),
+				Organization::add_members(Origin::signed(*BOB), org_id, vec![account(max_member_count + 3 + 1)]),
 				Error::<Test>::MaxMemberReached
 			);
 			assert_eq!(Organization::is_member(&org_id, &*CHARLIE), false);

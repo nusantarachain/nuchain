@@ -1,6 +1,6 @@
 // This file is part of Nuchain.
 //
-// Copyright (C) 2021 Rantai Nusantara Foundation.
+// Copyright (C) 2021-2022 Rantai Nusantara Foundation..
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
 // This program is free software: you can redistribute it and/or modify
@@ -23,17 +23,17 @@
 use super::*;
 
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
-use frame_support::assert_ok;
+// use frame_support::assert_ok;
 use frame_system::{EventRecord, RawOrigin};
 use sp_core::crypto::UncheckedFrom;
-use sp_runtime::traits::{Bounded, One};
+use sp_runtime::traits::One;
 use sp_std::vec;
 
-use crate::Module as Certificate;
-use pallet_organization::Module as Organization;
+use crate::Pallet as Certificate;
+use pallet_organization::Pallet as Organization;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
-	let events = frame_system::Module::<T>::events();
+	let events = frame_system::Pallet::<T>::events();
 	let system_event: <T as frame_system::Config>::Event = generic_event.into();
 	// compare to the last event record
 	let EventRecord { event, .. } = &events[events.len() - 1];
@@ -65,16 +65,18 @@ where
 	let org_id: T::AccountId = account("org1", 0, 0);
 	pallet_organization::Organizations::<T>::insert(
 		&org_id,
-		pallet_organization::Organization {
+		pallet_organization::Organization::<T> {
 			id: org_id.clone(),
-			name: ORG_NAME.to_vec(),
-			description: ORG_DESC.to_vec(),
+			name: ORG_NAME.to_vec().try_into().unwrap(),
+			description: ORG_DESC.to_vec().try_into().unwrap(),
 			admin: caller.clone(),
-			website: WEBSITE.to_vec(),
-			email: EMAIL.to_vec(),
+			website: WEBSITE.to_vec().try_into().unwrap(),
+			email: EMAIL.to_vec().try_into().unwrap(),
 			suspended: false,
 			block: T::BlockNumber::one(),
-			timestamp: <T as pallet_organization::Config>::Time::now(),
+			timestamp: <T as pallet_organization::Config>::Time::now()
+				.as_millis()
+				.saturated_into::<u64>(),
 			props: None,
 		},
 	);
@@ -108,6 +110,12 @@ impl<T: Encode + Decode + Debug + Clone + Eq + PartialEq> CertDetail<T> {
 	}
 }
 
+fn get_time_now<T: Config>() -> u64 {
+	<T as pallet_organization::Config>::Time::now()
+		.as_millis()
+		.saturated_into::<u64>()
+}
+
 benchmarks! {
 	where_clause { where
 		T: pallet_timestamp::Config,
@@ -124,7 +132,7 @@ benchmarks! {
 		let cert_detail:CertDetail<T::AccountId> = CertDetail::<T::AccountId>::new(org_id.clone()).signer(SIGNER.to_vec());
 		let cert_id:CertId = Certificate::<T>::generate_hash(cert_detail.encode());
 		Certificates::<T>::insert(cert_id, cert_detail);
-		let now = <T as pallet::Config>::Time::now();
+		let now = get_time_now::<T>();
 	}: _(RawOrigin::Signed(caller), org_id, cert_id, b"cert/01".to_vec(), b"Bob".to_vec(), None, None, Some(now))
 
 	revoke {
@@ -133,7 +141,7 @@ benchmarks! {
 		let cert_detail:CertDetail<T::AccountId> = CertDetail::<T::AccountId>::new(org_id.clone()).signer(SIGNER.to_vec());
 		let cert_id:CertId = Certificate::<T>::generate_hash(cert_detail.encode());
 		Certificates::<T>::insert(cert_id, cert_detail);
-		let now = <T as pallet::Config>::Time::now();
+		let now = get_time_now::<T>();
 		let human_id = b"cert/01".to_vec();
 		let recipient = b"Bob".to_vec();
 

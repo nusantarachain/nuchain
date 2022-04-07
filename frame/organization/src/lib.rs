@@ -1,6 +1,6 @@
 // This file is part of Nuchain.
 //
-// Copyright (C) 2021 Rantai Nusantara Foundation.
+// Copyright (C) 2021-2022 Rantai Nusantara Foundation..
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
 // This program is free software: you can redistribute it and/or modify
@@ -680,16 +680,16 @@ pub mod pallet {
 
 		/// Add member to the organization.
 		#[pallet::weight(
-            <T as Config>::WeightInfo::add_members( accounts.len() as u32 )
+            <T as Config>::WeightInfo::add_members( new_members.len() as u32 )
         )]
 		pub fn add_members(
 			origin: OriginFor<T>,
 			org_id: T::AccountId,
-			accounts: Vec<T::AccountId>,
+			new_members: Vec<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(accounts.len() > 0, Error::<T>::InvalidParameter);
+			ensure!(new_members.len() > 0, Error::<T>::InvalidParameter);
 
 			let org = Self::ensure_access(&sender, &org_id)?;
 
@@ -698,12 +698,11 @@ pub mod pallet {
 			let existing_members =
 				<Members<T>>::get(&org_id).unwrap_or_else(|| BoundedVec::default());
 
+			let member_count = (existing_members.len() as u32) + (new_members.len() as u32);
+
+			ensure!(member_count <= T::MaxMemberCount::get(), Error::<T>::MaxMemberReached);
 			ensure!(
-				(existing_members.len() as u32) < T::MaxMemberCount::get(),
-				Error::<T>::MaxMemberReached
-			);
-			ensure!(
-				!existing_members.iter().any(|a| accounts.iter().any(|b| *b == *a)),
+				!existing_members.iter().any(|a| new_members.iter().any(|b| *b == *a)),
 				Error::<T>::AlreadyExists
 			);
 
@@ -713,7 +712,7 @@ pub mod pallet {
 				members.push(account_id);
 			}
 
-			for account_id in accounts.iter() {
+			for account_id in new_members.iter() {
 				members.push(account_id.clone());
 			}
 
@@ -727,7 +726,7 @@ pub mod pallet {
 			// <pallet_did::Pallet<T>>::create_delegate(&sender, &org.id, &account_id,
 			// b"OrgMember");
 
-			for account_id in accounts {
+			for account_id in new_members {
 				Self::deposit_event(Event::MemberAdded(org_id.clone(), account_id));
 			}
 

@@ -214,6 +214,7 @@ runtime-benchmarks = [
   	"pallet-did/runtime-benchmarks",
   	"pallet-organization/runtime-benchmarks",
 	"pallet-certificate/runtime-benchmarks",
+  "pallet-liquidity/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",

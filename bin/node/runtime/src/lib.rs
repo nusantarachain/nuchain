@@ -1594,6 +1594,7 @@ mod benches {
 		[pallet_indices, Indices]
 		// [pallet_lottery, Lottery]
 		[pallet_did, Did]
+        [pallet_organization, Organization]
 		[pallet_certificate, Certificate]
 		[pallet_liquidity, Liquidity]
 		[pallet_membership, TechnicalMembership]

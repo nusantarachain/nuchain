@@ -18,7 +18,7 @@ base58 = { path = "../../libs/base58" }
 sp-std = { version = "4.0.0", default-features = false, path = "../../primitives/std" }
 # sp-io = { version = "6.0.0", default-features = false, path = "../../primitives/io" }
 sp-runtime = { version = "6.0.0", default-features = false, path = "../../primitives/runtime" }
-# sp-core = { version = "6.0.0", default-features = false, path = "../../primitives/core" }
+sp-core = { version = "6.0.0", default-features = false, path = "../../primitives/core", optional = true }
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "../benchmarking", optional = true }
 frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
 frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
@@ -56,4 +56,4 @@ std = [
 	# "pallet-did/std",
 	"pallet-organization/std",
 ]
-runtime-benchmarks = ["frame-benchmarking"]
+runtime-benchmarks = ["frame-benchmarking", "sp-core"]

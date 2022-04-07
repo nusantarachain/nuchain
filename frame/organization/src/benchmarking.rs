@@ -121,7 +121,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller.clone()), org_id, flags)
 
 	add_members {
-		let n in 1 .. T::MaxMemberCount::get() as u32;
+		let n in 2 .. T::MaxMemberCount::get() as u32;
 		let caller = whitelisted_caller();
 		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 		let org_id = setup_org::<T>(&caller);
