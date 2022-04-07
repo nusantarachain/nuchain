@@ -45,14 +45,14 @@ use frame_support::{
 use frame_system::ensure_signed;
 pub use pallet::*;
 use sp_runtime::{traits::Hash, RuntimeDebug, SaturatedConversion};
-use sp_std::{fmt::Debug, prelude::*, vec};
+use sp_std::{prelude::*, vec};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
 pub use weights::WeightInfo;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 
 use core::convert::TryInto;
 // use frame_support::BoundedVec;
