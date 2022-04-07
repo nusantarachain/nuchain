@@ -28,6 +28,7 @@ use frame_system::{EventRecord, RawOrigin};
 use sp_core::crypto::UncheckedFrom;
 use sp_runtime::traits::One;
 use sp_std::vec;
+use sp_std::fmt::Debug;
 
 use crate::Pallet as Certificate;
 use pallet_organization::Pallet as Organization;

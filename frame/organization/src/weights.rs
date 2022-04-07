@@ -54,6 +54,7 @@ pub trait WeightInfo {
 	fn delegate_access() -> Weight;
 	fn revoke_access() -> Weight;
 	fn delegate_access_as() -> Weight;
+	fn transfer() -> Weight;
 }
 
 /// Weights for pallet_organization using the Substrate node and recommended hardware.
@@ -70,35 +71,35 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Organization OrganizationFlagData (r:0 w:1)
 	// Storage: Did UpdatedBy (r:0 w:1)
 	fn create() -> Weight {
-		(124_000_000 as Weight)
+		(130_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(6 as Weight))
 			.saturating_add(T::DbWeight::get().writes(9 as Weight))
 	}
 	// Storage: Organization Organizations (r:1 w:1)
 	fn update() -> Weight {
-		(40_000_000 as Weight)
+		(42_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Organization Organizations (r:1 w:1)
 	fn suspend_org() -> Weight {
-		(15_000_000 as Weight)
+		(16_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Organization Organizations (r:1 w:0)
 	// Storage: Organization OrganizationFlagData (r:1 w:1)
 	fn set_flags() -> Weight {
-		(19_000_000 as Weight)
+		(21_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Organization Organizations (r:1 w:0)
 	// Storage: Organization Members (r:1 w:1)
 	fn add_members(n: u32, ) -> Weight {
-		(44_399_000 as Weight)
-			// Standard Error: 106_000
-			.saturating_add((6_429_000 as Weight).saturating_mul(n as Weight))
+		(44_693_000 as Weight)
+			// Standard Error: 56_000
+			.saturating_add((6_737_000 as Weight).saturating_mul(n as Weight))
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
@@ -120,7 +121,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Did OwnerOf (r:1 w:0)
 	// Storage: Did DelegateOf (r:1 w:1)
 	fn delegate_access() -> Weight {
-		(34_000_000 as Weight)
+		(35_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(3 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
@@ -137,9 +138,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Did OwnerOf (r:1 w:0)
 	// Storage: Did DelegateOf (r:1 w:1)
 	fn delegate_access_as() -> Weight {
-		(33_000_000 as Weight)
+		(34_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(3 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+	// Storage: Organization Organizations (r:1 w:0)
+	// Storage: System Account (r:2 w:2)
+	fn transfer() -> Weight {
+		(64_000_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(3 as Weight))
+			.saturating_add(T::DbWeight::get().writes(2 as Weight))
 	}
 }
 
@@ -156,35 +164,35 @@ impl WeightInfo for () {
 	// Storage: Organization OrganizationFlagData (r:0 w:1)
 	// Storage: Did UpdatedBy (r:0 w:1)
 	fn create() -> Weight {
-		(124_000_000 as Weight)
+		(130_000_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(9 as Weight))
 	}
 	// Storage: Organization Organizations (r:1 w:1)
 	fn update() -> Weight {
-		(40_000_000 as Weight)
+		(42_000_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Organization Organizations (r:1 w:1)
 	fn suspend_org() -> Weight {
-		(15_000_000 as Weight)
+		(16_000_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Organization Organizations (r:1 w:0)
 	// Storage: Organization OrganizationFlagData (r:1 w:1)
 	fn set_flags() -> Weight {
-		(19_000_000 as Weight)
+		(21_000_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Organization Organizations (r:1 w:0)
 	// Storage: Organization Members (r:1 w:1)
 	fn add_members(n: u32, ) -> Weight {
-		(44_399_000 as Weight)
-			// Standard Error: 106_000
-			.saturating_add((6_429_000 as Weight).saturating_mul(n as Weight))
+		(44_693_000 as Weight)
+			// Standard Error: 56_000
+			.saturating_add((6_737_000 as Weight).saturating_mul(n as Weight))
 			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
@@ -206,7 +214,7 @@ impl WeightInfo for () {
 	// Storage: Did OwnerOf (r:1 w:0)
 	// Storage: Did DelegateOf (r:1 w:1)
 	fn delegate_access() -> Weight {
-		(34_000_000 as Weight)
+		(35_000_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
@@ -223,8 +231,15 @@ impl WeightInfo for () {
 	// Storage: Did OwnerOf (r:1 w:0)
 	// Storage: Did DelegateOf (r:1 w:1)
 	fn delegate_access_as() -> Weight {
-		(33_000_000 as Weight)
+		(34_000_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+	// Storage: Organization Organizations (r:1 w:0)
+	// Storage: System Account (r:2 w:2)
+	fn transfer() -> Weight {
+		(64_000_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
 	}
 }

@@ -20,7 +20,7 @@ use super::*;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_system::{EventRecord, RawOrigin};
 use sp_runtime::traits::Bounded;
-use sp_std::vec;
+use sp_std::{fmt::Debug, vec};
 
 use crate::{
 	pallet::BalanceOf, Module as Organization, OrgIdIndex, OrganizationIndexOf, Organizations,
@@ -157,6 +157,19 @@ benchmarks! {
 		let (org_id, member_id) = setup_org_with_members::<T>(&caller);
 	}: _(RawOrigin::Signed(caller.clone()), org_id, member_id, b"Tracker".to_vec(), Some(100u32.into()))
 
+	transfer {
+		let caller = whitelisted_caller();
+		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+
+		let (org_id, member_id) = setup_org_with_members::<T>(&caller);
+		let _ = T::Currency::deposit_creating(&org_id, BalanceOf::<T>::max_value());
+
+		let charlie = account("charlie", 2, 2);
+		let _ = T::Currency::make_free_balance_be(&charlie, T::Currency::minimum_balance());
+		assert_eq!(T::Currency::free_balance(&charlie), T::Currency::minimum_balance());
+
+		let dest = T::Lookup::unlookup(charlie.clone());
+	}: _(RawOrigin::Signed(caller.clone()), org_id, dest, T::Currency::minimum_balance())
 
 }
 

@@ -881,7 +881,7 @@ pub mod pallet {
 			ensure!(org.admin == transactor, Error::<T>::PermissionDenied);
 
 			let dest = T::Lookup::lookup(dest)?;
-			T::Currency::transfer(&org_id, &dest, value, AllowDeath)?;
+			T::Currency::transfer(&org_id, &dest, value, KeepAlive)?;
 			Ok(().into())
 		}
 	}
