@@ -16,7 +16,7 @@ test:
 
 build:
 	@@echo Building...
-	@@cargo build --release -p nuchain-node
+	@@cargo build --release -p node-cli
 
 build-wasm-runtime:
 	@@echo Building WASM runtime...
@@ -31,7 +31,7 @@ build-benchmark:
 
 deb:
 	@@echo Packaging for $(DISTRO)
-	@@cargo deb -p nuchain-node
+	@@cargo deb -p node-cli
 	cp target/debian/nuchain_$(NODE_VERSION)_amd64.deb bin_archives/nuchain-$(NODE_VERSION)-$(GIT_REV)-$(DISTRO)_amd64.deb
 
 package:
