@@ -121,9 +121,9 @@ impl<C: SubstrateCli> Runner<C> {
 	/// # Example:
 	///
 	/// ```text
-	/// 2020-06-03 16:14:21 Substrate Node
+	/// 2020-06-03 16:14:21 Nuchain Node
 	/// 2020-06-03 16:14:21 ✌️  version 2.0.0-rc3-f4940588c-x86_64-linux-gnu
-	/// 2020-06-03 16:14:21 ❤️  by Parity Technologies <admin@parity.io>, 2017-2020
+	/// 2020-06-03 16:14:21 ❤️  by Nusantara Chain <admin@nuchain.network>, 2021-2022
 	/// 2020-06-03 16:14:21 📋 Chain specification: Flaming Fir
 	/// 2020-06-03 16:14:21 🏷  Node name: jolly-rod-7462
 	/// 2020-06-03 16:14:21 👤 Role: FULL
