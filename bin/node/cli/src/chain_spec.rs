@@ -425,6 +425,11 @@ pub fn main_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_json_bytes(&include_bytes!("../res/nuchain.json")[..])
 }
 
+/// Load gama network config
+pub fn gama_config() -> Result<ChainSpec, String> {
+	ChainSpec::from_json_bytes(&include_bytes!("../res/nuchain-gama.json")[..])
+}
+
 /// Production genesis
 fn prod_genesis() -> GenesisConfig {
     let sudo_acc: AccountId =
