@@ -524,7 +524,7 @@ pub fn prod_config() -> ChainSpec {
 
     ChainSpec::from_genesis(
         "Nuchain Gama",
-        "nuc_gama",
+        "gama",
         ChainType::Live,
         prod_genesis,
         boot_nodes,
