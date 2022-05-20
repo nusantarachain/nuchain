@@ -117,7 +117,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 7,
+    spec_version: 8,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 2,
@@ -465,7 +465,7 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-    pub const BondingDuration: pallet_staking::EraIndex = 90; // days
+    pub const BondingDuration: pallet_staking::EraIndex = 30; // days
     pub const SlashDeferDuration: pallet_staking::EraIndex = 22; // 1/4 the bonding duration.
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const MaxNominatorRewardedPerValidator: u32 = 256;
@@ -729,6 +729,7 @@ impl pallet_tips::Config for Runtime {
     type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
 }
 
+
 parameter_types! {
     pub const TombstoneDeposit: Balance = deposit(
         1,
@@ -986,25 +987,6 @@ impl pallet_mmr::Config for Runtime {
     type WeightInfo = ();
 }
 
-// parameter_types! {
-// 	pub const LotteryModuleId: ModuleId = ModuleId(*b"py/lotto");
-// 	pub const MaxCalls: usize = 10;
-// 	pub const MaxGenerateRandom: u32 = 10;
-// }
-
-// impl pallet_lottery::Config for Runtime {
-// 	type ModuleId = LotteryModuleId;
-// 	type Call = Call;
-// 	type Event = Event;
-// 	type Currency = Balances;
-// 	type Randomness = RandomnessCollectiveFlip;
-// 	type ManagerOrigin = EnsureRoot<AccountId>;
-// 	type MaxCalls = MaxCalls;
-// 	type ValidateCall = Lottery;
-// 	type MaxGenerateRandom = MaxGenerateRandom;
-// 	type WeightInfo = pallet_lottery::weights::SubstrateWeight<Runtime>;
-// }
-
 parameter_types! {
     pub const AssetDepositBase: Balance = 100 * DOLLARS;
     pub const AssetDepositPerZombie: Balance = 1 * DOLLARS;
@@ -1085,19 +1067,26 @@ impl pallet_did::Config for Runtime {
     type WeightInfo = pallet_did::weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_product_registry::Config for Runtime {
-    type Event = Event;
-}
+// impl pallet_product_registry::Config for Runtime {
+//     type Event = Event;
+// }
 
-impl pallet_product_tracking::Config for Runtime {
-    type Event = Event;
-}
+// impl pallet_product_tracking::Config for Runtime {
+//     type Event = Event;
+// }
 
 // // COMMODITIES / NFTs
 // parameter_types! {
 //     pub const MaxCommodities: u128 = 5;
 //     pub const MaxCommoditiesPerUser: u64 = 2;
 // }
+
+impl pallet_liquidity::Config for Runtime {
+    type Event = Event;
+    type Currency = Balances;
+    type OperatorOrigin = pallet_liquidity::EnsureOperator<Runtime>;
+    type WeightInfo = pallet_liquidity::weights::SubstrateWeight<Runtime>;
+}
 
 construct_runtime!(
     pub enum Runtime where
@@ -1144,8 +1133,9 @@ construct_runtime!(
         Did: pallet_did::{Module, Call, Storage, Event<T>},
         Organization: pallet_organization::{Module, Call, Storage, Event<T>},
         Certificate: pallet_certificate::{Module, Call, Storage, Event<T>},
-        ProductRegistry: pallet_product_registry::{Module, Call, Storage, Event<T>},
-        ProductTracking: pallet_product_tracking::{Module, Call, Storage, Event<T>},
+        // ProductRegistry: pallet_product_registry::{Module, Call, Storage, Event<T>},
+        // ProductTracking: pallet_product_tracking::{Module, Call, Storage, Event<T>},
+        Liquidity: pallet_liquidity::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -1241,15 +1231,15 @@ impl_runtime_apis! {
            RandomnessCollectiveFlip::random_seed()
        }
     }
-	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
-		fn validate_transaction(
-			source: TransactionSource,
-			tx: <Block as BlockT>::Extrinsic,
-			block_hash: <Block as BlockT>::Hash,
-		) -> TransactionValidity {
-			Executive::validate_transaction(source, tx, block_hash)
-		}
-	}
+    impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
+        fn validate_transaction(
+            source: TransactionSource,
+            tx: <Block as BlockT>::Extrinsic,
+            block_hash: <Block as BlockT>::Hash,
+        ) -> TransactionValidity {
+            Executive::validate_transaction(source, tx, block_hash)
+        }
+    }
 
     // impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
     //     fn validate_transaction(
@@ -1266,41 +1256,41 @@ impl_runtime_apis! {
         }
     }
 
-	impl fg_primitives::GrandpaApi<Block> for Runtime {
-		fn grandpa_authorities() -> GrandpaAuthorityList {
-			Grandpa::grandpa_authorities()
-		}
+    impl fg_primitives::GrandpaApi<Block> for Runtime {
+        fn grandpa_authorities() -> GrandpaAuthorityList {
+            Grandpa::grandpa_authorities()
+        }
 
-		// fn current_set_id() -> fg_primitives::SetId {
-		// 	Grandpa::current_set_id()
-		// }
+        // fn current_set_id() -> fg_primitives::SetId {
+        // 	Grandpa::current_set_id()
+        // }
 
-		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: fg_primitives::EquivocationProof<
-				<Block as BlockT>::Hash,
-				NumberFor<Block>,
-			>,
-			key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
-		) -> Option<()> {
-			let key_owner_proof = key_owner_proof.decode()?;
+        fn submit_report_equivocation_unsigned_extrinsic(
+            equivocation_proof: fg_primitives::EquivocationProof<
+                <Block as BlockT>::Hash,
+                NumberFor<Block>,
+            >,
+            key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+        ) -> Option<()> {
+            let key_owner_proof = key_owner_proof.decode()?;
 
-			Grandpa::submit_unsigned_equivocation_report(
-				equivocation_proof,
-				key_owner_proof,
-			)
-		}
+            Grandpa::submit_unsigned_equivocation_report(
+                equivocation_proof,
+                key_owner_proof,
+            )
+        }
 
-		fn generate_key_ownership_proof(
-			_set_id: fg_primitives::SetId,
-			authority_id: GrandpaId,
-		) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
-			use codec::Encode;
+        fn generate_key_ownership_proof(
+            _set_id: fg_primitives::SetId,
+            authority_id: GrandpaId,
+        ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
+            use codec::Encode;
 
-			Historical::prove((fg_primitives::KEY_TYPE, authority_id))
-				.map(|p| p.encode())
-				.map(fg_primitives::OpaqueKeyOwnershipProof::new)
-		}
-	}
+            Historical::prove((fg_primitives::KEY_TYPE, authority_id))
+                .map(|p| p.encode())
+                .map(fg_primitives::OpaqueKeyOwnershipProof::new)
+        }
+    }
 
     impl sp_consensus_babe::BabeApi<Block> for Runtime {
         fn configuration() -> sp_consensus_babe::BabeGenesisConfiguration {
@@ -1425,7 +1415,7 @@ impl_runtime_apis! {
             proof: mmr::Proof<mmr::Hash>
         ) -> Result<(), mmr::Error> {
             let node = mmr::DataOrHash::Data(leaf);
-			pallet_mmr::verify_leaf_proof::<mmr::Hashing, _>(root, node, proof)
+            pallet_mmr::verify_leaf_proof::<mmr::Hashing, _>(root, node, proof)
         }
     }
 
@@ -1485,7 +1475,7 @@ impl_runtime_apis! {
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
 
-            // add_benchmark!(params, batches, pallet_assets, Assets);
+            add_benchmark!(params, batches, pallet_assets, Assets);
             add_benchmark!(params, batches, pallet_babe, Babe);
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_bounties, Bounties);
@@ -1497,7 +1487,6 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_identity, Identity);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
             add_benchmark!(params, batches, pallet_indices, Indices);
-            // add_benchmark!(params, batches, pallet_lottery, Lottery);
             add_benchmark!(params, batches, pallet_mmr, Mmr);
             add_benchmark!(params, batches, pallet_multisig, Multisig);
             add_benchmark!(params, batches, pallet_offences, OffencesBench::<Runtime>);
@@ -1517,6 +1506,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_did, Did);
             // add_benchmark!(params, batches, pallet_product_registry, ProductRegistry);
             // add_benchmark!(params, batches, pallet_product_tracking, ProductTracking);
+            add_benchmark!(params, batches, pallet_liquidity, Liquidity);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

@@ -60,7 +60,6 @@ pallet-grandpa = { version = "3.0.0", default-features = false, path = "../../..
 pallet-im-online = { version = "3.0.0", default-features = false, path = "../../../frame/im-online" }
 pallet-indices = { version = "3.0.0", default-features = false, path = "../../../frame/indices" }
 pallet-identity = { version = "3.0.0", default-features = false, path = "../../../frame/identity" }
-pallet-lottery = { version = "3.0.0", default-features = false, path = "../../../frame/lottery" }
 pallet-membership = { version = "3.0.0", default-features = false, path = "../../../frame/membership" }
 pallet-mmr = { version = "3.0.0", default-features = false, path = "../../../frame/merkle-mountain-range" }
 pallet-multisig = { version = "3.0.0", default-features = false, path = "../../../frame/multisig" }
@@ -87,10 +86,10 @@ pallet-vesting = { version = "3.0.0", default-features = false, path = "../../..
 pallet-did = { version = "0.0.1", default-features = false, path = "../../../frame/did" }
 pallet-certificate = { version = "0.0.1", default-features = false, path = "../../../frame/certificate" }
 pallet-organization = { version = "0.0.1", default-features = false, path = "../../../frame/organization" }
-pallet-product-registry = { default-features = false, path = "../../../frame/product-registry" }
-pallet-product-tracking = { default-features = false, path = "../../../frame/product-tracking" }
+# pallet-product-registry = { default-features = false, path = "../../../frame/product-registry" }
+# pallet-product-tracking = { default-features = false, path = "../../../frame/product-tracking" }
 pallet-commodities = { version = "0.0.1", default-features = false, path = "../../../frame/commodities" }
-
+pallet-liquidity = { version = "0.0.1", default-features = false, path = "../../../frame/liquidity" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "4.0.0", path = "../../../utils/wasm-builder" }
@@ -103,7 +102,7 @@ default = ["std"]
 with-tracing = [ "frame-executive/with-tracing" ]
 std = [
 	"sp-authority-discovery/std",
-	# "pallet-assets/std",
+	"pallet-assets/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"sp-consensus-babe/std",
@@ -160,14 +159,15 @@ std = [
 	"pallet-recovery/std",
 	"pallet-vesting/std",
 	"pallet-did/std",
-	"pallet-commodities/std"
+	"pallet-commodities/std",
+  "pallet-liquidity/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	# "pallet-assets/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
@@ -198,7 +198,8 @@ runtime-benchmarks = [
 	# "pallet-nicks/runtime-benchmarks",
 	"pallet-organization/runtime-benchmarks",
 	"pallet-certificate/runtime-benchmarks",
-	"pallet-did/runtime-benchmarks"
+	"pallet-did/runtime-benchmarks",
+  "pallet-liquidity/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-executive/try-runtime",

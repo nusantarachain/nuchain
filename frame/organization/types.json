@@ -10,5 +10,6 @@
         "block": "BlockNumber",
         "timestamp": "Moment",
         "props": "Option<Vec<Property>>"
-    }
+    },
+    "FlagDataBit": "u64"
 }

@@ -4465,15 +4465,13 @@ dependencies = [
  "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
- "pallet-lottery",
+ "pallet-liquidity",
  "pallet-membership",
  "pallet-mmr",
  "pallet-multisig",
  "pallet-offences",
  "pallet-offences-benchmarking",
  "pallet-organization",
- "pallet-product-registry",
- "pallet-product-tracking",
  "pallet-proxy",
  "pallet-randomness-collective-flip",
  "pallet-recovery",
@@ -5099,8 +5097,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-lottery"
-version = "3.0.0"
+name = "pallet-liquidity"
+version = "0.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support 3.0.0",

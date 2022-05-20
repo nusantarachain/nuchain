@@ -534,7 +534,7 @@ where
 	) -> TransactionImportFuture {
 		if !self.imports_external_transactions {
 			debug!("Transaction rejected");
-			Box::pin(futures::future::ready(TransactionImport::None));
+			return Box::pin(futures::future::ready(TransactionImport::None));
 		}
 
 		let encoded = transaction.encode();
