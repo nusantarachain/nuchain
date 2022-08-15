@@ -112,6 +112,7 @@ pallet-whitelist = { version = "4.0.0-dev", default-features = false, path = "..
 pallet-did = { version = "1.0.3", default-features = false, path = "../../../frame/did" }
 pallet-organization = { version = "1.0.3", default-features = false, path = "../../../frame/organization" }
 pallet-certificate = { version = "1.0.3", default-features = false, path = "../../../frame/certificate" }
+pallet-migration = { version = "0.1.0", default-features = false, path = "../../../frame/migration" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", path = "../../../utils/wasm-builder" }
@@ -152,6 +153,7 @@ std = [
 	"pallet-liquidity/std",
 	"pallet-membership/std",
 	"pallet-mmr/std",
+  "pallet-migration/std",
 	"pallet-multisig/std",
 	"pallet-nomination-pools/std",
 	"pallet-nomination-pools-runtime-api/std",
@@ -231,6 +233,7 @@ runtime-benchmarks = [
   "pallet-liquidity/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
+  "pallet-migration/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nomination-pools-benchmarking",
 	"pallet-offences-benchmarking",

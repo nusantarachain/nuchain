@@ -108,6 +108,7 @@ members = [
 	"frame/membership",
 	"frame/merkle-mountain-range",
 	"frame/merkle-mountain-range/rpc",
+  "frame/migration",
 	"frame/multisig",
 	"frame/nicks",
 	"frame/node-authorization",

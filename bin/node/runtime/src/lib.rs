@@ -1,4 +1,4 @@
-// This file is part of Substrate.
+// This file is part of nuchain.
 
 // Copyright (C) 2018-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! The Substrate runtime. This can be compiled with `#[no_std]`, ready for Wasm.
+//! The nuchain runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 512.
@@ -233,6 +233,21 @@ impl pallet_utility::Config for Runtime {
 	type Call = Call;
 	type PalletsOrigin = OriginCaller;
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
+
+parameter_types! {
+	pub const MigrationMaxAccounts: u32 = 100;
+	pub const MigrationMaxVestings: u32 = 10;
+	pub const MigrationMaxProxies: u32 = 10;
+}
+
+impl pallet_migration::Config for Runtime {
+	type MigrationMaxAccounts = MigrationMaxAccounts;
+	type MigrationMaxVestings = MigrationMaxVestings;
+	type MigrationMaxProxies = MigrationMaxProxies;
+	type Event = Event;
+	type WeightInfo = pallet_migration::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1671,6 +1686,7 @@ construct_runtime!(
 		Scheduler: pallet_scheduler,
 		Preimage: pallet_preimage,
 		Proxy: pallet_proxy,
+        Migration: pallet_migration,
 		Multisig: pallet_multisig,
 		Bounties: pallet_bounties,
 		Tips: pallet_tips,
