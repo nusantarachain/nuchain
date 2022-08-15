@@ -403,6 +403,10 @@ fn development_config_genesis() -> GenesisConfig {
 
 /// Development config (single validator Alice)
 pub fn development_config() -> ChainSpec {
+    let mut properties = Properties::new();
+	properties.insert("ss58Format".into(), 99.into());
+	properties.insert("tokenDecimals".into(), 10.into());
+
 	ChainSpec::from_genesis(
 		"Development",
 		"dev",
@@ -412,7 +416,7 @@ pub fn development_config() -> ChainSpec {
 		None,
 		None,
 		None,
-		None,
+		Some(properties),
 		Default::default(),
 	)
 }
