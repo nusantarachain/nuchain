@@ -19,7 +19,7 @@
 //! Genesis Configuration.
 
 use crate::keyring::*;
-use node_runtime::{
+use nuchain_runtime::{
 	constants::currency::*, wasm_binary_unwrap, AccountId, BabeConfig, BalancesConfig,
 	GenesisConfig, GrandpaConfig, IndicesConfig, SessionConfig, SocietyConfig, StakerStatus,
 	StakingConfig, SystemConfig, BABE_GENESIS_EPOCH_CONFIG,
@@ -89,10 +89,14 @@ pub fn config_endowed(code: Option<&[u8]>, extra_endowed: Vec<AccountId>) -> Gen
 		society: SocietyConfig { members: vec![alice(), bob()], pot: 0, max_members: 999 },
 		vesting: Default::default(),
 		assets: Default::default(),
-		gilt: Default::default(),
 		transaction_storage: Default::default(),
 		transaction_payment: Default::default(),
+        did: Default::default(),
+        organization: Default::default(),
+        certificate: Default::default(),
         liquidity: Default::default(),
+		alliance: Default::default(),
+		alliance_motion: Default::default(),
 		nomination_pools: Default::default(),
 	}
 }

@@ -18,6 +18,10 @@ build:
 	@@echo Building...
 	@@cargo build --release -p node-cli
 
+build-debug:
+	@@echo "Building (debug mode)..."
+	@@cargo build -p node-cli
+
 build-wasm-runtime:
 	@@echo Building WASM runtime...
 	@@cargo build --release -p nuchain-runtime

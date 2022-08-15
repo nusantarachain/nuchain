@@ -20,11 +20,12 @@
 
 use grandpa_primitives::AuthorityId as GrandpaId;
 use hex_literal::hex;
-use node_runtime::{
+use nuchain_runtime::{
 	constants::currency::*, wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig,
 	BalancesConfig, Block, CouncilConfig, DemocracyConfig, ElectionsConfig, GrandpaConfig,
-	ImOnlineConfig, IndicesConfig, MaxNominations, SessionConfig, SessionKeys, SocietyConfig,
-	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+	ImOnlineConfig, IndicesConfig, MaxNominations, NominationPoolsConfig, SessionConfig,
+	SessionKeys, SocietyConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
+	TechnicalCommitteeConfig,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
@@ -39,8 +40,8 @@ use sp_runtime::{
 	Perbill,
 };
 
+pub use nuchain_runtime::GenesisConfig;
 pub use node_primitives::{AccountId, Balance, Signature};
-pub use node_runtime::GenesisConfig;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
@@ -342,7 +343,7 @@ pub fn build_genesis(
 		sudo: SudoConfig { key: Some(root_key) },
 		babe: BabeConfig {
 			authorities: vec![],
-			epoch_config: Some(node_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			epoch_config: Some(nuchain_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
 		im_online: ImOnlineConfig { keys: vec![] },
 		authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
@@ -367,8 +368,28 @@ pub fn build_genesis(
 		organization: Default::default(),
 		certificate: Default::default(),
         liquidity: Default::default(),
-		nomination_pools: Default::default(),
+		alliance: Default::default(),
+		alliance_motion: Default::default(),
+		nomination_pools: NominationPoolsConfig {
+			min_create_bond: 10 * DOLLARS,
+			min_join_bond: 1 * DOLLARS,
+			..Default::default()
+		},
 	}
+}
+
+pub fn testnet_genesis(	initial_authorities: Vec<(
+    AccountId,
+    AccountId,
+    GrandpaId,
+    BabeId,
+    ImOnlineId,
+    AuthorityDiscoveryId,
+)>,
+initial_nominators: Vec<AccountId>,
+root_key: AccountId,
+endowed_accounts: Option<Vec<AccountId>>) -> GenesisConfig {
+    build_genesis(initial_authorities, initial_nominators, root_key, endowed_accounts,)
 }
 
 fn development_config_genesis() -> GenesisConfig {
