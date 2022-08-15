@@ -89,9 +89,9 @@ pub use sp_runtime::BuildStorage;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-#[cfg(not(feature = "runtime-benchmarks"))]
-use impls::AllianceIdentityVerifier;
-use impls::{AllianceProposalProvider, Author, CreditToBlockAuthor};
+// #[cfg(not(feature = "runtime-benchmarks"))]
+// use impls::AllianceIdentityVerifier;
+use impls::{Author, CreditToBlockAuthor};
 
 /// Constant values used within the runtime.
 pub mod constants;
@@ -1569,66 +1569,66 @@ impl pallet_certificate::Config for Runtime {
 	type MaxLength = ConstU32<64>;
 }
 
-parameter_types! {
-	pub const AllianceMotionDuration: BlockNumber = 5 * DAYS;
-	pub const AllianceMaxProposals: u32 = 100;
-	pub const AllianceMaxMembers: u32 = 100;
-}
+// parameter_types! {
+// 	pub const AllianceMotionDuration: BlockNumber = 5 * DAYS;
+// 	pub const AllianceMaxProposals: u32 = 100;
+// 	pub const AllianceMaxMembers: u32 = 100;
+// }
 
-type AllianceCollective = pallet_collective::Instance3;
-impl pallet_collective::Config<AllianceCollective> for Runtime {
-	type Origin = Origin;
-	type Proposal = Call;
-	type Event = Event;
-	type MotionDuration = AllianceMotionDuration;
-	type MaxProposals = AllianceMaxProposals;
-	type MaxMembers = AllianceMaxMembers;
-	type DefaultVote = pallet_collective::PrimeDefaultVote;
-	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-}
+// type AllianceCollective = pallet_collective::Instance3;
+// impl pallet_collective::Config<AllianceCollective> for Runtime {
+// 	type Origin = Origin;
+// 	type Proposal = Call;
+// 	type Event = Event;
+// 	type MotionDuration = AllianceMotionDuration;
+// 	type MaxProposals = AllianceMaxProposals;
+// 	type MaxMembers = AllianceMaxMembers;
+// 	type DefaultVote = pallet_collective::PrimeDefaultVote;
+// 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+// }
 
-parameter_types! {
-	pub const MaxFounders: u32 = 10;
-	pub const MaxFellows: u32 = AllianceMaxMembers::get() - MaxFounders::get();
-	pub const MaxAllies: u32 = 100;
-	pub const AllyDeposit: Balance = 10 * DOLLARS;
-}
+// parameter_types! {
+// 	pub const MaxFounders: u32 = 10;
+// 	pub const MaxFellows: u32 = AllianceMaxMembers::get() - MaxFounders::get();
+// 	pub const MaxAllies: u32 = 100;
+// 	pub const AllyDeposit: Balance = 10 * DOLLARS;
+// }
 
-impl pallet_alliance::Config for Runtime {
-	type Event = Event;
-	type Proposal = Call;
-	type AdminOrigin = EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
-	>;
-	type MembershipManager = EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
-	>;
-	type AnnouncementOrigin = EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
-	>;
-	type Currency = Balances;
-	type Slashed = Treasury;
-	type InitializeMembers = AllianceMotion;
-	type MembershipChanged = AllianceMotion;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type IdentityVerifier = AllianceIdentityVerifier;
-	#[cfg(feature = "runtime-benchmarks")]
-	type IdentityVerifier = ();
-	type ProposalProvider = AllianceProposalProvider;
-	type MaxProposals = AllianceMaxProposals;
-	type MaxFounders = MaxFounders;
-	type MaxFellows = MaxFellows;
-	type MaxAllies = MaxAllies;
-	type MaxUnscrupulousItems = ConstU32<100>;
-	type MaxWebsiteUrlLength = ConstU32<255>;
-	type MaxAnnouncementsCount = ConstU32<100>;
-	type MaxMembersCount = AllianceMaxMembers;
-	type AllyDeposit = AllyDeposit;
-	type WeightInfo = pallet_alliance::weights::SubstrateWeight<Runtime>;
-}
+// impl pallet_alliance::Config for Runtime {
+// 	type Event = Event;
+// 	type Proposal = Call;
+// 	type AdminOrigin = EitherOfDiverse<
+// 		EnsureRoot<AccountId>,
+// 		pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
+// 	>;
+// 	type MembershipManager = EitherOfDiverse<
+// 		EnsureRoot<AccountId>,
+// 		pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
+// 	>;
+// 	type AnnouncementOrigin = EitherOfDiverse<
+// 		EnsureRoot<AccountId>,
+// 		pallet_collective::EnsureProportionMoreThan<AccountId, AllianceCollective, 2, 3>,
+// 	>;
+// 	type Currency = Balances;
+// 	type Slashed = Treasury;
+// 	type InitializeMembers = AllianceMotion;
+// 	type MembershipChanged = AllianceMotion;
+// 	#[cfg(not(feature = "runtime-benchmarks"))]
+// 	type IdentityVerifier = AllianceIdentityVerifier;
+// 	#[cfg(feature = "runtime-benchmarks")]
+// 	type IdentityVerifier = ();
+// 	type ProposalProvider = AllianceProposalProvider;
+// 	type MaxProposals = AllianceMaxProposals;
+// 	type MaxFounders = MaxFounders;
+// 	type MaxFellows = MaxFellows;
+// 	type MaxAllies = MaxAllies;
+// 	type MaxUnscrupulousItems = ConstU32<100>;
+// 	type MaxWebsiteUrlLength = ConstU32<255>;
+// 	type MaxAnnouncementsCount = ConstU32<100>;
+// 	type MaxMembersCount = AllianceMaxMembers;
+// 	type AllyDeposit = AllyDeposit;
+// 	type WeightInfo = pallet_alliance::weights::SubstrateWeight<Runtime>;
+// }
 
 construct_runtime!(
 	pub enum Runtime where
@@ -1691,8 +1691,8 @@ construct_runtime!(
 		Remark: pallet_remark,
 		ConvictionVoting: pallet_conviction_voting,
 		Whitelist: pallet_whitelist,
-		AllianceMotion: pallet_collective::<Instance3>,
-		Alliance: pallet_alliance,
+		// AllianceMotion: pallet_collective::<Instance3>,
+		// Alliance: pallet_alliance,
 		NominationPools: pallet_nomination_pools,
 		RankedPolls: pallet_referenda::<Instance2>,
 		RankedCollective: pallet_ranked_collective,

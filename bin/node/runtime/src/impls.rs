@@ -18,7 +18,7 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use crate::{
-	AccountId, AllianceMotion, Assets, Authorship, Balances, Call, Hash, NegativeImbalance, Runtime,
+	AccountId, Assets, Authorship, Balances, Call, Hash, NegativeImbalance, Runtime,
 };
 use frame_support::{
 	pallet_prelude::*,
@@ -76,43 +76,43 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 	}
 }
 
-pub struct AllianceProposalProvider;
-impl ProposalProvider<AccountId, Hash, Call> for AllianceProposalProvider {
-	fn propose_proposal(
-		who: AccountId,
-		threshold: u32,
-		proposal: Box<Call>,
-		length_bound: u32,
-	) -> Result<(u32, u32), DispatchError> {
-		AllianceMotion::do_propose_proposed(who, threshold, proposal, length_bound)
-	}
+// pub struct AllianceProposalProvider;
+// impl ProposalProvider<AccountId, Hash, Call> for AllianceProposalProvider {
+// 	fn propose_proposal(
+// 		who: AccountId,
+// 		threshold: u32,
+// 		proposal: Box<Call>,
+// 		length_bound: u32,
+// 	) -> Result<(u32, u32), DispatchError> {
+// 		AllianceMotion::do_propose_proposed(who, threshold, proposal, length_bound)
+// 	}
 
-	fn vote_proposal(
-		who: AccountId,
-		proposal: Hash,
-		index: ProposalIndex,
-		approve: bool,
-	) -> Result<bool, DispatchError> {
-		AllianceMotion::do_vote(who, proposal, index, approve)
-	}
+// 	fn vote_proposal(
+// 		who: AccountId,
+// 		proposal: Hash,
+// 		index: ProposalIndex,
+// 		approve: bool,
+// 	) -> Result<bool, DispatchError> {
+// 		AllianceMotion::do_vote(who, proposal, index, approve)
+// 	}
 
-	fn veto_proposal(proposal_hash: Hash) -> u32 {
-		AllianceMotion::do_disapprove_proposal(proposal_hash)
-	}
+// 	fn veto_proposal(proposal_hash: Hash) -> u32 {
+// 		AllianceMotion::do_disapprove_proposal(proposal_hash)
+// 	}
 
-	fn close_proposal(
-		proposal_hash: Hash,
-		proposal_index: ProposalIndex,
-		proposal_weight_bound: Weight,
-		length_bound: u32,
-	) -> DispatchResultWithPostInfo {
-		AllianceMotion::do_close(proposal_hash, proposal_index, proposal_weight_bound, length_bound)
-	}
+// 	fn close_proposal(
+// 		proposal_hash: Hash,
+// 		proposal_index: ProposalIndex,
+// 		proposal_weight_bound: Weight,
+// 		length_bound: u32,
+// 	) -> DispatchResultWithPostInfo {
+// 		AllianceMotion::do_close(proposal_hash, proposal_index, proposal_weight_bound, length_bound)
+// 	}
 
-	fn proposal_of(proposal_hash: Hash) -> Option<Call> {
-		AllianceMotion::proposal_of(proposal_hash)
-	}
-}
+// 	fn proposal_of(proposal_hash: Hash) -> Option<Call> {
+// 		AllianceMotion::proposal_of(proposal_hash)
+// 	}
+// }
 
 #[cfg(test)]
 mod multiplier_tests {

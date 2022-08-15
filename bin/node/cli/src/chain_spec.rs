@@ -368,8 +368,8 @@ pub fn build_genesis(
 		organization: Default::default(),
 		certificate: Default::default(),
         liquidity: Default::default(),
-		alliance: Default::default(),
-		alliance_motion: Default::default(),
+		// alliance: Default::default(),
+		// alliance_motion: Default::default(),
 		nomination_pools: NominationPoolsConfig {
 			min_create_bond: 10 * DOLLARS,
 			min_join_bond: 1 * DOLLARS,
