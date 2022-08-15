@@ -1,6 +1,6 @@
 [package]
 name = "node-cli"
-version = "2.0.0"
+version = "2.0.2"
 authors = ["Nusantara Chain <nusantarachain@gmail.com>"]
 description = "Blockchain for Indonesia Society 5.0"
 build = "build.rs"
