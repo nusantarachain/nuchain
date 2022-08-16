@@ -16,23 +16,26 @@ test:
 
 build:
 	@@echo Building...
-	@@cargo build --release -p nuchain-node
+	@@cargo build --release -p node-cli
+
+build-debug:
+	@@echo "Building (debug mode)..."
+	@@cargo build -p node-cli
 
 build-wasm-runtime:
 	@@echo Building WASM runtime...
 	@@cargo build --release -p nuchain-runtime
-	@@du -h target/release/wbuild/nuchain-runtime/nuchain_runtime.compact.wasm
 	@@cd target/release/wbuild/nuchain-runtime && \
 		cp nuchain_runtime.compact.wasm nuchain_runtime-$(RUNTIME_SPEC_VER).compact.wasm
 	@@echo runtime build: nuchain_runtime-$(RUNTIME_SPEC_VER).compact.wasm
 
 build-benchmark:
 	@@echo Building binary for benchmark...
-	cargo build -p nuchain-node --release --features="runtime-benchmarks"
+	cargo build -p node-cli --release --features="runtime-benchmarks"
 
 deb:
 	@@echo Packaging for $(DISTRO)
-	@@cargo deb -p nuchain-node
+	@@cargo deb -p node-cli
 	cp target/debian/nuchain_$(NODE_VERSION)_amd64.deb bin_archives/nuchain-$(NODE_VERSION)-$(GIT_REV)-$(DISTRO)_amd64.deb
 
 package:

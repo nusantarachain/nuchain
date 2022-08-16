@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2020 Parity Technologies (UK) Ltd.
+// Copyright (C) 2020-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,6 +29,22 @@
 //! required for this endeavour are defined or re-exported in this module. There is an
 //! implementation on `()` which can be used to signal that no chain extension is available.
 //!
+//! # Using multiple chain extensions
+//!
+//! Often there is a need for having multiple chain extensions. This is often the case when
+//! some generally useful off-the-shelf extensions should be included. To have multiple chain
+//! extensions they can be put into a tuple which is then passed to [`Config::ChainExtension`] like
+//! this `type Extensions = (ExtensionA, ExtensionB)`.
+//!
+//! However, only extensions implementing [`RegisteredChainExtension`] can be put into a tuple.
+//! This is because the [`RegisteredChainExtension::ID`] is used to decide which of those extensions
+//! should be used when the contract calls a chain extensions. Extensions which are generally
+//! useful should claim their `ID` with [the registry](https://github.com/paritytech/chainextension-registry)
+//! so that no collisions with other vendors will occur.
+//!
+//! **Chain specific extensions must use the reserved `ID = 0` so that they can't be registered with
+//! the registry.**
+//!
 //! # Security
 //!
 //! The chain author alone is responsible for the security of the chain extension.
@@ -47,23 +63,27 @@
 //! induces. In order to be able to charge the correct weight for the functions defined
 //! by a chain extension benchmarks must be written, too. In the near future this crate
 //! will provide the means for easier creation of those specialized benchmarks.
+//!
+//! # Example
+//!
+//! The ink! repository maintains an
+//! [end-to-end example](https://github.com/paritytech/ink/tree/master/examples/rand-extension)
+//! on how to use a chain extension in order to provide new features to ink! contracts.
 
 use crate::{
+	gas::ChargedAmount,
+	wasm::{Runtime, RuntimeCosts},
 	Error,
-	wasm::{Runtime, RuntimeToken},
 };
-use codec::Decode;
+use codec::{Decode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use sp_runtime::DispatchError;
-use sp_std::{
-	marker::PhantomData,
-	vec::Vec,
-};
+use sp_std::{marker::PhantomData, vec::Vec};
 
+pub use crate::{exec::Ext, Config};
 pub use frame_system::Config as SysConfig;
 pub use pallet_contracts_primitives::ReturnFlags;
 pub use sp_core::crypto::UncheckedFrom;
-pub use crate::{Config, exec::Ext};
 pub use state::Init as InitState;
 
 /// Result that returns a [`DispatchError`] on error.
@@ -74,6 +94,12 @@ pub type Result<T> = sp_std::result::Result<T, DispatchError>;
 /// In order to create a custom chain extension this trait must be implemented and supplied
 /// to the pallet contracts configuration trait as the associated type of the same name.
 /// Consult the [module documentation](self) for a general explanation of chain extensions.
+///
+/// # Lifetime
+///
+/// The extension will be [`Default`] initialized at the beginning of each call
+/// (**not** per call stack) and dropped afterwards. Hence any value held inside the extension
+/// can be used as a per-call scratch buffer.
 pub trait ChainExtension<C: Config> {
 	/// Call the chain extension logic.
 	///
@@ -82,8 +108,6 @@ pub trait ChainExtension<C: Config> {
 	/// imported wasm function.
 	///
 	/// # Parameters
-	/// - `func_id`: The first argument to `seal_call_chain_extension`. Usually used to
-	///		determine which function to realize.
 	/// - `env`: Access to the remaining arguments and the execution environment.
 	///
 	/// # Return
@@ -91,7 +115,7 @@ pub trait ChainExtension<C: Config> {
 	/// In case of `Err` the contract execution is immediately suspended and the passed error
 	/// is returned to the caller. Otherwise the value of [`RetVal`] determines the exit
 	/// behaviour.
-	fn call<E>(func_id: u32, env: Environment<E, InitState>) -> Result<RetVal>
+	fn call<E>(&mut self, env: Environment<E, InitState>) -> Result<RetVal>
 	where
 		E: Ext<T = C>,
 		<E::T as SysConfig>::AccountId: UncheckedFrom<<E::T as SysConfig>::Hash> + AsRef<[u8]>;
@@ -108,20 +132,51 @@ pub trait ChainExtension<C: Config> {
 	}
 }
 
-/// Implementation that indicates that no chain extension is available.
-impl<C: Config> ChainExtension<C> for () {
-	fn call<E>(_func_id: u32, mut _env: Environment<E, InitState>) -> Result<RetVal>
+/// A [`ChainExtension`] that can be composed with other extensions using a tuple.
+///
+/// An extension that implements this trait can be put in a tuple in order to have multiple
+/// extensions available. The tuple implementation routes requests based on the first two
+/// most significant bytes of the `id` passed to `call`.
+///
+/// If this extensions is to be used by multiple runtimes consider
+/// [registering it](https://github.com/paritytech/chainextension-registry) to ensure that there
+/// are no collisions with other vendors.
+///
+/// # Note
+///
+/// Currently, we support tuples of up to ten registred chain extensions. If more chain extensions
+/// are needed consider opening an issue.
+pub trait RegisteredChainExtension<C: Config>: ChainExtension<C> {
+	/// The extensions globally unique identifier.
+	const ID: u16;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+#[tuple_types_custom_trait_bound(RegisteredChainExtension<C>)]
+impl<C: Config> ChainExtension<C> for Tuple {
+	fn call<E>(&mut self, mut env: Environment<E, InitState>) -> Result<RetVal>
 	where
 		E: Ext<T = C>,
 		<E::T as SysConfig>::AccountId: UncheckedFrom<<E::T as SysConfig>::Hash> + AsRef<[u8]>,
 	{
-		// Never called since [`Self::enabled()`] is set to `false`. Because we want to
-		// avoid panics at all costs we supply a sensible error value here instead
-		// of an `unimplemented!`.
+		for_tuples!(
+			#(
+				if (Tuple::ID == env.ext_id()) && Tuple::enabled() {
+					return Tuple.call(env);
+				}
+			)*
+		);
 		Err(Error::<E::T>::NoChainExtension.into())
 	}
 
 	fn enabled() -> bool {
+		for_tuples!(
+			#(
+				if Tuple::enabled() {
+					return true;
+				}
+			)*
+		);
 		false
 	}
 }
@@ -136,13 +191,13 @@ pub enum RetVal {
 	/// The semantic is the same as for calling `seal_return`: The control returns to
 	/// the caller of the currently executing contract yielding the supplied buffer and
 	/// flags.
-	Diverging{flags: ReturnFlags, data: Vec<u8>},
+	Diverging { flags: ReturnFlags, data: Vec<u8> },
 }
 
 /// Grants the chain extension access to its parameters and execution environment.
 ///
-/// It uses the typestate pattern to enforce the correct usage of the parameters passed
-/// to the chain extension.
+/// It uses [typestate programming](https://docs.rust-embedded.org/book/static-guarantees/typestate-programming.html)
+/// to enforce the correct usage of the parameters passed to the chain extension.
 pub struct Environment<'a, 'b, E: Ext, S: state::State> {
 	/// The actual data of this type.
 	inner: Inner<'a, 'b, E>,
@@ -155,17 +210,46 @@ impl<'a, 'b, E: Ext, S: state::State> Environment<'a, 'b, E, S>
 where
 	<E::T as SysConfig>::AccountId: UncheckedFrom<<E::T as SysConfig>::Hash> + AsRef<[u8]>,
 {
+	/// The function id within the `id` passed by a contract.
+	///
+	/// It returns the two least significant bytes of the `id` passed by a contract as the other
+	/// two bytes represent the chain extension itself (the code which is calling this function).
+	pub fn func_id(&self) -> u16 {
+		(self.inner.id & 0x0000FFFF) as u16
+	}
+
+	/// The chain extension id within the `id` passed by a contract.
+	///
+	/// It returns the two most significant bytes of the `id` passed by a contract which represent
+	/// the chain extension itself (the code which is calling this function).
+	pub fn ext_id(&self) -> u16 {
+		(self.inner.id >> 16) as u16
+	}
+
 	/// Charge the passed `amount` of weight from the overall limit.
 	///
 	/// It returns `Ok` when there the remaining weight budget is larger than the passed
 	/// `weight`. It returns `Err` otherwise. In this case the chain extension should
 	/// abort the execution and pass through the error.
 	///
+	/// The returned value can be used to with [`Self::adjust_weight`]. Other than that
+	/// it has no purpose.
+	///
 	/// # Note
 	///
 	/// Weight is synonymous with gas in substrate.
-	pub fn charge_weight(&mut self, amount: Weight) -> Result<()> {
-		self.inner.runtime.charge_gas(RuntimeToken::ChainExtension(amount)).map(|_| ())
+	pub fn charge_weight(&mut self, amount: Weight) -> Result<ChargedAmount> {
+		self.inner.runtime.charge_gas(RuntimeCosts::ChainExtension(amount))
+	}
+
+	/// Adjust a previously charged amount down to its actual amount.
+	///
+	/// This is when a maximum a priori amount was charged and then should be partially
+	/// refunded to match the actual amount.
+	pub fn adjust_weight(&mut self, charged: ChargedAmount, actual_weight: Weight) {
+		self.inner
+			.runtime
+			.adjust_gas(charged, RuntimeCosts::ChainExtension(actual_weight))
 	}
 
 	/// Grants access to the execution environment of the current contract call.
@@ -186,46 +270,32 @@ impl<'a, 'b, E: Ext> Environment<'a, 'b, E, state::Init> {
 	/// It is only available to this crate because only the wasm runtime module needs to
 	/// ever create this type. Chain extensions merely consume it.
 	pub(crate) fn new(
-		runtime: &'a mut Runtime::<'b, E>,
+		runtime: &'a mut Runtime<'b, E>,
+		id: u32,
 		input_ptr: u32,
 		input_len: u32,
 		output_ptr: u32,
 		output_len_ptr: u32,
 	) -> Self {
 		Environment {
-			inner: Inner {
-				runtime,
-				input_ptr,
-				input_len,
-				output_ptr,
-				output_len_ptr,
-			},
+			inner: Inner { runtime, id, input_ptr, input_len, output_ptr, output_len_ptr },
 			phantom: PhantomData,
 		}
 	}
 
 	/// Use all arguments as integer values.
 	pub fn only_in(self) -> Environment<'a, 'b, E, state::OnlyIn> {
-		Environment {
-			inner: self.inner,
-			phantom: PhantomData,
-		}
+		Environment { inner: self.inner, phantom: PhantomData }
 	}
 
 	/// Use input arguments as integer and output arguments as pointer to a buffer.
 	pub fn prim_in_buf_out(self) -> Environment<'a, 'b, E, state::PrimInBufOut> {
-		Environment {
-			inner: self.inner,
-			phantom: PhantomData,
-		}
+		Environment { inner: self.inner, phantom: PhantomData }
 	}
 
 	/// Use input and output arguments as pointers to a buffer.
 	pub fn buf_in_buf_out(self) -> Environment<'a, 'b, E, state::BufInBufOut> {
-		Environment {
-			inner: self.inner,
-			phantom: PhantomData,
-		}
+		Environment { inner: self.inner, phantom: PhantomData }
 	}
 }
 
@@ -269,10 +339,9 @@ where
 	/// charge the overall costs either using `max_len` (worst case approximation) or using
 	/// [`in_len()`](Self::in_len).
 	pub fn read(&self, max_len: u32) -> Result<Vec<u8>> {
-		self.inner.runtime.read_sandbox_memory(
-			self.inner.input_ptr,
-			self.inner.input_len.min(max_len),
-		)
+		self.inner
+			.runtime
+			.read_sandbox_memory(self.inner.input_ptr, self.inner.input_len.min(max_len))
 	}
 
 	/// Reads `min(buffer.len(), in_len) from contract memory.
@@ -286,26 +355,26 @@ where
 			let buffer = core::mem::take(buffer);
 			&mut buffer[..len.min(self.inner.input_len as usize)]
 		};
-		self.inner.runtime.read_sandbox_memory_into_buf(
-			self.inner.input_ptr,
-			sliced,
-		)?;
+		self.inner.runtime.read_sandbox_memory_into_buf(self.inner.input_ptr, sliced)?;
 		*buffer = sliced;
 		Ok(())
 	}
 
-	/// Reads `in_len` from contract memory and scale decodes it.
+	/// Reads and decodes a type with a size fixed at compile time from contract memory.
 	///
 	/// This function is secure and recommended for all input types of fixed size
 	/// as long as the cost of reading the memory is included in the overall already charged
 	/// weight of the chain extension. This should usually be the case when fixed input types
-	/// are used. Non fixed size types (like everything using `Vec`) usually need to use
-	/// [`in_len()`](Self::in_len) in order to properly charge the necessary weight.
-	pub fn read_as<T: Decode>(&mut self) -> Result<T> {
-		self.inner.runtime.read_sandbox_memory_as(
-			self.inner.input_ptr,
-			self.inner.input_len,
-		)
+	/// are used.
+	pub fn read_as<T: Decode + MaxEncodedLen>(&mut self) -> Result<T> {
+		self.inner.runtime.read_sandbox_memory_as(self.inner.input_ptr)
+	}
+
+	/// Reads and decodes a type with a dynamic size from contract memory.
+	///
+	/// Make sure to include `len` in your weight calculations.
+	pub fn read_as_unbounded<T: Decode>(&mut self, len: u32) -> Result<T> {
+		self.inner.runtime.read_sandbox_memory_as_unbounded(self.inner.input_ptr, len)
 	}
 
 	/// The length of the input as passed in as `input_len`.
@@ -328,7 +397,7 @@ where
 	///
 	/// If the contract supplied buffer is smaller than the passed `buffer` an `Err` is returned.
 	/// If `allow_skip` is set to true the contract is allowed to skip the copying of the buffer
-	/// by supplying the guard value of `u32::max_value()` as `out_ptr`. The
+	/// by supplying the guard value of `pallet-contracts::SENTINEL` as `out_ptr`. The
 	/// `weight_per_byte` is only charged when the write actually happens and is not skipped or
 	/// failed due to a too small output buffer.
 	pub fn write(
@@ -343,7 +412,7 @@ where
 			buffer,
 			allow_skip,
 			|len| {
-				weight_per_byte.map(|w| RuntimeToken::ChainExtension(w.saturating_mul(len.into())))
+				weight_per_byte.map(|w| RuntimeCosts::ChainExtension(w.saturating_mul(len.into())))
 			},
 		)
 	}
@@ -356,7 +425,9 @@ where
 /// gets too large.
 struct Inner<'a, 'b, E: Ext> {
 	/// The runtime contains all necessary functions to interact with the running contract.
-	runtime: &'a mut Runtime::<'b, E>,
+	runtime: &'a mut Runtime<'b, E>,
+	/// Verbatim argument passed to `seal_call_chain_extension`.
+	id: u32,
 	/// Verbatim argument passed to `seal_call_chain_extension`.
 	input_ptr: u32,
 	/// Verbatim argument passed to `seal_call_chain_extension`.
@@ -376,6 +447,8 @@ mod state {
 	pub trait BufIn: State {}
 	pub trait BufOut: State {}
 
+	/// The initial state of an [`Environment`](`super::Environment`).
+	/// See [typestate programming](https://docs.rust-embedded.org/book/static-guarantees/typestate-programming.html).
 	pub enum Init {}
 	pub enum OnlyIn {}
 	pub enum PrimInBufOut {}

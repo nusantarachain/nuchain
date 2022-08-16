@@ -9,7 +9,7 @@ use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_system::{EventRecord, RawOrigin};
 use sp_runtime::traits::{Bounded, Saturating};
 
-use crate::Module as Liquidity;
+use crate::Pallet as Liquidity;
 // use crate::pallet::BalanceOf;
 
 // type LEvent<T> = crate::pallet::Event<T>;

@@ -1,4 +1,4 @@
-// Copyright 2021 Parity Technologies (UK) Ltd.
+// Copyright 2022 Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -20,32 +20,37 @@
 //! Only supports bitswap 1.2.0.
 //! CID is expected to reference 256-bit Blake2b transaction hash.
 
-use std::collections::VecDeque;
-use std::io;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use cid::Version;
-use codec::Encode;
-use core::pin::Pin;
-use futures::Future;
-use futures::io::{AsyncRead, AsyncWrite};
-use libp2p::core::{
-	connection::ConnectionId, Multiaddr, PeerId,
-	upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo,
-};
-use libp2p::swarm::{
-	NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, PollParameters,
-	ProtocolsHandler, IntoProtocolsHandler, OneShotHandler,
-};
-use log::{error, debug, trace};
-use prost::Message;
-use sp_runtime::traits::{Block as BlockT};
-use unsigned_varint::{encode as varint_encode};
-use crate::chain::Client;
 use crate::schema::bitswap::{
+	message::{wantlist::WantType, Block as MessageBlock, BlockPresence, BlockPresenceType},
 	Message as BitswapMessage,
-	message::{wantlist::WantType, Block as MessageBlock, BlockPresenceType, BlockPresence},
 };
+use cid::Version;
+use core::pin::Pin;
+use futures::{
+	io::{AsyncRead, AsyncWrite},
+	Future,
+};
+use libp2p::{
+	core::{
+		connection::ConnectionId, upgrade, InboundUpgrade, Multiaddr, OutboundUpgrade, PeerId,
+		UpgradeInfo,
+	},
+	swarm::{
+		NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
+	},
+};
+use log::{debug, error, trace};
+use prost::Message;
+use sc_client_api::BlockBackend;
+use sp_runtime::traits::Block as BlockT;
+use std::{
+	collections::VecDeque,
+	io,
+	marker::PhantomData,
+	sync::Arc,
+	task::{Context, Poll},
+};
+use unsigned_varint::encode as varint_encode;
 
 const LOG_TARGET: &str = "bitswap";
 
@@ -60,7 +65,7 @@ const MAX_RESPONSE_QUEUE: usize = 20;
 // Max number of blocks per wantlist
 const MAX_WANTED_BLOCKS: usize = 16;
 
-const PROTOCOL_NAME: &'static [u8] = b"/ipfs/bitswap/1.2.0";
+const PROTOCOL_NAME: &[u8] = b"/ipfs/bitswap/1.2.0";
 
 type FutureResult<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
@@ -87,7 +92,7 @@ where
 
 	fn upgrade_inbound(self, mut socket: TSocket, _info: Self::Info) -> Self::Future {
 		Box::pin(async move {
-			let packet = upgrade::read_one(&mut socket, MAX_PACKET_SIZE).await?;
+			let packet = upgrade::read_length_prefixed(&mut socket, MAX_PACKET_SIZE).await?;
 			let message: BitswapMessage = Message::decode(packet.as_slice())?;
 			Ok(message)
 		})
@@ -113,9 +118,8 @@ where
 
 	fn upgrade_outbound(self, mut socket: TSocket, _info: Self::Info) -> Self::Future {
 		Box::pin(async move {
-			let mut data = Vec::with_capacity(self.encoded_len());
-			self.encode(&mut data)?;
-			upgrade::write_one(&mut socket, data).await
+			let data = self.encode_to_vec();
+			upgrade::write_length_prefixed(&mut socket, data).await
 		})
 	}
 }
@@ -162,10 +166,10 @@ impl Prefix {
 		let version = varint_encode::u64(self.version.into(), &mut buf);
 		res.extend_from_slice(version);
 		let mut buf = varint_encode::u64_buffer();
-		let codec = varint_encode::u64(self.codec.into(), &mut buf);
+		let codec = varint_encode::u64(self.codec, &mut buf);
 		res.extend_from_slice(codec);
 		let mut buf = varint_encode::u64_buffer();
-		let mh_type = varint_encode::u64(self.mh_type.into(), &mut buf);
+		let mh_type = varint_encode::u64(self.mh_type, &mut buf);
 		res.extend_from_slice(mh_type);
 		let mut buf = varint_encode::u64_buffer();
 		let mh_len = varint_encode::u64(self.mh_len as u64, &mut buf);
@@ -175,37 +179,33 @@ impl Prefix {
 }
 
 /// Network behaviour that handles sending and receiving IPFS blocks.
-pub struct Bitswap<B> {
-	client: Arc<dyn Client<B>>,
+pub struct Bitswap<B, Client> {
+	client: Arc<Client>,
 	ready_blocks: VecDeque<(PeerId, BitswapMessage)>,
+	_block: PhantomData<B>,
 }
 
-impl<B: BlockT> Bitswap<B> {
+impl<B, Client> Bitswap<B, Client> {
 	/// Create a new instance of the bitswap protocol handler.
-	pub fn new(client: Arc<dyn Client<B>>) -> Self {
-		Bitswap {
-			client,
-			ready_blocks: Default::default(),
-		}
+	pub fn new(client: Arc<Client>) -> Self {
+		Self { client, ready_blocks: Default::default(), _block: PhantomData::default() }
 	}
 }
 
-impl<B: BlockT> NetworkBehaviour for Bitswap<B> {
-	type ProtocolsHandler = OneShotHandler<BitswapConfig, BitswapMessage, HandlerEvent>;
+impl<B, Client> NetworkBehaviour for Bitswap<B, Client>
+where
+	B: BlockT,
+	Client: BlockBackend<B> + Send + Sync + 'static,
+{
+	type ConnectionHandler = OneShotHandler<BitswapConfig, BitswapMessage, HandlerEvent>;
 	type OutEvent = void::Void;
 
-	fn new_handler(&mut self) -> Self::ProtocolsHandler {
+	fn new_handler(&mut self) -> Self::ConnectionHandler {
 		Default::default()
 	}
 
 	fn addresses_of_peer(&mut self, _peer: &PeerId) -> Vec<Multiaddr> {
 		Vec::new()
-	}
-
-	fn inject_connected(&mut self, _peer: &PeerId) {
-	}
-
-	fn inject_disconnected(&mut self, _peer: &PeerId) {
 	}
 
 	fn inject_event(&mut self, peer: PeerId, _connection: ConnectionId, message: HandlerEvent) {
@@ -216,7 +216,7 @@ impl<B: BlockT> NetworkBehaviour for Bitswap<B> {
 		trace!(target: LOG_TARGET, "Received request: {:?} from {}", request, peer);
 		if self.ready_blocks.len() > MAX_RESPONSE_QUEUE {
 			debug!(target: LOG_TARGET, "Ignored request: queue is full");
-			return;
+			return
 		}
 		let mut response = BitswapMessage {
 			wantlist: None,
@@ -228,44 +228,40 @@ impl<B: BlockT> NetworkBehaviour for Bitswap<B> {
 		let wantlist = match request.wantlist {
 			Some(wantlist) => wantlist,
 			None => {
-				debug!(
-					target: LOG_TARGET,
-					"Unexpected bitswap message from {}",
-					peer,
-				);
-				return;
-			}
+				debug!(target: LOG_TARGET, "Unexpected bitswap message from {}", peer);
+				return
+			},
 		};
 		if wantlist.entries.len() > MAX_WANTED_BLOCKS {
 			trace!(target: LOG_TARGET, "Ignored request: too many entries");
-			return;
+			return
 		}
 		for entry in wantlist.entries {
 			let cid = match cid::Cid::read_bytes(entry.block.as_slice()) {
 				Ok(cid) => cid,
 				Err(e) => {
 					trace!(target: LOG_TARGET, "Bad CID {:?}: {:?}", entry.block, e);
-					continue;
-				}
+					continue
+				},
 			};
-			if cid.version() != cid::Version::V1
-				|| cid.hash().code() != u64::from(cid::multihash::Code::Blake2b256)
-				|| cid.hash().size() != 32
+			if cid.version() != cid::Version::V1 ||
+				cid.hash().code() != u64::from(cid::multihash::Code::Blake2b256) ||
+				cid.hash().size() != 32
 			{
 				debug!(target: LOG_TARGET, "Ignoring unsupported CID {}: {}", peer, cid);
 				continue
 			}
 			let mut hash = B::Hash::default();
 			hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
-			let extrinsic = match self.client.extrinsic(&hash) {
+			let transaction = match self.client.indexed_transaction(&hash) {
 				Ok(ex) => ex,
 				Err(e) => {
-					error!(target: LOG_TARGET, "Error retrieving extrinsic {}: {}", hash, e);
+					error!(target: LOG_TARGET, "Error retrieving transaction {}: {}", hash, e);
 					None
-				}
+				},
 			};
-			match extrinsic {
-				Some(extrinsic) => {
+			match transaction {
+				Some(transaction) => {
 					trace!(target: LOG_TARGET, "Found CID {:?}, hash {:?}", cid, hash);
 					if entry.want_type == WantType::Block as i32 {
 						let prefix = Prefix {
@@ -274,10 +270,9 @@ impl<B: BlockT> NetworkBehaviour for Bitswap<B> {
 							mh_type: cid.hash().code(),
 							mh_len: cid.hash().size(),
 						};
-						response.payload.push(MessageBlock {
-							prefix: prefix.to_bytes(),
-							data: extrinsic.encode(),
-						});
+						response
+							.payload
+							.push(MessageBlock { prefix: prefix.to_bytes(), data: transaction });
 					} else {
 						response.block_presences.push(BlockPresence {
 							r#type: BlockPresenceType::Have as i32,
@@ -293,22 +288,21 @@ impl<B: BlockT> NetworkBehaviour for Bitswap<B> {
 							cid: cid.to_bytes(),
 						});
 					}
-				}
+				},
 			}
 		}
 		trace!(target: LOG_TARGET, "Response: {:?}", response);
 		self.ready_blocks.push_back((peer, response));
 	}
 
-	fn poll(&mut self, _ctx: &mut Context, _: &mut impl PollParameters) -> Poll<
-		NetworkBehaviourAction<
-			<<Self::ProtocolsHandler as IntoProtocolsHandler>::Handler as ProtocolsHandler>::InEvent,
-			Self::OutEvent,
-		>,
-	> {
+	fn poll(
+		&mut self,
+		_ctx: &mut Context,
+		_: &mut impl PollParameters,
+	) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
 		if let Some((peer_id, message)) = self.ready_blocks.pop_front() {
 			return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
-				peer_id: peer_id.clone(),
+				peer_id,
 				handler: NotifyHandler::Any,
 				event: message,
 			})
@@ -318,21 +312,29 @@ impl<B: BlockT> NetworkBehaviour for Bitswap<B> {
 }
 
 /// Bitswap protocol error.
-#[derive(derive_more::Display, derive_more::From)]
+#[derive(Debug, thiserror::Error)]
 pub enum BitswapError {
 	/// Protobuf decoding error.
-	#[display(fmt = "Failed to decode request: {}.", _0)]
-	DecodeProto(prost::DecodeError),
+	#[error("Failed to decode request: {0}.")]
+	DecodeProto(#[from] prost::DecodeError),
+
 	/// Protobuf encoding error.
-	#[display(fmt = "Failed to encode response: {}.", _0)]
-	EncodeProto(prost::EncodeError),
+	#[error("Failed to encode response: {0}.")]
+	EncodeProto(#[from] prost::EncodeError),
+
 	/// Client backend error.
-	Client(sp_blockchain::Error),
+	#[error(transparent)]
+	Client(#[from] sp_blockchain::Error),
+
 	/// Error parsing CID
-	BadCid(cid::Error),
+	#[error(transparent)]
+	BadCid(#[from] cid::Error),
+
 	/// Packet read error.
-	Read(upgrade::ReadOneError),
+	#[error(transparent)]
+	Read(#[from] io::Error),
+
 	/// Error sending response.
-	#[display(fmt = "Failed to send response.")]
+	#[error("Failed to send response.")]
 	SendResponse,
 }

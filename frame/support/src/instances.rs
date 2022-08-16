@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,10 +30,6 @@
 //!
 //! NOTE: [`frame_support::pallet`] will reexport them inside the module, in order to make them
 //! accessible to [`frame_support::construct_runtime`].
-
-/// Instance0 to be used for instantiable pallet define with `pallet` macro.
-#[derive(Clone, Copy, PartialEq, Eq, crate::RuntimeDebugNoBound)]
-pub struct Instance0;
 
 /// Instance1 to be used for instantiable pallet define with `pallet` macro.
 #[derive(Clone, Copy, PartialEq, Eq, crate::RuntimeDebugNoBound)]
@@ -94,3 +90,7 @@ pub struct Instance14;
 /// Instance15 to be used for instantiable pallet define with `pallet` macro.
 #[derive(Clone, Copy, PartialEq, Eq, crate::RuntimeDebugNoBound)]
 pub struct Instance15;
+
+/// Instance16 to be used for instantiable pallet define with `pallet` macro.
+#[derive(Clone, Copy, PartialEq, Eq, crate::RuntimeDebugNoBound)]
+pub struct Instance16;

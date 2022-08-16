@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,10 +35,10 @@ fn backing_for_should_work() {
 fn deposit_for_proposals_should_be_taken() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(propose_set_balance_and_note(1, 2, 5));
-		assert_ok!(Democracy::second(Origin::signed(2), 0, u32::max_value()));
-		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::max_value()));
-		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::max_value()));
-		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::max_value()));
+		assert_ok!(Democracy::second(Origin::signed(2), 0, u32::MAX));
+		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::MAX));
+		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::MAX));
+		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::MAX));
 		assert_eq!(Balances::free_balance(1), 5);
 		assert_eq!(Balances::free_balance(2), 15);
 		assert_eq!(Balances::free_balance(5), 35);
@@ -49,10 +49,10 @@ fn deposit_for_proposals_should_be_taken() {
 fn deposit_for_proposals_should_be_returned() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(propose_set_balance_and_note(1, 2, 5));
-		assert_ok!(Democracy::second(Origin::signed(2), 0, u32::max_value()));
-		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::max_value()));
-		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::max_value()));
-		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::max_value()));
+		assert_ok!(Democracy::second(Origin::signed(2), 0, u32::MAX));
+		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::MAX));
+		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::MAX));
+		assert_ok!(Democracy::second(Origin::signed(5), 0, u32::MAX));
 		fast_forward_to(3);
 		assert_eq!(Balances::free_balance(1), 10);
 		assert_eq!(Balances::free_balance(2), 20);
@@ -79,7 +79,7 @@ fn poor_seconder_should_not_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(propose_set_balance_and_note(2, 2, 11));
 		assert_noop!(
-			Democracy::second(Origin::signed(1), 0, u32::max_value()),
+			Democracy::second(Origin::signed(1), 0, u32::MAX),
 			BalancesError::<Test, _>::InsufficientBalance
 		);
 	});
@@ -89,21 +89,18 @@ fn poor_seconder_should_not_work() {
 fn invalid_seconds_upper_bound_should_not_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(propose_set_balance_and_note(1, 2, 5));
-		assert_noop!(
-			Democracy::second(Origin::signed(2), 0, 0),
-			Error::<Test>::WrongUpperBound
-		);
+		assert_noop!(Democracy::second(Origin::signed(2), 0, 0), Error::<Test>::WrongUpperBound);
 	});
 }
 
 #[test]
 fn cancel_proposal_should_work() {
 	new_test_ext().execute_with(|| {
-		System::set_block_number(0);
 		assert_ok!(propose_set_balance_and_note(1, 2, 2));
 		assert_ok!(propose_set_balance_and_note(1, 4, 4));
 		assert_noop!(Democracy::cancel_proposal(Origin::signed(1), 0), BadOrigin);
 		assert_ok!(Democracy::cancel_proposal(Origin::root(), 0));
+		System::assert_last_event(crate::Event::ProposalCanceled { prop_index: 0 }.into());
 		assert_eq!(Democracy::backing_for(0), None);
 		assert_eq!(Democracy::backing_for(1), Some(4));
 	});
@@ -129,9 +126,9 @@ fn blacklisting_should_work() {
 		fast_forward_to(2);
 
 		let hash = set_balance_proposal_hash(4);
-		assert!(Democracy::referendum_status(0).is_ok());
+		assert_ok!(Democracy::referendum_status(0));
 		assert_ok!(Democracy::blacklist(Origin::root(), hash, Some(0)));
-		assert!(Democracy::referendum_status(0).is_err());
+		assert_noop!(Democracy::referendum_status(0), Error::<Test>::ReferendumInvalid);
 	});
 }
 

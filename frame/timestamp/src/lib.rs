@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,21 +19,22 @@
 //!
 //! The Timestamp pallet provides functionality to get and set the on-chain time.
 //!
-//! - [`timestamp::Config`](./trait.Config.html)
-//! - [`Call`](./enum.Call.html)
-//! - [`Pallet`](./struct.Pallet.html)
+//! - [`Config`]
+//! - [`Call`]
+//! - [`Pallet`]
 //!
 //! ## Overview
 //!
 //! The Timestamp pallet allows the validators to set and validate a timestamp with each block.
 //!
-//! It uses inherents for timestamp data, which is provided by the block author and validated/verified
-//! by other validators. The timestamp can be set only once per block and must be set each block.
-//! There could be a constraint on how much time must pass before setting the new timestamp.
+//! It uses inherents for timestamp data, which is provided by the block author and
+//! validated/verified by other validators. The timestamp can be set only once per block and must be
+//! set each block. There could be a constraint on how much time must pass before setting the new
+//! timestamp.
 //!
-//! **NOTE:** The Timestamp pallet is the recommended way to query the on-chain time instead of using
-//! an approach based on block numbers. The block number based time measurement can cause issues
-//! because of cumulative calculation errors and hence should be avoided.
+//! **NOTE:** The Timestamp pallet is the recommended way to query the on-chain time instead of
+//! using an approach based on block numbers. The block number based time measurement can cause
+//! issues because of cumulative calculation errors and hence should be avoided.
 //!
 //! ## Interface
 //!
@@ -52,7 +53,8 @@
 //!
 //! ## Usage
 //!
-//! The following example shows how to use the Timestamp pallet in your custom pallet to query the current timestamp.
+//! The following example shows how to use the Timestamp pallet in your custom pallet to query the
+//! current timestamp.
 //!
 //! ### Prerequisites
 //!
@@ -62,18 +64,26 @@
 //! ### Get current timestamp
 //!
 //! ```
-//! use frame_support::{decl_module, dispatch};
-//! # use pallet_timestamp as timestamp;
-//! use frame_system::ensure_signed;
+//! use pallet_timestamp::{self as timestamp};
 //!
-//! pub trait Config: timestamp::Config {}
+//! #[frame_support::pallet]
+//! pub mod pallet {
+//! 	use super::*;
+//! 	use frame_support::pallet_prelude::*;
+//! 	use frame_system::pallet_prelude::*;
 //!
-//! decl_module! {
-//! 	pub struct Module<T: Config> for enum Call where origin: T::Origin {
-//! 		#[weight = 0]
-//! 		pub fn get_time(origin) -> dispatch::DispatchResult {
+//! 	#[pallet::pallet]
+//! 	pub struct Pallet<T>(_);
+//!
+//! 	#[pallet::config]
+//! 	pub trait Config: frame_system::Config + timestamp::Config {}
+//!
+//! 	#[pallet::call]
+//! 	impl<T: Config> Pallet<T> {
+//! 		#[pallet::weight(0)]
+//! 		pub fn get_time(origin: OriginFor<T>) -> DispatchResult {
 //! 			let _sender = ensure_signed(origin)?;
-//! 			let _now = <timestamp::Module<T>>::get();
+//! 			let _now = <timestamp::Pallet<T>>::get();
 //! 			Ok(())
 //! 		}
 //! 	}
@@ -93,47 +103,46 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 pub mod weights;
 
-use sp_std::{result, cmp};
-use sp_inherents::InherentData;
-#[cfg(feature = "std")]
-use frame_support::debug;
-use frame_support::traits::{Time, UnixTime};
-use sp_runtime::{
-	RuntimeString,
-	traits::{
-		AtLeast32Bit, Zero, SaturatedConversion, Scale,
-	}
-};
-use sp_timestamp::{
-	InherentError, INHERENT_IDENTIFIER, InherentType,
-	OnTimestampSet,
-};
+use frame_support::traits::{OnTimestampSet, Time, UnixTime};
+use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
+use sp_std::{cmp, result};
+use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use super::*;
 
 	/// The pallet configuration trait
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Type used for expressing timestamp.
-		type Moment: Parameter + Default + AtLeast32Bit
-			+ Scale<Self::BlockNumber, Output = Self::Moment> + Copy;
+		type Moment: Parameter
+			+ Default
+			+ AtLeast32Bit
+			+ Scale<Self::BlockNumber, Output = Self::Moment>
+			+ Copy
+			+ MaxEncodedLen
+			+ scale_info::StaticTypeInfo;
 
-		/// Something which can be notified when the timestamp is set. Set this to `()` if not needed.
+		/// Something which can be notified when the timestamp is set. Set this to `()` if not
+		/// needed.
 		type OnTimestampSet: OnTimestampSet<Self::Moment>;
 
-		/// The minimum period between blocks. Beware that this is different to the *expected* period
-		/// that the block production apparatus provides. Your chosen consensus system will generally
-		/// work with this to determine a sensible block time. e.g. For Aura, it will be double this
-		/// period on default settings.
+		/// The minimum period between blocks. Beware that this is different to the *expected*
+		/// period that the block production apparatus provides. Your chosen consensus system will
+		/// generally work with this to determine a sensible block time. e.g. For Aura, it will be
+		/// double this period on default settings.
 		#[pallet::constant]
 		type MinimumPeriod: Get<Self::Moment>;
 
@@ -185,14 +194,15 @@ pub mod pallet {
 		///
 		/// # <weight>
 		/// - `O(1)` (Note that implementations of `OnTimestampSet` must also be `O(1)`)
-		/// - 1 storage read and 1 storage mutation (codec `O(1)`). (because of `DidUpdate::take` in `on_finalize`)
+		/// - 1 storage read and 1 storage mutation (codec `O(1)`). (because of `DidUpdate::take` in
+		///   `on_finalize`)
 		/// - 1 event handler `on_timestamp_set`. Must be `O(1)`.
 		/// # </weight>
 		#[pallet::weight((
 			T::WeightInfo::set(),
 			DispatchClass::Mandatory
 		))]
-		pub(super) fn set(origin: OriginFor<T>, #[pallet::compact] now: T::Moment) -> DispatchResultWithPostInfo {
+		pub fn set(origin: OriginFor<T>, #[pallet::compact] now: T::Moment) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(!DidUpdate::<T>::exists(), "Timestamp must be updated only once in the block");
 			let prev = Self::now();
@@ -205,7 +215,7 @@ pub mod pallet {
 
 			<T::OnTimestampSet as OnTimestampSet<_>>::on_timestamp_set(now);
 
-			Ok(().into())
+			Ok(())
 		}
 	}
 
@@ -216,32 +226,45 @@ pub mod pallet {
 		const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let data: T::Moment = extract_inherent_data(data)
-				.expect("Gets and decodes timestamp inherent data")
-				.saturated_into();
+			let inherent_data = data
+				.get_data::<InherentType>(&INHERENT_IDENTIFIER)
+				.expect("Timestamp inherent data not correctly encoded")
+				.expect("Timestamp inherent data must be provided");
+			let data = (*inherent_data).saturated_into::<T::Moment>();
 
 			let next_time = cmp::max(data, Self::now() + T::MinimumPeriod::get());
-			Some(Call::set(next_time.into()))
+			Some(Call::set { now: next_time })
 		}
 
-		fn check_inherent(call: &Self::Call, data: &InherentData) -> result::Result<(), Self::Error> {
-			const MAX_TIMESTAMP_DRIFT_MILLIS: u64 = 30 * 1000;
+		fn check_inherent(
+			call: &Self::Call,
+			data: &InherentData,
+		) -> result::Result<(), Self::Error> {
+			const MAX_TIMESTAMP_DRIFT_MILLIS: sp_timestamp::Timestamp =
+				sp_timestamp::Timestamp::new(30 * 1000);
 
 			let t: u64 = match call {
-				Call::set(ref t) => t.clone().saturated_into::<u64>(),
+				Call::set { ref now } => (*now).saturated_into::<u64>(),
 				_ => return Ok(()),
 			};
 
-			let data = extract_inherent_data(data).map_err(|e| InherentError::Other(e))?;
+			let data = data
+				.get_data::<InherentType>(&INHERENT_IDENTIFIER)
+				.expect("Timestamp inherent data not correctly encoded")
+				.expect("Timestamp inherent data must be provided");
 
 			let minimum = (Self::now() + T::MinimumPeriod::get()).saturated_into::<u64>();
-			if t > data + MAX_TIMESTAMP_DRIFT_MILLIS {
-				Err(InherentError::Other("Timestamp too far in future to accept".into()))
+			if t > *(data + MAX_TIMESTAMP_DRIFT_MILLIS) {
+				Err(InherentError::TooFarInFuture)
 			} else if t < minimum {
-				Err(InherentError::ValidAtTimestamp(minimum))
+				Err(InherentError::ValidAtTimestamp(minimum.into()))
 			} else {
 				Ok(())
 			}
+		}
+
+		fn is_inherent(call: &Self::Call) -> bool {
+			matches!(call, Call::set { .. })
 		}
 	}
 }
@@ -256,16 +279,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Set the timestamp to something in particular. Only used for tests.
-	#[cfg(feature = "std")]
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
 	pub fn set_timestamp(now: T::Moment) {
 		Now::<T>::put(now);
+		DidUpdate::<T>::put(true);
+		<T::OnTimestampSet as OnTimestampSet<_>>::on_timestamp_set(now);
 	}
-}
-
-fn extract_inherent_data(data: &InherentData) -> Result<InherentType, RuntimeString> {
-	data.get_data::<InherentType>(&INHERENT_IDENTIFIER)
-		.map_err(|_| RuntimeString::from("Invalid timestamp inherent data encoding."))?
-		.ok_or_else(|| "Timestamp inherent data is not provided.".into())
 }
 
 impl<T: Config> Time for Pallet<T> {
@@ -287,110 +306,12 @@ impl<T: Config> UnixTime for Pallet<T> {
 		let now = Self::now();
 		sp_std::if_std! {
 			if now == T::Moment::zero() {
-
-				#[cfg(feature = "std")]
-				debug::error!(
-					"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0"
+				log::error!(
+					target: "runtime::timestamp",
+					"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
 				);
 			}
 		}
 		core::time::Duration::from_millis(now.saturated_into::<u64>())
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use crate as pallet_timestamp;
-	use super::*;
-
-	use frame_support::{assert_ok, parameter_types};
-	use sp_io::TestExternalities;
-	use sp_core::H256;
-	use sp_runtime::{traits::{BlakeTwo256, IdentityLookup}, testing::Header};
-
-	pub fn new_test_ext() -> TestExternalities {
-		let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		TestExternalities::new(t)
-	}
-
-	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-	type Block = frame_system::mocking::MockBlock<Test>;
-
-	frame_support::construct_runtime!(
-		pub enum Test where
-			Block = Block,
-			NodeBlock = Block,
-			UncheckedExtrinsic = UncheckedExtrinsic,
-		{
-			System: frame_system::{Module, Call, Config, Storage, Event<T>},
-			Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-		}
-	);
-
-	parameter_types! {
-		pub const BlockHashCount: u64 = 250;
-		pub BlockWeights: frame_system::limits::BlockWeights =
-			frame_system::limits::BlockWeights::simple_max(1024);
-	}
-	impl frame_system::Config for Test {
-		type BaseCallFilter = ();
-		type BlockWeights = ();
-		type BlockLength = ();
-		type DbWeight = ();
-		type Origin = Origin;
-		type Index = u64;
-		type BlockNumber = u64;
-		type Call = Call;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<Self::AccountId>;
-		type Header = Header;
-		type Event = Event;
-		type BlockHashCount = BlockHashCount;
-		type Version = ();
-		type PalletInfo = PalletInfo;
-		type AccountData = ();
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = ();
-	}
-	parameter_types! {
-		pub const MinimumPeriod: u64 = 5;
-	}
-	impl Config for Test {
-		type Moment = u64;
-		type OnTimestampSet = ();
-		type MinimumPeriod = MinimumPeriod;
-		type WeightInfo = ();
-	}
-
-	#[test]
-	fn timestamp_works() {
-		new_test_ext().execute_with(|| {
-			Timestamp::set_timestamp(42);
-			assert_ok!(Timestamp::set(Origin::none(), 69));
-			assert_eq!(Timestamp::now(), 69);
-		});
-	}
-
-	#[test]
-	#[should_panic(expected = "Timestamp must be updated only once in the block")]
-	fn double_timestamp_should_fail() {
-		new_test_ext().execute_with(|| {
-			Timestamp::set_timestamp(42);
-			assert_ok!(Timestamp::set(Origin::none(), 69));
-			let _ = Timestamp::set(Origin::none(), 70);
-		});
-	}
-
-	#[test]
-	#[should_panic(expected = "Timestamp must increment by at least <MinimumPeriod> between sequential blocks")]
-	fn block_period_minimum_enforced() {
-		new_test_ext().execute_with(|| {
-			Timestamp::set_timestamp(42);
-			let _ = Timestamp::set(Origin::none(), 46);
-		});
 	}
 }

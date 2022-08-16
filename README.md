@@ -59,7 +59,7 @@ Pada fase ini fitur *smart contract* akan diaktifkan, dan user bisa mulai membua
 
 ## Pengembangan
 
-Saat ini Nuchain sedang dalam **Fase 01 - Genesis** dan sementara ini kehidupannya bisa dipantau melalui [Nuchain Dashboard](https://dashboard.nuchain.network).
+Saat ini Nuchain sedang dalam **Fase 01 - Genesis** dan sementara ini kehidupannya bisa dipantau melalui [Nuchain Dashboard](https://nuchain.riset.tech).
 
 Nuchain dikembangkan menggunakan [Substrate](https://substrate.dev) sumber terbuka dan siapapun bisa ikut join untuk mendukung perkembangan Nuchain.
 

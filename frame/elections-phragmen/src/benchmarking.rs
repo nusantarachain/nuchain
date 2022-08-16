@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2020-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,30 +21,22 @@
 
 use super::*;
 
+use frame_benchmarking::{account, benchmarks, whitelist, BenchmarkError, BenchmarkResult};
+use frame_support::{dispatch::DispatchResultWithPostInfo, traits::OnInitialize};
 use frame_system::RawOrigin;
-use frame_benchmarking::{benchmarks, account, impl_benchmark_test_suite};
-use frame_support::traits::OnInitialize;
 
-use crate::Module as Elections;
+use crate::Pallet as Elections;
 
 const BALANCE_FACTOR: u32 = 250;
-const MAX_VOTERS: u32 = 500;
-const MAX_CANDIDATES: u32 = 200;
 
 type Lookup<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-
-macro_rules! whitelist {
-	($acc:ident) => {
-		frame_benchmarking::benchmarking::add_to_whitelist(
-			frame_system::Account::<T>::hashed_key_for(&$acc).into()
-		);
-	};
-}
 
 /// grab new account with infinite balance.
 fn endowed_account<T: Config>(name: &'static str, index: u32) -> T::AccountId {
 	let account: T::AccountId = account(name, index, 0);
-	let amount = default_stake::<T>(BALANCE_FACTOR);
+	// Fund each account with at-least his stake but still a sane amount as to not mess up
+	// the vote calculation.
+	let amount = default_stake::<T>(T::MaxVoters::get()) * BalanceOf::<T>::from(BALANCE_FACTOR);
 	let _ = T::Currency::make_free_balance_be(&account, amount);
 	// important to increase the total issuance since T::CurrencyToVote will need it to be sane for
 	// phragmen to work.
@@ -59,9 +51,9 @@ fn as_lookup<T: Config>(account: T::AccountId) -> Lookup<T> {
 }
 
 /// Get a reasonable amount of stake based on the execution trait's configuration
-fn default_stake<T: Config>(factor: u32) -> BalanceOf<T> {
-	let factor = BalanceOf::<T>::from(factor);
-	T::Currency::minimum_balance() * factor
+fn default_stake<T: Config>(num_votes: u32) -> BalanceOf<T> {
+	let min = T::Currency::minimum_balance();
+	Elections::<T>::deposit_of(num_votes as usize).max(min)
 }
 
 /// Get the current number of candidates.
@@ -70,53 +62,57 @@ fn candidate_count<T: Config>() -> u32 {
 }
 
 /// Add `c` new candidates.
-fn submit_candidates<T: Config>(c: u32, prefix: &'static str)
-	-> Result<Vec<T::AccountId>, &'static str>
-{
-	(0..c).map(|i| {
-		let account = endowed_account::<T>(prefix, i);
-		<Elections<T>>::submit_candidacy(
-			RawOrigin::Signed(account.clone()).into(),
-			candidate_count::<T>(),
-		).map_err(|_| "failed to submit candidacy")?;
-		Ok(account)
-	}).collect::<Result<_, _>>()
+fn submit_candidates<T: Config>(
+	c: u32,
+	prefix: &'static str,
+) -> Result<Vec<T::AccountId>, &'static str> {
+	(0..c)
+		.map(|i| {
+			let account = endowed_account::<T>(prefix, i);
+			<Elections<T>>::submit_candidacy(
+				RawOrigin::Signed(account.clone()).into(),
+				candidate_count::<T>(),
+			)
+			.map_err(|_| "failed to submit candidacy")?;
+			Ok(account)
+		})
+		.collect::<Result<_, _>>()
 }
 
 /// Add `c` new candidates with self vote.
-fn submit_candidates_with_self_vote<T: Config>(c: u32, prefix: &'static str)
-	-> Result<Vec<T::AccountId>, &'static str>
-{
+fn submit_candidates_with_self_vote<T: Config>(
+	c: u32,
+	prefix: &'static str,
+) -> Result<Vec<T::AccountId>, &'static str> {
 	let candidates = submit_candidates::<T>(c, prefix)?;
-	let stake = default_stake::<T>(BALANCE_FACTOR);
-	let _ = candidates.iter().map(|c|
-		submit_voter::<T>(c.clone(), vec![c.clone()], stake).map(|_| ())
-	).collect::<Result<_, _>>()?;
+	let stake = default_stake::<T>(c);
+	let _ = candidates
+		.iter()
+		.try_for_each(|c| submit_voter::<T>(c.clone(), vec![c.clone()], stake).map(|_| ()))?;
 	Ok(candidates)
 }
 
-
 /// Submit one voter.
-fn submit_voter<T: Config>(caller: T::AccountId, votes: Vec<T::AccountId>, stake: BalanceOf<T>)
-	-> frame_support::dispatch::DispatchResult
-{
+fn submit_voter<T: Config>(
+	caller: T::AccountId,
+	votes: Vec<T::AccountId>,
+	stake: BalanceOf<T>,
+) -> DispatchResultWithPostInfo {
 	<Elections<T>>::vote(RawOrigin::Signed(caller).into(), votes, stake)
 }
 
 /// create `num_voter` voters who randomly vote for at most `votes` of `all_candidates` if
 /// available.
-fn distribute_voters<T: Config>(mut all_candidates: Vec<T::AccountId>, num_voters: u32, votes: usize)
-	-> Result<(), &'static str>
-{
-	let stake = default_stake::<T>(BALANCE_FACTOR);
+fn distribute_voters<T: Config>(
+	mut all_candidates: Vec<T::AccountId>,
+	num_voters: u32,
+	votes: usize,
+) -> Result<(), &'static str> {
+	let stake = default_stake::<T>(num_voters);
 	for i in 0..num_voters {
 		// to ensure that votes are different
 		all_candidates.rotate_left(1);
-		let votes = all_candidates
-			.iter()
-			.cloned()
-			.take(votes)
-			.collect::<Vec<_>>();
+		let votes = all_candidates.iter().cloned().take(votes).collect::<Vec<_>>();
 		let voter = endowed_account::<T>("voter", i);
 		submit_voter::<T>(voter, votes, stake)?;
 	}
@@ -135,13 +131,11 @@ fn fill_seats_up_to<T: Config>(m: u32) -> Result<Vec<T::AccountId>, &'static str
 		m as usize,
 		"wrong number of members and runners-up",
 	);
-	Ok(
-		<Elections<T>>::members()
-			.into_iter()
-			.map(|m| m.who)
-			.chain(<Elections<T>>::runners_up().into_iter().map(|r| r.who))
-			.collect()
-	)
+	Ok(<Elections<T>>::members()
+		.into_iter()
+		.map(|m| m.who)
+		.chain(<Elections<T>>::runners_up().into_iter().map(|r| r.who))
+		.collect())
 }
 
 /// removes all the storage items to reverse any genesis state.
@@ -149,7 +143,8 @@ fn clean<T: Config>() {
 	<Members<T>>::kill();
 	<Candidates<T>>::kill();
 	<RunnersUp<T>>::kill();
-	<Voting<T>>::remove_all();
+	#[allow(deprecated)]
+	<Voting<T>>::remove_all(None);
 }
 
 benchmarks! {
@@ -162,7 +157,7 @@ benchmarks! {
 		let all_candidates = submit_candidates::<T>(v, "candidates")?;
 
 		let caller = endowed_account::<T>("caller", 0);
-		let stake = default_stake::<T>(BALANCE_FACTOR);
+		let stake = default_stake::<T>(v);
 
 		// original votes.
 		let mut votes = all_candidates;
@@ -175,14 +170,15 @@ benchmarks! {
 	}: vote(RawOrigin::Signed(caller), votes, stake)
 
 	vote_more {
-		let v in 2 .. (MAXIMUM_VOTE  as u32);
+		let v in 2 .. (MAXIMUM_VOTE as u32);
 		clean::<T>();
 
 		// create a bunch of candidates.
 		let all_candidates = submit_candidates::<T>(v, "candidates")?;
 
 		let caller = endowed_account::<T>("caller", 0);
-		let stake = default_stake::<T>(BALANCE_FACTOR);
+		// Multiply the stake with 10 since we want to be able to divide it by 10 again.
+		let stake = default_stake::<T>(v) * BalanceOf::<T>::from(10u32);
 
 		// original votes.
 		let mut votes = all_candidates.iter().skip(1).cloned().collect::<Vec<_>>();
@@ -196,14 +192,14 @@ benchmarks! {
 	}: vote(RawOrigin::Signed(caller), votes, stake / <BalanceOf<T>>::from(10u32))
 
 	vote_less {
-		let v in 2 .. (MAXIMUM_VOTE  as u32);
+		let v in 2 .. (MAXIMUM_VOTE as u32);
 		clean::<T>();
 
 		// create a bunch of candidates.
 		let all_candidates = submit_candidates::<T>(v, "candidates")?;
 
 		let caller = endowed_account::<T>("caller", 0);
-		let stake = default_stake::<T>(BALANCE_FACTOR);
+		let stake = default_stake::<T>(v);
 
 		// original votes.
 		let mut votes = all_candidates;
@@ -226,7 +222,7 @@ benchmarks! {
 
 		let caller = endowed_account::<T>("caller", 0);
 
-		let stake = default_stake::<T>(BALANCE_FACTOR);
+		let stake = default_stake::<T>(v);
 		submit_voter::<T>(caller.clone(), all_candidates, stake)?;
 
 		whitelist!(caller);
@@ -234,13 +230,13 @@ benchmarks! {
 
 	submit_candidacy {
 		// number of already existing candidates.
-		let c in 1 .. MAX_CANDIDATES;
+		let c in 1 .. T::MaxCandidates::get();
 		// we fix the number of members to the number of desired members and runners-up. We'll be in
 		// this state almost always.
 		let m = T::DesiredMembers::get() + T::DesiredRunnersUp::get();
 
 		clean::<T>();
-		let stake = default_stake::<T>(BALANCE_FACTOR);
+		let stake = default_stake::<T>(c);
 
 		// create m members and runners combined.
 		let _ = fill_seats_up_to::<T>(m)?;
@@ -265,7 +261,7 @@ benchmarks! {
 		// this will check members, runners-up and candidate for removal. Members and runners-up are
 		// limited by the runtime bound, nonetheless we fill them by `m`.
 		// number of already existing candidates.
-		let c in 1 .. MAX_CANDIDATES;
+		let c in 1 .. T::MaxCandidates::get();
 		// we fix the number of members to the number of desired members and runners-up. We'll be in
 		// this state almost always.
 		let m = T::DesiredMembers::get() + T::DesiredRunnersUp::get();
@@ -337,36 +333,11 @@ benchmarks! {
 		}
 	}
 
-	// -- Root ones
-	#[extra] // this calls into phragmen and consumes a full block for now.
-	remove_member_without_replacement {
-		// worse case is when we remove a member and we have no runner as a replacement. This
-		// triggers phragmen again. The only parameter is how many candidates will compete for the
-		// new slot.
-		let c in 1 .. MAX_CANDIDATES;
-		clean::<T>();
-
-		// fill only desired members. no runners-up.
-		let all_members = fill_seats_up_to::<T>(T::DesiredMembers::get())?;
-		assert_eq!(<Elections<T>>::members().len() as u32, T::DesiredMembers::get());
-
-		// submit a new one to compensate, with self-vote.
-		let replacements = submit_candidates_with_self_vote::<T>(c, "new_candidate")?;
-
-		// create some voters for these replacements.
-		distribute_voters::<T>(replacements, MAX_VOTERS, MAXIMUM_VOTE)?;
-
-		let to_remove = as_lookup::<T>(all_members[0].clone());
-	}: remove_member(RawOrigin::Root, to_remove, false)
-	verify {
-		// must still have the desired number of members members.
-		assert_eq!(<Elections<T>>::members().len() as u32, T::DesiredMembers::get());
-		#[cfg(test)]
-		{
-			// reset members in between benchmark tests.
-			use crate::tests::MEMBERS;
-			MEMBERS.with(|m| *m.borrow_mut() = vec![]);
-		}
+	// We use the max block weight for this extrinsic for now. See below.
+	remove_member_without_replacement {}: {
+		Err(BenchmarkError::Override(
+			BenchmarkResult::from_weight(T::BlockWeights::get().max_block)
+		))?;
 	}
 
 	remove_member_with_replacement {
@@ -377,32 +348,7 @@ benchmarks! {
 
 		let _ = fill_seats_up_to::<T>(m)?;
 		let removing = as_lookup::<T>(<Elections<T>>::members_ids()[0].clone());
-	}: remove_member(RawOrigin::Root, removing, true)
-	verify {
-		// must still have enough members.
-		assert_eq!(<Elections<T>>::members().len() as u32, T::DesiredMembers::get());
-		#[cfg(test)]
-		{
-			// reset members in between benchmark tests.
-			use crate::tests::MEMBERS;
-			MEMBERS.with(|m| *m.borrow_mut() = vec![]);
-		}
-	}
-
-	remove_member_wrong_refund {
-		// The root call by mistake indicated that this will have no replacement, while it has!
-		// this has now consumed a lot of weight and need to refund.
-		let m = T::DesiredMembers::get() + T::DesiredRunnersUp::get();
-		clean::<T>();
-
-		let _ = fill_seats_up_to::<T>(m)?;
-		let removing = as_lookup::<T>(<Elections<T>>::members_ids()[0].clone());
-	}: {
-		assert_eq!(
-			<Elections<T>>::remove_member(RawOrigin::Root.into(), removing, false).unwrap_err().error,
-			Error::<T>::InvalidReplacement.into(),
-		);
-	}
+	}: remove_member(RawOrigin::Root, removing, true, false)
 	verify {
 		// must still have enough members.
 		assert_eq!(<Elections<T>>::members().len() as u32, T::DesiredMembers::get());
@@ -416,14 +362,14 @@ benchmarks! {
 
 	clean_defunct_voters {
 		// total number of voters.
-		let v in (MAX_VOTERS / 2) .. MAX_VOTERS;
+		let v in (T::MaxVoters::get() / 2) .. T::MaxVoters::get();
 		// those that are defunct and need removal.
-		let d in 1 .. (MAX_VOTERS / 2);
+		let d in 1 .. (T::MaxVoters::get() / 2);
 
 		// remove any previous stuff.
 		clean::<T>();
 
-		let all_candidates = submit_candidates::<T>(v, "candidates")?;
+		let all_candidates = submit_candidates::<T>(T::MaxCandidates::get(), "candidates")?;
 		distribute_voters::<T>(all_candidates, v, MAXIMUM_VOTE)?;
 
 		// all candidates leave.
@@ -443,9 +389,9 @@ benchmarks! {
 		// members, this is hard-coded in the runtime and cannot be trivially changed at this stage.
 		// Yet, change the number of voters, candidates and edge per voter to see the impact. Note
 		// that we give all candidates a self vote to make sure they are all considered.
-		let c in 1 .. MAX_CANDIDATES;
-		let v in 1 .. MAX_VOTERS;
-		let e in MAX_VOTERS .. MAX_VOTERS * MAXIMUM_VOTE as u32;
+		let c in 1 .. T::MaxCandidates::get();
+		let v in 1 .. T::MaxVoters::get();
+		let e in (T::MaxVoters::get()) .. T::MaxVoters::get() as u32 * MAXIMUM_VOTE as u32;
 		clean::<T>();
 
 		// so we have a situation with v and e. we want e to basically always be in the range of `e
@@ -458,7 +404,7 @@ benchmarks! {
 		let votes_per_voter = (e / v).min(MAXIMUM_VOTE as u32);
 
 		let all_candidates = submit_candidates_with_self_vote::<T>(c, "candidates")?;
-		let _ = distribute_voters::<T>(all_candidates, v, votes_per_voter as usize)?;
+		let _ = distribute_voters::<T>(all_candidates, v.saturating_sub(c), votes_per_voter as usize)?;
 	}: {
 		<Elections<T>>::on_initialize(T::TermDuration::get());
 	}
@@ -479,15 +425,19 @@ benchmarks! {
 
 	#[extra]
 	election_phragmen_c_e {
-		let c in 1 .. MAX_CANDIDATES;
-		let e in MAX_VOTERS .. MAX_VOTERS * MAXIMUM_VOTE as u32;
-		let fixed_v = MAX_VOTERS;
+		let c in 1 .. T::MaxCandidates::get();
+		let e in (T::MaxVoters::get()) .. T::MaxVoters::get() * MAXIMUM_VOTE as u32;
+		let fixed_v = T::MaxVoters::get();
 		clean::<T>();
 
 		let votes_per_voter = e / fixed_v;
 
 		let all_candidates = submit_candidates_with_self_vote::<T>(c, "candidates")?;
-		let _ = distribute_voters::<T>(all_candidates, fixed_v, votes_per_voter as usize)?;
+		let _ = distribute_voters::<T>(
+			all_candidates,
+			fixed_v - c,
+			votes_per_voter as usize,
+		)?;
 	}: {
 		<Elections<T>>::on_initialize(T::TermDuration::get());
 	}
@@ -509,7 +459,7 @@ benchmarks! {
 	#[extra]
 	election_phragmen_v {
 		let v in 4 .. 16;
-		let fixed_c = MAX_CANDIDATES;
+		let fixed_c = T::MaxCandidates::get() / 10;
 		let fixed_e = 64;
 		clean::<T>();
 
@@ -534,11 +484,11 @@ benchmarks! {
 			MEMBERS.with(|m| *m.borrow_mut() = vec![]);
 		}
 	}
-}
 
-impl_benchmark_test_suite!(
-	Elections,
-	crate::tests::ExtBuilder::default().desired_members(13).desired_runners_up(7),
-	crate::tests::Test,
-	exec_name = build_and_execute,
-);
+	impl_benchmark_test_suite!(
+		Elections,
+		crate::tests::ExtBuilder::default().desired_members(13).desired_runners_up(7),
+		crate::tests::Test,
+		exec_name = build_and_execute,
+	);
+}

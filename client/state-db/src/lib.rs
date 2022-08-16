@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -25,15 +25,17 @@
 //! There's a limit of 32 blocks that may have the same block number in the canonicalization window.
 //!
 //! Canonicalization function selects one root from the top of the tree and discards all other roots
-//! and their subtrees. Upon canonicalization all trie nodes that were inserted in the block are added to
-//! the backing DB and block tracking is moved to the pruning window, where no forks are allowed.
+//! and their subtrees. Upon canonicalization all trie nodes that were inserted in the block are
+//! added to the backing DB and block tracking is moved to the pruning window, where no forks are
+//! allowed.
 //!
 //! # Canonicalization vs Finality
-//! Database engine uses a notion of canonicality, rather then finality. A canonical block may not be yet finalized
-//! from the perspective of the consensus engine, but it still can't be reverted in the database. Most of the time
-//! during normal operation last canonical block is the same as last finalized. However if finality stall for a
-//! long duration for some reason, there's only a certain number of blocks that can fit in the non-canonical overlay,
-//! so canonicalization of an unfinalized block may be forced.
+//! Database engine uses a notion of canonicality, rather then finality. A canonical block may not
+//! be yet finalized from the perspective of the consensus engine, but it still can't be reverted in
+//! the database. Most of the time during normal operation last canonical block is the same as last
+//! finalized. However if finality stall for a long duration for some reason, there's only a certain
+//! number of blocks that can fit in the non-canonical overlay, so canonicalization of an
+//! unfinalized block may be forced.
 //!
 //! # Pruning.
 //! See `RefWindow` for pruning algorithm details. `StateDb` prunes on each canonicalization until
@@ -44,15 +46,17 @@ mod pruning;
 #[cfg(test)]
 mod test;
 
-use std::fmt;
-use parking_lot::RwLock;
 use codec::Codec;
-use std::collections::{HashMap, hash_map::Entry};
-use noncanonical::NonCanonicalOverlay;
-use pruning::RefWindow;
 use log::trace;
-use parity_util_mem::{MallocSizeOf, malloc_size};
-use sc_client_api::{StateDbMemoryInfo, MemorySize};
+use noncanonical::NonCanonicalOverlay;
+use parity_util_mem::{malloc_size, MallocSizeOf};
+use parking_lot::RwLock;
+use pruning::RefWindow;
+use sc_client_api::{MemorySize, StateDbMemoryInfo};
+use std::{
+	collections::{hash_map::Entry, HashMap},
+	fmt,
+};
 
 const PRUNING_MODE: &[u8] = b"mode";
 const PRUNING_MODE_ARCHIVE: &[u8] = b"archive";
@@ -63,8 +67,35 @@ const PRUNING_MODE_CONSTRAINED: &[u8] = b"constrained";
 pub type DBValue = Vec<u8>;
 
 /// Basic set of requirements for the Block hash and node key types.
-pub trait Hash: Send + Sync + Sized + Eq + PartialEq + Clone + Default + fmt::Debug + Codec + std::hash::Hash + 'static {}
-impl<T: Send + Sync + Sized + Eq + PartialEq + Clone + Default + fmt::Debug + Codec + std::hash::Hash + 'static> Hash for T {}
+pub trait Hash:
+	Send
+	+ Sync
+	+ Sized
+	+ Eq
+	+ PartialEq
+	+ Clone
+	+ Default
+	+ fmt::Debug
+	+ Codec
+	+ std::hash::Hash
+	+ 'static
+{
+}
+impl<
+		T: Send
+			+ Sync
+			+ Sized
+			+ Eq
+			+ PartialEq
+			+ Clone
+			+ Default
+			+ fmt::Debug
+			+ Codec
+			+ std::hash::Hash
+			+ 'static,
+	> Hash for T
+{
+}
 
 /// Backend database trait. Read-only.
 pub trait MetaDb {
@@ -84,9 +115,13 @@ pub trait NodeDb {
 }
 
 /// Error type.
-pub enum Error<E: fmt::Debug> {
+pub enum Error<E> {
 	/// Database backend error.
 	Db(E),
+	StateDb(StateDbError),
+}
+
+pub enum StateDbError {
 	/// `Codec` decoding error.
 	Decoding(codec::Error),
 	/// Trying to canonicalize invalid block.
@@ -96,9 +131,19 @@ pub enum Error<E: fmt::Debug> {
 	/// Trying to insert block with unknown parent.
 	InvalidParent,
 	/// Invalid pruning mode specified. Contains expected mode.
-	InvalidPruningMode(String),
+	IncompatiblePruningModes { stored: PruningMode, requested: PruningMode },
 	/// Too many unfinalized sibling blocks inserted.
 	TooManySiblingBlocks,
+	/// Trying to insert existing block.
+	BlockAlreadyExists,
+	/// Invalid metadata
+	Metadata(String),
+}
+
+impl<E> From<StateDbError> for Error<E> {
+	fn from(inner: StateDbError) -> Self {
+		Self::StateDb(inner)
+	}
 }
 
 /// Pinning error type.
@@ -109,20 +154,34 @@ pub enum PinError {
 
 impl<E: fmt::Debug> From<codec::Error> for Error<E> {
 	fn from(x: codec::Error) -> Self {
-		Error::Decoding(x)
+		StateDbError::Decoding(x).into()
 	}
 }
 
 impl<E: fmt::Debug> fmt::Debug for Error<E> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Error::Db(e) => e.fmt(f),
-			Error::Decoding(e) => write!(f, "Error decoding sliceable value: {}", e),
-			Error::InvalidBlock => write!(f, "Trying to canonicalize invalid block"),
-			Error::InvalidBlockNumber => write!(f, "Trying to insert block with invalid number"),
-			Error::InvalidParent => write!(f, "Trying to insert block with unknown parent"),
-			Error::InvalidPruningMode(e) => write!(f, "Expected pruning mode: {}", e),
-			Error::TooManySiblingBlocks => write!(f, "Too many sibling blocks inserted"),
+			Self::Db(e) => e.fmt(f),
+			Self::StateDb(e) => e.fmt(f),
+		}
+	}
+}
+
+impl fmt::Debug for StateDbError {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::Decoding(e) => write!(f, "Error decoding sliceable value: {}", e),
+			Self::InvalidBlock => write!(f, "Trying to canonicalize invalid block"),
+			Self::InvalidBlockNumber => write!(f, "Trying to insert block with invalid number"),
+			Self::InvalidParent => write!(f, "Trying to insert block with unknown parent"),
+			Self::IncompatiblePruningModes { stored, requested } => write!(
+				f,
+				"Incompatible pruning modes [stored: {:?}; requested: {:?}]",
+				stored, requested
+			),
+			Self::TooManySiblingBlocks => write!(f, "Too many sibling blocks inserted"),
+			Self::BlockAlreadyExists => write!(f, "Block already exists"),
+			Self::Metadata(message) => write!(f, "Invalid metadata: {}", message),
 		}
 	}
 }
@@ -146,9 +205,10 @@ pub struct CommitSet<H: Hash> {
 }
 
 /// Pruning constraints. If none are specified pruning is
-#[derive(Default, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Constraints {
-	/// Maximum blocks. Defaults to 0 when unspecified, effectively keeping only non-canonical states.
+	/// Maximum blocks. Defaults to 0 when unspecified, effectively keeping only non-canonical
+	/// states.
 	pub max_blocks: Option<u32>,
 	/// Maximum memory in the pruning overlay.
 	pub max_mem: Option<usize>,
@@ -167,22 +227,19 @@ pub enum PruningMode {
 
 impl PruningMode {
 	/// Create a mode that keeps given number of blocks.
-	pub fn keep_blocks(n: u32) -> PruningMode {
-		PruningMode::Constrained(Constraints {
-			max_blocks: Some(n),
-			max_mem: None,
-		})
+	pub fn blocks_pruning(n: u32) -> PruningMode {
+		PruningMode::Constrained(Constraints { max_blocks: Some(n), max_mem: None })
 	}
 
 	/// Is this an archive (either ArchiveAll or ArchiveCanonical) pruning mode?
 	pub fn is_archive(&self) -> bool {
 		match *self {
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical => true,
-			PruningMode::Constrained(_) => false
+			PruningMode::Constrained(_) => false,
 		}
 	}
 
-	/// Is this an archive (either ArchiveAll or ArchiveCanonical) pruning mode?
+	/// Returns the pruning mode
 	pub fn id(&self) -> &[u8] {
 		match self {
 			PruningMode::ArchiveAll => PRUNING_MODE_ARCHIVE,
@@ -190,11 +247,26 @@ impl PruningMode {
 			PruningMode::Constrained(_) => PRUNING_MODE_CONSTRAINED,
 		}
 	}
+
+	pub fn from_id(id: &[u8]) -> Option<Self> {
+		match id {
+			PRUNING_MODE_ARCHIVE => Some(Self::ArchiveAll),
+			PRUNING_MODE_ARCHIVE_CANON => Some(Self::ArchiveCanonical),
+			PRUNING_MODE_CONSTRAINED => Some(Self::Constrained(Default::default())),
+			_ => None,
+		}
+	}
 }
 
 impl Default for PruningMode {
 	fn default() -> Self {
-		PruningMode::keep_blocks(256)
+		PruningMode::Constrained(Default::default())
+	}
+}
+
+impl Default for Constraints {
+	fn default() -> Self {
+		Self { max_blocks: Some(256), max_mem: None }
 	}
 }
 
@@ -219,38 +291,14 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDbSync<Block
 	) -> Result<StateDbSync<BlockHash, Key>, Error<D::Error>> {
 		trace!(target: "state-db", "StateDb settings: {:?}. Ref-counting: {}", mode, ref_counting);
 
-		// Check that settings match
-		Self::check_meta(&mode, db)?;
-
 		let non_canonical: NonCanonicalOverlay<BlockHash, Key> = NonCanonicalOverlay::new(db)?;
 		let pruning: Option<RefWindow<BlockHash, Key>> = match mode {
-			PruningMode::Constrained(Constraints {
-				max_mem: Some(_),
-				..
-			}) => unimplemented!(),
+			PruningMode::Constrained(Constraints { max_mem: Some(_), .. }) => unimplemented!(),
 			PruningMode::Constrained(_) => Some(RefWindow::new(db, ref_counting)?),
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical => None,
 		};
 
-		Ok(StateDbSync {
-			mode,
-			non_canonical,
-			pruning,
-			pinned: Default::default(),
-		})
-	}
-
-	fn check_meta<D: MetaDb>(mode: &PruningMode, db: &D) -> Result<(), Error<D::Error>> {
-		let db_mode = db.get_meta(&to_meta_key(PRUNING_MODE, &())).map_err(Error::Db)?;
-		trace!(target: "state-db",
-			"DB pruning mode: {:?}",
-			db_mode.as_ref().map(|v| std::str::from_utf8(&v))
-		);
-		match &db_mode {
-			Some(v) if v.as_slice() == mode.id() => Ok(()),
-			Some(v) => Err(Error::InvalidPruningMode(String::from_utf8_lossy(v).into())),
-			None => Ok(()),
-		}
+		Ok(StateDbSync { mode, non_canonical, pruning, pinned: Default::default() })
 	}
 
 	fn insert_block<E: fmt::Debug>(
@@ -260,28 +308,16 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDbSync<Block
 		parent_hash: &BlockHash,
 		mut changeset: ChangeSet<Key>,
 	) -> Result<CommitSet<Key>, Error<E>> {
-		let mut meta = ChangeSet::default();
-		if number == 0 {
-			// Save pruning mode when writing first block.
-			meta.inserted.push((to_meta_key(PRUNING_MODE, &()), self.mode.id().into()));
-		}
-
 		match self.mode {
 			PruningMode::ArchiveAll => {
 				changeset.deleted.clear();
 				// write changes immediately
-				Ok(CommitSet {
-					data: changeset,
-					meta,
-				})
+				Ok(CommitSet { data: changeset, meta: Default::default() })
 			},
-			PruningMode::Constrained(_) | PruningMode::ArchiveCanonical => {
-				let commit = self.non_canonical.insert(hash, number, parent_hash, changeset);
-				commit.map(|mut c| {
-					c.meta.inserted.extend(meta.inserted);
-					c
-				})
-			}
+			PruningMode::Constrained(_) | PruningMode::ArchiveCanonical => self
+				.non_canonical
+				.insert(hash, number, parent_hash, changeset)
+				.map_err(Into::into),
 		}
 	}
 
@@ -293,23 +329,22 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDbSync<Block
 		if self.mode == PruningMode::ArchiveAll {
 			return Ok(commit)
 		}
-		match self.non_canonical.canonicalize(&hash, &mut commit) {
-			Ok(()) => {
+		match self.non_canonical.canonicalize(hash, &mut commit) {
+			Ok(()) =>
 				if self.mode == PruningMode::ArchiveCanonical {
 					commit.data.deleted.clear();
-				}
-			}
-			Err(e) => return Err(e),
+				},
+			Err(e) => return Err(e.into()),
 		};
 		if let Some(ref mut pruning) = self.pruning {
-			pruning.note_canonical(&hash, &mut commit);
+			pruning.note_canonical(hash, &mut commit);
 		}
 		self.prune(&mut commit);
 		Ok(commit)
 	}
 
 	fn best_canonical(&self) -> Option<u64> {
-		return self.non_canonical.last_canonicalized_block_number()
+		self.non_canonical.last_canonicalized_block_number()
 	}
 
 	fn is_pruned(&self, hash: &BlockHash, number: u64) -> bool {
@@ -319,31 +354,30 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDbSync<Block
 				if self.best_canonical().map(|c| number > c).unwrap_or(true) {
 					!self.non_canonical.have_block(hash)
 				} else {
-					self.pruning
-						.as_ref()
-						.map_or(
-							false,
-							|pruning| number < pruning.pending() || !pruning.have_block(hash),
-						)
+					self.pruning.as_ref().map_or(false, |pruning| {
+						number < pruning.pending() || !pruning.have_block(hash)
+					})
 				}
-			}
+			},
 		}
 	}
 
 	fn prune(&mut self, commit: &mut CommitSet<Key>) {
-		if let (&mut Some(ref mut pruning), &PruningMode::Constrained(ref constraints)) = (&mut self.pruning, &self.mode) {
+		if let (&mut Some(ref mut pruning), &PruningMode::Constrained(ref constraints)) =
+			(&mut self.pruning, &self.mode)
+		{
 			loop {
 				if pruning.window_size() <= constraints.max_blocks.unwrap_or(0) as u64 {
-					break;
+					break
 				}
 
 				if constraints.max_mem.map_or(false, |m| pruning.mem_used() > m) {
-					break;
+					break
 				}
 
 				let pinned = &self.pinned;
 				if pruning.next_hash().map_or(false, |h| pinned.contains_key(&h)) {
-					break;
+					break
 				}
 				pruning.prune_one(commit);
 			}
@@ -355,12 +389,17 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDbSync<Block
 	/// For archive an empty commit set is returned.
 	fn revert_one(&mut self) -> Option<CommitSet<Key>> {
 		match self.mode {
-			PruningMode::ArchiveAll => {
-				Some(CommitSet::default())
-			},
-			PruningMode::ArchiveCanonical | PruningMode::Constrained(_) => {
-				self.non_canonical.revert_one()
-			},
+			PruningMode::ArchiveAll => Some(CommitSet::default()),
+			PruningMode::ArchiveCanonical | PruningMode::Constrained(_) =>
+				self.non_canonical.revert_one(),
+		}
+	}
+
+	fn remove(&mut self, hash: &BlockHash) -> Option<CommitSet<Key>> {
+		match self.mode {
+			PruningMode::ArchiveAll => Some(CommitSet::default()),
+			PruningMode::ArchiveCanonical | PruningMode::Constrained(_) =>
+				self.non_canonical.remove(hash),
 		}
 	}
 
@@ -381,7 +420,7 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDbSync<Block
 				} else {
 					Err(PinError::InvalidBlock)
 				}
-			}
+			},
 		}
 	}
 
@@ -401,16 +440,20 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDbSync<Block
 		}
 	}
 
-	pub fn get<D: NodeDb, Q: ?Sized>(&self, key: &Q, db: &D) -> Result<Option<DBValue>, Error<D::Error>>
+	pub fn get<D: NodeDb, Q: ?Sized>(
+		&self,
+		key: &Q,
+		db: &D,
+	) -> Result<Option<DBValue>, Error<D::Error>>
 	where
 		Q: AsRef<D::Key>,
 		Key: std::borrow::Borrow<Q>,
 		Q: std::hash::Hash + Eq,
 	{
 		if let Some(value) = self.non_canonical.get(key) {
-			return Ok(Some(value));
+			return Ok(Some(value))
 		}
-		db.get(key.as_ref()).map_err(|e| Error::Db(e))
+		db.get(key.as_ref()).map_err(Error::Db)
 	}
 
 	fn apply_pending(&mut self) {
@@ -452,15 +495,56 @@ pub struct StateDb<BlockHash: Hash, Key: Hash> {
 }
 
 impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDb<BlockHash, Key> {
-	/// Creates a new instance. Does not expect any metadata in the database.
-	pub fn new<D: MetaDb>(
-		mode: PruningMode,
-		ref_counting: bool,
+	/// Create an instance of [`StateDb`].
+	pub fn open<D>(
 		db: &D,
-	) -> Result<StateDb<BlockHash, Key>, Error<D::Error>> {
-		Ok(StateDb {
-			db: RwLock::new(StateDbSync::new(mode, ref_counting, db)?)
-		})
+		requested_mode: Option<PruningMode>,
+		ref_counting: bool,
+		should_init: bool,
+	) -> Result<(CommitSet<Key>, StateDb<BlockHash, Key>), Error<D::Error>>
+	where
+		D: MetaDb,
+	{
+		let stored_mode = fetch_stored_pruning_mode(db)?;
+
+		let selected_mode = match (should_init, stored_mode, requested_mode) {
+			(true, stored_mode, requested_mode) => {
+				assert!(stored_mode.is_none(), "The storage has just been initialized. No meta-data is expected to be found in it.");
+				requested_mode.unwrap_or_default()
+			},
+
+			(false, None, _) =>
+				return Err(StateDbError::Metadata(
+					"An existing StateDb does not have PRUNING_MODE stored in its meta-data".into(),
+				)
+				.into()),
+
+			(false, Some(stored), None) => stored,
+
+			(false, Some(stored), Some(requested)) => choose_pruning_mode(stored, requested)?,
+		};
+
+		let db_init_commit_set = if should_init {
+			let mut cs: CommitSet<Key> = Default::default();
+
+			let key = to_meta_key(PRUNING_MODE, &());
+			let value = selected_mode.id().to_owned();
+
+			cs.meta.inserted.push((key, value));
+
+			cs
+		} else {
+			Default::default()
+		};
+
+		let state_db =
+			StateDb { db: RwLock::new(StateDbSync::new(selected_mode, ref_counting, db)?) };
+
+		Ok((db_init_commit_set, state_db))
+	}
+
+	pub fn pruning_mode(&self) -> PruningMode {
+		self.db.read().mode.clone()
 	}
 
 	/// Add a new non-canonical block.
@@ -493,11 +577,15 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDb<BlockHash
 	}
 
 	/// Get a value from non-canonical/pruning overlay or the backing DB.
-	pub fn get<D: NodeDb, Q: ?Sized>(&self, key: &Q, db: &D) -> Result<Option<DBValue>, Error<D::Error>>
-		where
-			Q: AsRef<D::Key>,
-			Key: std::borrow::Borrow<Q>,
-			Q: std::hash::Hash + Eq,
+	pub fn get<D: NodeDb, Q: ?Sized>(
+		&self,
+		key: &Q,
+		db: &D,
+	) -> Result<Option<DBValue>, Error<D::Error>>
+	where
+		Q: AsRef<D::Key>,
+		Key: std::borrow::Borrow<Q>,
+		Q: std::hash::Hash + Eq,
 	{
 		self.db.read().get(key, db)
 	}
@@ -507,6 +595,12 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDb<BlockHash
 	/// For archive an empty commit set is returned.
 	pub fn revert_one(&self) -> Option<CommitSet<Key>> {
 		self.db.write().revert_one()
+	}
+
+	/// Remove specified non-canonical block.
+	/// Returns a database commit or `None` if not possible.
+	pub fn remove(&self, hash: &BlockHash) -> Option<CommitSet<Key>> {
+		self.db.write().remove(hash)
 	}
 
 	/// Returns last finalized block number.
@@ -535,16 +629,51 @@ impl<BlockHash: Hash + MallocSizeOf, Key: Hash + MallocSizeOf> StateDb<BlockHash
 	}
 }
 
+fn fetch_stored_pruning_mode<D: MetaDb>(db: &D) -> Result<Option<PruningMode>, Error<D::Error>> {
+	let meta_key_mode = to_meta_key(PRUNING_MODE, &());
+	if let Some(stored_mode) = db.get_meta(&meta_key_mode).map_err(Error::Db)? {
+		if let Some(mode) = PruningMode::from_id(&stored_mode) {
+			Ok(Some(mode))
+		} else {
+			Err(StateDbError::Metadata(format!(
+				"Invalid value stored for PRUNING_MODE: {:02x?}",
+				stored_mode
+			))
+			.into())
+		}
+	} else {
+		Ok(None)
+	}
+}
+
+fn choose_pruning_mode(
+	stored: PruningMode,
+	requested: PruningMode,
+) -> Result<PruningMode, StateDbError> {
+	match (stored, requested) {
+		(PruningMode::ArchiveAll, PruningMode::ArchiveAll) => Ok(PruningMode::ArchiveAll),
+		(PruningMode::ArchiveCanonical, PruningMode::ArchiveCanonical) =>
+			Ok(PruningMode::ArchiveCanonical),
+		(PruningMode::Constrained(_), PruningMode::Constrained(requested)) =>
+			Ok(PruningMode::Constrained(requested)),
+		(stored, requested) => Err(StateDbError::IncompatiblePruningModes { requested, stored }),
+	}
+}
+
 #[cfg(test)]
 mod tests {
-	use std::io;
+	use crate::{
+		test::{make_changeset, make_db, TestDb},
+		Constraints, Error, PruningMode, StateDb, StateDbError,
+	};
 	use sp_core::H256;
-	use crate::{StateDb, PruningMode, Constraints};
-	use crate::test::{make_db, make_changeset, TestDb};
+	use std::io;
 
 	fn make_test_db(settings: PruningMode) -> (TestDb, StateDb<H256, H256>) {
 		let mut db = make_db(&[91, 921, 922, 93, 94]);
-		let state_db = StateDb::new(settings, false, &db).unwrap();
+		let (state_db_init, state_db) =
+			StateDb::open(&mut db, Some(settings), false, true).unwrap();
+		db.commit(&state_db_init);
 
 		db.commit(
 			&state_db
@@ -659,19 +788,99 @@ mod tests {
 	#[test]
 	fn detects_incompatible_mode() {
 		let mut db = make_db(&[]);
-		let state_db = StateDb::new(PruningMode::ArchiveAll, false, &db).unwrap();
+		let (state_db_init, state_db) =
+			StateDb::open(&mut db, Some(PruningMode::ArchiveAll), false, true).unwrap();
+		db.commit(&state_db_init);
 		db.commit(
 			&state_db
-			.insert_block::<io::Error>(
-				&H256::from_low_u64_be(0),
-				0,
-				&H256::from_low_u64_be(0),
-				make_changeset(&[], &[]),
-			)
-			.unwrap(),
+				.insert_block::<io::Error>(
+					&H256::from_low_u64_be(0),
+					0,
+					&H256::from_low_u64_be(0),
+					make_changeset(&[], &[]),
+				)
+				.unwrap(),
 		);
 		let new_mode = PruningMode::Constrained(Constraints { max_blocks: Some(2), max_mem: None });
-		let state_db: Result<StateDb<H256, H256>, _> = StateDb::new(new_mode, false, &db);
-		assert!(state_db.is_err());
+		let state_db_open_result: Result<(_, StateDb<H256, H256>), _> =
+			StateDb::open(&mut db, Some(new_mode), false, false);
+		assert!(state_db_open_result.is_err());
+	}
+
+	fn check_stored_and_requested_mode_compatibility(
+		mode_when_created: Option<PruningMode>,
+		mode_when_reopened: Option<PruningMode>,
+		expected_effective_mode_when_reopenned: Result<PruningMode, ()>,
+	) {
+		let mut db = make_db(&[]);
+		let (state_db_init, state_db) =
+			StateDb::<H256, H256>::open(&mut db, mode_when_created, false, true).unwrap();
+		db.commit(&state_db_init);
+		std::mem::drop(state_db);
+
+		let state_db_reopen_result =
+			StateDb::<H256, H256>::open(&mut db, mode_when_reopened, false, false);
+		if let Ok(expected_mode) = expected_effective_mode_when_reopenned {
+			let (state_db_init, state_db_reopened) = state_db_reopen_result.unwrap();
+			db.commit(&state_db_init);
+			assert_eq!(state_db_reopened.pruning_mode(), expected_mode,)
+		} else {
+			assert!(matches!(
+				state_db_reopen_result,
+				Err(Error::StateDb(StateDbError::IncompatiblePruningModes { .. }))
+			));
+		}
+	}
+
+	#[test]
+	fn pruning_mode_compatibility() {
+		for (created, reopened, expected) in [
+			(None, None, Ok(PruningMode::blocks_pruning(256))),
+			(None, Some(PruningMode::blocks_pruning(256)), Ok(PruningMode::blocks_pruning(256))),
+			(None, Some(PruningMode::blocks_pruning(128)), Ok(PruningMode::blocks_pruning(128))),
+			(None, Some(PruningMode::blocks_pruning(512)), Ok(PruningMode::blocks_pruning(512))),
+			(None, Some(PruningMode::ArchiveAll), Err(())),
+			(None, Some(PruningMode::ArchiveCanonical), Err(())),
+			(Some(PruningMode::blocks_pruning(256)), None, Ok(PruningMode::blocks_pruning(256))),
+			(
+				Some(PruningMode::blocks_pruning(256)),
+				Some(PruningMode::blocks_pruning(256)),
+				Ok(PruningMode::blocks_pruning(256)),
+			),
+			(
+				Some(PruningMode::blocks_pruning(256)),
+				Some(PruningMode::blocks_pruning(128)),
+				Ok(PruningMode::blocks_pruning(128)),
+			),
+			(
+				Some(PruningMode::blocks_pruning(256)),
+				Some(PruningMode::blocks_pruning(512)),
+				Ok(PruningMode::blocks_pruning(512)),
+			),
+			(Some(PruningMode::blocks_pruning(256)), Some(PruningMode::ArchiveAll), Err(())),
+			(Some(PruningMode::blocks_pruning(256)), Some(PruningMode::ArchiveCanonical), Err(())),
+			(Some(PruningMode::ArchiveAll), None, Ok(PruningMode::ArchiveAll)),
+			(Some(PruningMode::ArchiveAll), Some(PruningMode::blocks_pruning(256)), Err(())),
+			(Some(PruningMode::ArchiveAll), Some(PruningMode::blocks_pruning(128)), Err(())),
+			(Some(PruningMode::ArchiveAll), Some(PruningMode::blocks_pruning(512)), Err(())),
+			(
+				Some(PruningMode::ArchiveAll),
+				Some(PruningMode::ArchiveAll),
+				Ok(PruningMode::ArchiveAll),
+			),
+			(Some(PruningMode::ArchiveAll), Some(PruningMode::ArchiveCanonical), Err(())),
+			(Some(PruningMode::ArchiveCanonical), None, Ok(PruningMode::ArchiveCanonical)),
+			(Some(PruningMode::ArchiveCanonical), Some(PruningMode::blocks_pruning(256)), Err(())),
+			(Some(PruningMode::ArchiveCanonical), Some(PruningMode::blocks_pruning(128)), Err(())),
+			(Some(PruningMode::ArchiveCanonical), Some(PruningMode::blocks_pruning(512)), Err(())),
+			(Some(PruningMode::ArchiveCanonical), Some(PruningMode::ArchiveAll), Err(())),
+			(
+				Some(PruningMode::ArchiveCanonical),
+				Some(PruningMode::ArchiveCanonical),
+				Ok(PruningMode::ArchiveCanonical),
+			),
+		] {
+			check_stored_and_requested_mode_compatibility(created, reopened, expected);
+		}
 	}
 }

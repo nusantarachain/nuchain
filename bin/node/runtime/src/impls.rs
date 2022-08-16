@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2019-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,31 +17,123 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use frame_support::traits::{OnUnbalanced, Currency};
-use crate::{Balances, Authorship, NegativeImbalance};
+use crate::{
+	AccountId, Assets, Authorship, Balances, Call, Hash, NegativeImbalance, Runtime,
+};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{
+		fungibles::{Balanced, CreditOf},
+		Currency, OnUnbalanced,
+	},
+};
+use pallet_alliance::{IdentityVerifier, ProposalIndex, ProposalProvider};
+use pallet_asset_tx_payment::HandleCredit;
+use sp_std::prelude::*;
 
 pub struct Author;
 impl OnUnbalanced<NegativeImbalance> for Author {
 	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
-		Balances::resolve_creating(&Authorship::author(), amount);
+		if let Some(author) = Authorship::author() {
+			Balances::resolve_creating(&author, amount);
+		}
 	}
 }
 
+/// A `HandleCredit` implementation that naively transfers the fees to the block author.
+/// Will drop and burn the assets in case the transfer fails.
+pub struct CreditToBlockAuthor;
+impl HandleCredit<AccountId, Assets> for CreditToBlockAuthor {
+	fn handle_credit(credit: CreditOf<AccountId, Assets>) {
+		if let Some(author) = pallet_authorship::Pallet::<Runtime>::author() {
+			// Drop the result which will trigger the `OnDrop` of the imbalance in case of error.
+			let _ = Assets::resolve(&author, credit);
+		}
+	}
+}
+
+pub struct AllianceIdentityVerifier;
+impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
+	fn has_identity(who: &AccountId, fields: u64) -> bool {
+		crate::Identity::has_identity(who, fields)
+	}
+
+	fn has_good_judgement(who: &AccountId) -> bool {
+		use pallet_identity::Judgement;
+		if let Some(judgements) =
+			crate::Identity::identity(who).map(|registration| registration.judgements)
+		{
+			judgements
+				.iter()
+				.any(|(_, j)| matches!(j, Judgement::KnownGood | Judgement::Reasonable))
+		} else {
+			false
+		}
+	}
+
+	fn super_account_id(who: &AccountId) -> Option<AccountId> {
+		crate::Identity::super_of(who).map(|parent| parent.0)
+	}
+}
+
+// pub struct AllianceProposalProvider;
+// impl ProposalProvider<AccountId, Hash, Call> for AllianceProposalProvider {
+// 	fn propose_proposal(
+// 		who: AccountId,
+// 		threshold: u32,
+// 		proposal: Box<Call>,
+// 		length_bound: u32,
+// 	) -> Result<(u32, u32), DispatchError> {
+// 		AllianceMotion::do_propose_proposed(who, threshold, proposal, length_bound)
+// 	}
+
+// 	fn vote_proposal(
+// 		who: AccountId,
+// 		proposal: Hash,
+// 		index: ProposalIndex,
+// 		approve: bool,
+// 	) -> Result<bool, DispatchError> {
+// 		AllianceMotion::do_vote(who, proposal, index, approve)
+// 	}
+
+// 	fn veto_proposal(proposal_hash: Hash) -> u32 {
+// 		AllianceMotion::do_disapprove_proposal(proposal_hash)
+// 	}
+
+// 	fn close_proposal(
+// 		proposal_hash: Hash,
+// 		proposal_index: ProposalIndex,
+// 		proposal_weight_bound: Weight,
+// 		length_bound: u32,
+// 	) -> DispatchResultWithPostInfo {
+// 		AllianceMotion::do_close(proposal_hash, proposal_index, proposal_weight_bound, length_bound)
+// 	}
+
+// 	fn proposal_of(proposal_hash: Hash) -> Option<Call> {
+// 		AllianceMotion::proposal_of(proposal_hash)
+// 	}
+// }
+
 #[cfg(test)]
 mod multiplier_tests {
-	use sp_runtime::{assert_eq_error_rate, FixedPointNumber, traits::Convert};
 	use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+	use sp_runtime::{
+		assert_eq_error_rate,
+		traits::{Convert, One, Zero},
+		FixedPointNumber,
+	};
 
 	use crate::{
 		constants::{currency::*, time::*},
-		TransactionPayment, Runtime, TargetBlockFullness,
-		AdjustmentVariable, System, MinimumMultiplier,
-		RuntimeBlockWeights as BlockWeights,
+		AdjustmentVariable, MinimumMultiplier, Runtime, RuntimeBlockWeights as BlockWeights,
+		System, TargetBlockFullness, TransactionPayment,
 	};
-	use frame_support::weights::{Weight, WeightToFeePolynomial, DispatchClass};
+	use frame_support::weights::{DispatchClass, Weight, WeightToFee};
 
 	fn max_normal() -> Weight {
-		BlockWeights::get().get(DispatchClass::Normal).max_total
+		BlockWeights::get()
+			.get(DispatchClass::Normal)
+			.max_total
 			.unwrap_or_else(|| BlockWeights::get().max_block)
 	}
 
@@ -64,7 +156,7 @@ mod multiplier_tests {
 	}
 
 	// update based on reference impl.
-	fn truth_value_update(block_weight: Weight, previous: Multiplier) -> Multiplier  {
+	fn truth_value_update(block_weight: Weight, previous: Multiplier) -> Multiplier {
 		let accuracy = Multiplier::accuracy() as f64;
 		let previous_float = previous.into_inner() as f64 / accuracy;
 		// bump if it is zero.
@@ -74,22 +166,27 @@ mod multiplier_tests {
 		let m = max_normal() as f64;
 		// block weight always truncated to max weight
 		let block_weight = (block_weight as f64).min(m);
-		let v: f64 = AdjustmentVariable::get().to_fraction();
+		let v: f64 = AdjustmentVariable::get().to_float();
 
 		// Ideal saturation in terms of weight
 		let ss = target() as f64;
 		// Current saturation in terms of weight
 		let s = block_weight;
 
-		let t1 = v * (s/m - ss/m);
-		let t2 = v.powi(2) * (s/m - ss/m).powi(2) / 2.0;
+		let t1 = v * (s / m - ss / m);
+		let t2 = v.powi(2) * (s / m - ss / m).powi(2) / 2.0;
 		let next_float = previous_float * (1.0 + t1 + t2);
-		Multiplier::from_fraction(next_float)
+		Multiplier::from_float(next_float)
 	}
 
-	fn run_with_system_weight<F>(w: Weight, assertions: F) where F: Fn() -> () {
-		let mut t: sp_io::TestExternalities =
-			frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap().into();
+	fn run_with_system_weight<F>(w: Weight, assertions: F)
+	where
+		F: Fn() -> (),
+	{
+		let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::default()
+			.build_storage::<Runtime>()
+			.unwrap()
+			.into();
 		t.execute_with(|| {
 			System::set_block_consumed_resources(w, 0);
 			assertions()
@@ -157,7 +254,9 @@ mod multiplier_tests {
 			loop {
 				let next = runtime_multiplier_update(fm);
 				fm = next;
-				if fm == min_multiplier() { break; }
+				if fm == min_multiplier() {
+					break
+				}
 				iterations += 1;
 			}
 			assert!(iterations > 533_333);
@@ -198,11 +297,15 @@ mod multiplier_tests {
 			loop {
 				let next = runtime_multiplier_update(fm);
 				// if no change, panic. This should never happen in this case.
-				if fm == next { panic!("The fee should ever increase"); }
+				if fm == next {
+					panic!("The fee should ever increase");
+				}
 				fm = next;
 				iterations += 1;
 				let fee =
-					<Runtime as pallet_transaction_payment::Config>::WeightToFee::calc(&tx_weight);
+					<Runtime as pallet_transaction_payment::Config>::WeightToFee::weight_to_fee(
+						&tx_weight,
+					);
 				let adjusted_fee = fm.saturating_mul_acc_int(fee);
 				println!(
 					"iteration {}, new fm = {:?}. Fee at this point is: {} units / {} millicents, \
@@ -225,7 +328,7 @@ mod multiplier_tests {
 			let next = runtime_multiplier_update(fm);
 			assert_eq_error_rate!(
 				next,
-				truth_value_update(target() / 4 , fm),
+				truth_value_update(target() / 4, fm),
 				Multiplier::from_inner(100),
 			);
 
@@ -237,12 +340,11 @@ mod multiplier_tests {
 			let next = runtime_multiplier_update(fm);
 			assert_eq_error_rate!(
 				next,
-				truth_value_update(target() / 2 , fm),
+				truth_value_update(target() / 2, fm),
 				Multiplier::from_inner(100),
 			);
 			// Light block. Multiplier is reduced a little.
 			assert!(next < fm);
-
 		});
 		run_with_system_weight(target(), || {
 			let next = runtime_multiplier_update(fm);
@@ -259,7 +361,7 @@ mod multiplier_tests {
 			let next = runtime_multiplier_update(fm);
 			assert_eq_error_rate!(
 				next,
-				truth_value_update(target() * 2 , fm),
+				truth_value_update(target() * 2, fm),
 				Multiplier::from_inner(100),
 			);
 
@@ -307,7 +409,7 @@ mod multiplier_tests {
 	fn weight_to_fee_should_not_overflow_on_large_weights() {
 		let kb = 1024 as Weight;
 		let mb = kb * kb;
-		let max_fm = Multiplier::saturating_from_integer(i128::max_value());
+		let max_fm = Multiplier::saturating_from_integer(i128::MAX);
 
 		// check that for all values it can compute, correctly.
 		vec![
@@ -326,28 +428,24 @@ mod multiplier_tests {
 			BlockWeights::get().max_block,
 			Weight::max_value() / 2,
 			Weight::max_value(),
-		].into_iter().for_each(|i| {
+		]
+		.into_iter()
+		.for_each(|i| {
 			run_with_system_weight(i, || {
 				let next = runtime_multiplier_update(Multiplier::one());
 				let truth = truth_value_update(i, Multiplier::one());
-				assert_eq_error_rate!(
-					truth,
-					next,
-					Multiplier::from_inner(50_000_000)
-				);
+				assert_eq_error_rate!(truth, next, Multiplier::from_inner(50_000_000));
 			});
 		});
 
 		// Some values that are all above the target and will cause an increase.
 		let t = target();
-		vec![t + 100, t * 2, t * 4]
-			.into_iter()
-			.for_each(|i| {
-				run_with_system_weight(i, || {
-					let fm = runtime_multiplier_update(max_fm);
-					// won't grow. The convert saturates everything.
-					assert_eq!(fm, max_fm);
-				})
-			});
+		vec![t + 100, t * 2, t * 4].into_iter().for_each(|i| {
+			run_with_system_weight(i, || {
+				let fm = runtime_multiplier_update(max_fm);
+				// won't grow. The convert saturates everything.
+				assert_eq!(fm, max_fm);
+			})
+		});
 	}
 }

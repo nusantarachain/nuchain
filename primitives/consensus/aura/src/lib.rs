@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,10 +19,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Encode, Decode, Codec};
-use sp_std::vec::Vec;
+use codec::{Codec, Decode, Encode};
 use sp_runtime::ConsensusEngineId;
+use sp_std::vec::Vec;
 
+pub mod digests;
 pub mod inherents;
 
 pub mod sr25519 {
@@ -45,7 +46,7 @@ pub mod sr25519 {
 
 pub mod ed25519 {
 	mod app_ed25519 {
-		use sp_application_crypto::{app_crypto, key_types::AURA, ed25519};
+		use sp_application_crypto::{app_crypto, ed25519, key_types::AURA};
 		app_crypto!(ed25519, AURA);
 	}
 
@@ -61,7 +62,7 @@ pub mod ed25519 {
 	pub type AuthorityId = app_ed25519::Public;
 }
 
-pub use sp_consensus_slots::Slot;
+pub use sp_consensus_slots::{Slot, SlotDuration};
 
 /// The `ConsensusEngineId` of AuRa.
 pub const AURA_ENGINE_ID: ConsensusEngineId = [b'a', b'u', b'r', b'a'];
@@ -83,12 +84,10 @@ pub enum ConsensusLog<AuthorityId: Codec> {
 sp_api::decl_runtime_apis! {
 	/// API necessary for block authorship with aura.
 	pub trait AuraApi<AuthorityId: Codec> {
-		/// Return the slot duration in seconds for Aura.
-		/// Currently, only the value provided by this type at genesis
-		/// will be used.
+		/// Returns the slot duration for Aura.
 		///
-		/// Dynamic slot duration may be supported in the future.
-		fn slot_duration() -> u64;
+		/// Currently, only the value provided by this type at genesis will be used.
+		fn slot_duration() -> SlotDuration;
 
 		// Return the current set of authorities.
 		fn authorities() -> Vec<AuthorityId>;

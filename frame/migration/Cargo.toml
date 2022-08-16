@@ -1,0 +1,45 @@
+[package]
+authors = ["Parity Technologies <admin@parity.io>"]
+description = "Pallet for state migration"
+edition = "2021"
+homepage = "https://nuchain.network"
+license = "LGPL-3.0"
+name = "pallet-migration"
+repository = "https://github.com/nusantarachain/nuchain"
+version = "0.1.0"
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+codec = {package = 'parity-scale-codec', version = '3.0.0', features = ['derive'], default-features = false}
+log = {version = "0.4.14", default-features = false}
+
+frame-benchmarking = {version = "4.0.0-dev", default-features = false, path = "../benchmarking", optional = true}
+frame-support = {version = "4.0.0-dev", default-features = false, path = "../support"}
+frame-system = {version = "4.0.0-dev", default-features = false, path = "../system"}
+pallet-balances = {version = "4.0.0-dev", default-features = false, path = "../balances"}
+pallet-proxy = {version = "4.0.0-dev", default-features = false, path = "../proxy"}
+pallet-vesting = {version = "4.0.0-dev", default-features = false, path = "../vesting"}
+scale-info = {version = "2.0.1", default-features = false, features = ["derive"]}
+sp-core = {version = "6.0.0", default-features = false, path = "../../primitives/core"}
+sp-io = {version = "6.0.0", default-features = false, path = "../../primitives/io"}
+sp-runtime = {version = "6.0.0", default-features = false, path = "../../primitives/runtime"}
+sp-std = {version = "4.0.0", default-features = false, path = "../../primitives/std"}
+sp-version = {version = "5.0.0", default-features = false, path = "../../primitives/version"}
+
+[dev-dependencies]
+hex = "0.4.3"
+rand = "0.8.5"
+
+[features]
+default = ['std']
+runtime-benchmarks = ["frame-benchmarking"]
+std = [
+  'codec/std',
+  'frame-support/std',
+  'frame-system/std',
+  'pallet-vesting/std',
+  'pallet-balances/std',
+  'pallet-proxy/std',
+]

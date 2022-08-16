@@ -1,27 +1,32 @@
 use crate::{self as pallet_did, Config, Module};
-use frame_support::{parameter_types, weights::Weight};
+use frame_support::{
+	parameter_types,
+	traits::{ConstU64, ConstU32, Everything},
+	weights::Weight,
+};
 use frame_system as system;
 use pallet_timestamp as timestamp;
 use sp_core::{sr25519, Pair, H256};
 use sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
+	testing::Header,
+	traits::{BlakeTwo256, IdentityLookup},
+	Perbill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
-    {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-        Did: pallet_did::{Module, Call, Storage, Event<T>},
-    }
+	pub enum Test where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		Did: pallet_did,
+	}
 );
 
 // For testing the pallet, we construct most of a mock runtime. This means
@@ -35,43 +40,58 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
-    type BaseCallFilter = ();
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type Origin = Origin;
-    type Index = u64;
-    type BlockNumber = u64;
-    type Hash = H256;
-    type Call = Call;
-    type Hashing = BlakeTwo256;
-    type AccountId = sr25519::Public;
-    type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
-    type Event = Event;
-    type BlockHashCount = BlockHashCount;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
+	type BaseCallFilter = Everything;
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
+	type Origin = Origin;
+	type Index = u64;
+	type BlockNumber = u64;
+	type Hash = H256;
+	type Call = Call;
+	type Hashing = BlakeTwo256;
+	type AccountId = sr25519::Public;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type Header = Header;
+	type Event = Event;
+	type BlockHashCount = BlockHashCount;
+	type Version = ();
+	type PalletInfo = PalletInfo;
+	type AccountData = pallet_balances::AccountData<u64>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
+	type SS58Prefix = ();
+    type OnSetCode = ();
+    type MaxConsumers = ConstU32<16>;
 }
 
 impl timestamp::Config for Test {
-    type Moment = u64;
-    type OnTimestampSet = ();
-    type MinimumPeriod = ();
-    type WeightInfo = ();
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = ();
+	type WeightInfo = ();
+}
+
+impl pallet_balances::Config for Test {
+	type MaxLocks = ();
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
+	type Balance = u64;
+	type Event = Event;
+	type DustRemoval = ();
+	type ExistentialDeposit = ConstU64<1>;
+	type AccountStore = System;
+	type WeightInfo = ();
 }
 
 impl Config for Test {
-    type Event = Event;
-    type Public = sr25519::Public;
-    type Signature = sr25519::Signature;
-    type Time = Timestamp;
-    type WeightInfo = pallet_did::weights::SubstrateWeight<Self>;
+	type Event = Event;
+	type Public = sr25519::Public;
+	type Signature = sr25519::Signature;
+	type Time = Timestamp;
+	type WeightInfo = pallet_did::weights::SubstrateWeight<Self>;
+    type MaxLength = ConstU32<64>;
 }
 
 pub type DID = Module<Test>;
@@ -80,18 +100,15 @@ pub type DID = Module<Test>;
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into()
+	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
 }
 
 pub fn account_pair(s: &str) -> sr25519::Pair {
-    sr25519::Pair::from_string(&format!("//{}", s), None).expect("static values are valid; qed")
+	sr25519::Pair::from_string(&format!("//{}", s), None).expect("static values are valid; qed")
 }
 
 pub fn account_key(s: &str) -> sr25519::Public {
-    sr25519::Pair::from_string(&format!("//{}", s), None)
-        .expect("static values are valid; qed")
-        .public()
+	sr25519::Pair::from_string(&format!("//{}", s), None)
+		.expect("static values are valid; qed")
+		.public()
 }

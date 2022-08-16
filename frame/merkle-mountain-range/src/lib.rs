@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2020-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2020-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,120 +40,173 @@
 //!
 //! ## What for?
 //!
-//!	Primary use case for this pallet is to generate MMR root hashes, that can latter on be used by
-//!	BEEFY protocol (see <https://github.com/paritytech/grandpa-bridge-gadget>).
-//!	MMR root hashes along with BEEFY will make it possible to build Super Light Clients (SLC) of
-//!	Substrate-based chains. The SLC will be able to follow finality and can be shown proofs of more
-//!	details that happened on the source chain.
-//!	In that case the chain which contains the pallet generates the Root Hashes and Proofs, which
-//!	are then presented to another chain acting as a light client which can verify them.
+//! Primary use case for this pallet is to generate MMR root hashes, that can latter on be used by
+//! BEEFY protocol (see <https://github.com/paritytech/grandpa-bridge-gadget>).
+//! MMR root hashes along with BEEFY will make it possible to build Super Light Clients (SLC) of
+//! Substrate-based chains. The SLC will be able to follow finality and can be shown proofs of more
+//! details that happened on the source chain.
+//! In that case the chain which contains the pallet generates the Root Hashes and Proofs, which
+//! are then presented to another chain acting as a light client which can verify them.
 //!
-//!	Secondary use case is to archive historical data, but still be able to retrieve them on-demand
-//!	if needed. For instance if parent block hashes are stored in the MMR it's possible at any point
-//!	in time to provide a MMR proof about some past block hash, while this data can be safely pruned
-//!	from on-chain storage.
+//! Secondary use case is to archive historical data, but still be able to retrieve them on-demand
+//! if needed. For instance if parent block hashes are stored in the MMR it's possible at any point
+//! in time to provide a MMR proof about some past block hash, while this data can be safely pruned
+//! from on-chain storage.
 //!
 //! NOTE This pallet is experimental and not proven to work in production.
-//!
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Encode;
-use frame_support::{
-	decl_module, decl_storage,
-	weights::Weight,
+use frame_support::weights::Weight;
+use sp_runtime::{
+	traits::{self, One, Saturating},
+	SaturatedConversion,
 };
-use sp_runtime::traits;
 
-mod default_weights;
-mod mmr;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
+mod default_weights;
+mod mmr;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
-pub use pallet_mmr_primitives as primitives;
+pub use pallet::*;
+pub use sp_mmr_primitives::{self as primitives, Error, LeafDataProvider, LeafIndex, NodeIndex};
+use sp_std::prelude::*;
 
-pub trait WeightInfo {
-	fn on_initialize(peaks: u64) -> Weight;
+/// The most common use case for MMRs is to store historical block hashes,
+/// so that any point in time in the future we can receive a proof about some past
+/// blocks without using excessive on-chain storage.
+///
+/// Hence we implement the [LeafDataProvider] for [ParentNumberAndHash] which is a
+/// crate-local wrapper over [frame_system::Pallet]. Since the current block hash
+/// is not available (since the block is not finished yet),
+/// we use the `parent_hash` here along with parent block number.
+pub struct ParentNumberAndHash<T: frame_system::Config> {
+	_phanthom: sp_std::marker::PhantomData<T>,
 }
 
-/// This pallet's configuration trait
-pub trait Config<I = DefaultInstance>: frame_system::Config {
-	/// Prefix for elements stored in the Off-chain DB via Indexing API.
-	///
-	/// Each node of the MMR is inserted both on-chain and off-chain via Indexing API.
-	/// The former does not store full leaf content, just it's compact version (hash),
-	/// and some of the inner mmr nodes might be pruned from on-chain storage.
-	/// The later will contain all the entries in their full form.
-	///
-	/// Each node is stored in the Off-chain DB under key derived from the [`Self::INDEXING_PREFIX`] and
-	/// it's in-tree index (MMR position).
-	const INDEXING_PREFIX: &'static [u8];
+impl<T: frame_system::Config> LeafDataProvider for ParentNumberAndHash<T> {
+	type LeafData = (<T as frame_system::Config>::BlockNumber, <T as frame_system::Config>::Hash);
 
-	/// A hasher type for MMR.
-	///
-	/// To construct trie nodes that result in merging (bagging) two peaks, depending on the node
-	/// kind we take either:
-	/// - The node (hash) itself if it's an inner node.
-	/// - The hash of SCALE-encoding of the leaf data if it's a leaf node.
-	///
-	/// Then we create a tuple of these two hashes, SCALE-encode it (concatenate) and
-	/// hash, to obtain a new MMR inner node - the new peak.
-	type Hashing: traits::Hash<Output = <Self as Config<I>>::Hash>;
-
-	/// The hashing output type.
-	///
-	/// This type is actually going to be stored in the MMR.
-	/// Required to be provided again, to satisfy trait bounds for storage items.
-	type Hash: traits::Member + traits::MaybeSerializeDeserialize + sp_std::fmt::Debug
-		+ sp_std::hash::Hash + AsRef<[u8]> + AsMut<[u8]> + Copy + Default + codec::Codec
-		+ codec::EncodeLike;
-
-	/// Data stored in the leaf nodes.
-	///
-	/// The [LeafData](primitives::LeafDataProvider) is responsible for returning the entire leaf
-	/// data that will be inserted to the MMR.
-	/// [LeafDataProvider](primitives::LeafDataProvider)s can be composed into tuples to put
-	/// multiple elements into the tree. In such a case it might be worth using [primitives::Compact]
-	/// to make MMR proof for one element of the tuple leaner.
-	///
-	/// Note that the leaf at each block MUST be unique. You may want to include a block hash or block
-	/// number as an easiest way to ensure that.
-	type LeafData: primitives::LeafDataProvider;
-
-	/// A hook to act on the new MMR root.
-	///
-	/// For some applications it might be beneficial to make the MMR root available externally
-	/// apart from having it in the storage. For instance you might output it in the header digest
-	/// (see [frame_system::Module::deposit_log]) to make it available for Light Clients.
-	/// Hook complexity should be `O(1)`.
-	type OnNewRoot: primitives::OnNewRoot<<Self as Config<I>>::Hash>;
-
-	/// Weights for this pallet.
-	type WeightInfo: WeightInfo;
-}
-
-decl_storage! {
-	trait Store for Module<T: Config<I>, I: Instance = DefaultInstance> as MerkleMountainRange {
-		/// Latest MMR Root hash.
-		pub RootHash get(fn mmr_root_hash): <T as Config<I>>::Hash;
-
-		/// Current size of the MMR (number of leaves).
-		pub NumberOfLeaves get(fn mmr_leaves): u64;
-
-		/// Hashes of the nodes in the MMR.
-		///
-		/// Note this collection only contains MMR peaks, the inner nodes (and leaves)
-		/// are pruned and only stored in the Offchain DB.
-		pub Nodes get(fn mmr_peak): map hasher(identity) u64 => Option<<T as Config<I>>::Hash>;
+	fn leaf_data() -> Self::LeafData {
+		(
+			frame_system::Pallet::<T>::block_number().saturating_sub(One::one()),
+			frame_system::Pallet::<T>::parent_hash(),
+		)
 	}
 }
 
-decl_module! {
-	/// A public part of the pallet.
-	pub struct Module<T: Config<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
+pub trait WeightInfo {
+	fn on_initialize(peaks: NodeIndex) -> Weight;
+}
+
+#[frame_support::pallet]
+pub mod pallet {
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::pallet]
+	#[pallet::generate_store(pub(super) trait Store)]
+	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
+
+	/// This pallet's configuration trait
+	#[pallet::config]
+	pub trait Config<I: 'static = ()>: frame_system::Config {
+		/// Prefix for elements stored in the Off-chain DB via Indexing API.
+		///
+		/// Each node of the MMR is inserted both on-chain and off-chain via Indexing API.
+		/// The former does not store full leaf content, just its compact version (hash),
+		/// and some of the inner mmr nodes might be pruned from on-chain storage.
+		/// The latter will contain all the entries in their full form.
+		///
+		/// Each node is stored in the Off-chain DB under key derived from the
+		/// [`Self::INDEXING_PREFIX`] and its in-tree index (MMR position).
+		const INDEXING_PREFIX: &'static [u8];
+
+		/// A hasher type for MMR.
+		///
+		/// To construct trie nodes that result in merging (bagging) two peaks, depending on the
+		/// node kind we take either:
+		/// - The node (hash) itself if it's an inner node.
+		/// - The hash of SCALE-encoding of the leaf data if it's a leaf node.
+		///
+		/// Then we create a tuple of these two hashes, SCALE-encode it (concatenate) and
+		/// hash, to obtain a new MMR inner node - the new peak.
+		type Hashing: traits::Hash<Output = <Self as Config<I>>::Hash>;
+
+		/// The hashing output type.
+		///
+		/// This type is actually going to be stored in the MMR.
+		/// Required to be provided again, to satisfy trait bounds for storage items.
+		type Hash: traits::Member
+			+ traits::MaybeSerializeDeserialize
+			+ sp_std::fmt::Debug
+			+ sp_std::hash::Hash
+			+ AsRef<[u8]>
+			+ AsMut<[u8]>
+			+ Copy
+			+ Default
+			+ codec::Codec
+			+ codec::EncodeLike
+			+ scale_info::TypeInfo
+			+ MaxEncodedLen;
+
+		/// Data stored in the leaf nodes.
+		///
+		/// The [LeafData](primitives::LeafDataProvider) is responsible for returning the entire
+		/// leaf data that will be inserted to the MMR.
+		/// [LeafDataProvider](primitives::LeafDataProvider)s can be composed into tuples to put
+		/// multiple elements into the tree. In such a case it might be worth using
+		/// [primitives::Compact] to make MMR proof for one element of the tuple leaner.
+		///
+		/// Note that the leaf at each block MUST be unique. You may want to include a block hash or
+		/// block number as an easiest way to ensure that.
+		/// Also note that the leaf added by each block is expected to only reference data coming
+		/// from ancestor blocks (leaves are saved offchain using `(parent_hash, pos)` key to be
+		/// fork-resistant, as such conflicts could only happen on 1-block deep forks, which means
+		/// two forks with identical line of ancestors compete to write the same offchain key, but
+		/// that's fine as long as leaves only contain data coming from ancestors - conflicting
+		/// writes are identical).
+		type LeafData: primitives::LeafDataProvider;
+
+		/// A hook to act on the new MMR root.
+		///
+		/// For some applications it might be beneficial to make the MMR root available externally
+		/// apart from having it in the storage. For instance you might output it in the header
+		/// digest (see [`frame_system::Pallet::deposit_log`]) to make it available for Light
+		/// Clients. Hook complexity should be `O(1)`.
+		type OnNewRoot: primitives::OnNewRoot<<Self as Config<I>>::Hash>;
+
+		/// Weights for this pallet.
+		type WeightInfo: WeightInfo;
+	}
+
+	/// Latest MMR Root hash.
+	#[pallet::storage]
+	#[pallet::getter(fn mmr_root_hash)]
+	pub type RootHash<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, <T as Config<I>>::Hash, ValueQuery>;
+
+	/// Current size of the MMR (number of leaves).
+	#[pallet::storage]
+	#[pallet::getter(fn mmr_leaves)]
+	pub type NumberOfLeaves<T, I = ()> = StorageValue<_, LeafIndex, ValueQuery>;
+
+	/// Hashes of the nodes in the MMR.
+	///
+	/// Note this collection only contains MMR peaks, the inner nodes (and leaves)
+	/// are pruned and only stored in the Offchain DB.
+	#[pallet::storage]
+	#[pallet::getter(fn mmr_peak)]
+	pub type Nodes<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, NodeIndex, <T as Config<I>>::Hash, OptionQuery>;
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		fn on_initialize(_n: T::BlockNumber) -> Weight {
 			use primitives::LeafDataProvider;
 			let leaves = Self::mmr_leaves();
@@ -167,11 +220,34 @@ decl_module! {
 			let (leaves, root) = mmr.finalize().expect("MMR finalize never fails.");
 			<T::OnNewRoot as primitives::OnNewRoot<_>>::on_new_root(&root);
 
-			<NumberOfLeaves>::put(leaves);
+			<NumberOfLeaves<T, I>>::put(leaves);
 			<RootHash<T, I>>::put(root);
 
 			let peaks_after = mmr::utils::NodesUtils::new(leaves).number_of_peaks();
+
 			T::WeightInfo::on_initialize(peaks_before.max(peaks_after))
+		}
+
+		fn offchain_worker(n: T::BlockNumber) {
+			use mmr::storage::{OffchainStorage, Storage};
+			// MMR pallet uses offchain storage to hold full MMR and leaves.
+			// The leaves are saved under fork-unique keys `(parent_hash, pos)`.
+			// MMR Runtime depends on `frame_system::block_hash(block_num)` mappings to find
+			// parent hashes for particular nodes or leaves.
+			// This MMR offchain worker function moves a rolling window of the same size
+			// as `frame_system::block_hash` map, where nodes/leaves added by blocks that are just
+			// about to exit the window are "canonicalized" so that their offchain key no longer
+			// depends on `parent_hash` therefore on access to `frame_system::block_hash`.
+			//
+			// This approach works to eliminate fork-induced leaf collisions in offchain db,
+			// under the assumption that no fork will be deeper than `frame_system::BlockHashCount`
+			// blocks (2400 blocks on Polkadot, Kusama, Rococo, etc):
+			//   entries pertaining to block `N` where `N < current-2400` are moved to a key based
+			//   solely on block number. The only way to have collisions is if two competing forks
+			//   are deeper than 2400 blocks and they both "canonicalize" their view of block `N`.
+			// Once a block is canonicalized, all MMR entries pertaining to sibling blocks from
+			// other forks are pruned from offchain db.
+			Storage::<OffchainStorage, T, I, LeafOf<T, I>>::canonicalize_and_prune(n);
 		}
 	}
 }
@@ -185,21 +261,23 @@ type LeafOf<T, I> = <<T as Config<I>>::LeafData as primitives::LeafDataProvider>
 /// Hashing used for the pallet.
 pub(crate) type HashingOf<T, I> = <T as Config<I>>::Hashing;
 
-/// Stateless MMR proof verification.
+/// Stateless MMR proof verification for batch of leaves.
 ///
-/// This function can be used to verify received MMR proof (`proof`)
-/// for given leaf data (`leaf`) against a known MMR root hash (`root`).
-///
-/// The verification does not require any storage access.
-pub fn verify_leaf_proof<H, L>(
+/// This function can be used to verify received MMR [primitives::BatchProof] (`proof`)
+/// for given leaves set (`leaves`) against a known MMR root hash (`root`).
+/// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the
+/// same position in both the `leaves` vector and the `leaf_indices` vector contained in the
+/// [primitives::BatchProof].
+pub fn verify_leaves_proof<H, L>(
 	root: H::Output,
-	leaf: mmr::Node<H, L>,
-	proof: primitives::Proof<H::Output>,
-) -> Result<(), primitives::Error> where
+	leaves: Vec<mmr::Node<H, L>>,
+	proof: primitives::BatchProof<H::Output>,
+) -> Result<(), primitives::Error>
+where
 	H: traits::Hash,
 	L: primitives::FullLeaf,
 {
-	let is_valid = mmr::verify_leaf_proof::<H, L>(root, leaf, proof)?;
+	let is_valid = mmr::verify_leaves_proof::<H, L>(root, leaves, proof)?;
 	if is_valid {
 		Ok(())
 	} else {
@@ -207,46 +285,80 @@ pub fn verify_leaf_proof<H, L>(
 	}
 }
 
-impl<T: Config<I>, I: Instance> Module<T, I> {
-	fn offchain_key(pos: u64) -> sp_std::prelude::Vec<u8> {
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Build offchain key from `parent_hash` of block that originally added node `pos` to MMR.
+	///
+	/// This combination makes the offchain (key,value) entry resilient to chain forks.
+	fn node_offchain_key(
+		parent_hash: <T as frame_system::Config>::Hash,
+		pos: NodeIndex,
+	) -> sp_std::prelude::Vec<u8> {
+		(T::INDEXING_PREFIX, parent_hash, pos).encode()
+	}
+
+	/// Build canonical offchain key for node `pos` in MMR.
+	///
+	/// Used for nodes added by now finalized blocks.
+	fn node_canon_offchain_key(pos: NodeIndex) -> sp_std::prelude::Vec<u8> {
 		(T::INDEXING_PREFIX, pos).encode()
 	}
 
-	/// Generate a MMR proof for the given `leaf_index`.
+	/// Provide the parent number for the block that added `leaf_index` to the MMR.
+	fn leaf_index_to_parent_block_num(
+		leaf_index: LeafIndex,
+		leaves_count: LeafIndex,
+	) -> <T as frame_system::Config>::BlockNumber {
+		// leaves are zero-indexed and were added one per block since pallet activation,
+		// while block numbers are one-indexed, so block number that added `leaf_idx` is:
+		// `block_num = block_num_when_pallet_activated + leaf_idx + 1`
+		// `block_num = (current_block_num - leaves_count) + leaf_idx + 1`
+		// `parent_block_num = current_block_num - leaves_count + leaf_idx`.
+		<frame_system::Pallet<T>>::block_number()
+			.saturating_sub(leaves_count.saturated_into())
+			.saturating_add(leaf_index.saturated_into())
+	}
+
+	/// Generate a MMR proof for the given `leaf_indices`.
 	///
 	/// Note this method can only be used from an off-chain context
 	/// (Offchain Worker or Runtime API call), since it requires
 	/// all the leaves to be present.
 	/// It may return an error or panic if used incorrectly.
-	pub fn generate_proof(leaf_index: u64) -> Result<
-		(LeafOf<T, I>, primitives::Proof<<T as Config<I>>::Hash>),
+	pub fn generate_batch_proof(
+		leaf_indices: Vec<LeafIndex>,
+	) -> Result<
+		(Vec<LeafOf<T, I>>, primitives::BatchProof<<T as Config<I>>::Hash>),
 		primitives::Error,
 	> {
 		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(Self::mmr_leaves());
-		mmr.generate_proof(leaf_index)
+		mmr.generate_batch_proof(leaf_indices)
 	}
 
-	/// Verify MMR proof for given `leaf`.
+	/// Return the on-chain MMR root hash.
+	pub fn mmr_root() -> <T as Config<I>>::Hash {
+		Self::mmr_root_hash()
+	}
+
+	/// Verify MMR proof for given `leaves`.
 	///
 	/// This method is safe to use within the runtime code.
 	/// It will return `Ok(())` if the proof is valid
 	/// and an `Err(..)` if MMR is inconsistent (some leaves are missing)
 	/// or the proof is invalid.
-	pub fn verify_leaf(
-		leaf: LeafOf<T, I>,
-		proof: primitives::Proof<<T as Config<I>>::Hash>,
+	pub fn verify_leaves(
+		leaves: Vec<LeafOf<T, I>>,
+		proof: primitives::BatchProof<<T as Config<I>>::Hash>,
 	) -> Result<(), primitives::Error> {
-		if proof.leaf_count > Self::mmr_leaves()
-			|| proof.leaf_count == 0
-			|| proof.items.len() as u32 > mmr::utils::NodesUtils::new(proof.leaf_count).depth()
+		if proof.leaf_count > Self::mmr_leaves() ||
+			proof.leaf_count == 0 ||
+			(proof.items.len().saturating_add(leaves.len())) as u64 > proof.leaf_count
 		{
-			return Err(primitives::Error::Verify.log_debug(
-				"The proof has incorrect number of leaves or proof items."
-			));
+			return Err(primitives::Error::Verify
+				.log_debug("The proof has incorrect number of leaves or proof items."))
 		}
 
-		let mmr: ModuleMmr<mmr::storage::RuntimeStorage, T, I> = mmr::Mmr::new(proof.leaf_count);
-		let is_valid = mmr.verify_leaf_proof(leaf, proof)?;
+		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(proof.leaf_count);
+		let is_valid = mmr.verify_leaves_proof(leaves, proof)?;
 		if is_valid {
 			Ok(())
 		} else {

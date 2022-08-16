@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2019-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2019-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,8 +17,10 @@
 
 //! Tagged Transaction Queue Runtime API.
 
-use sp_runtime::transaction_validity::{TransactionValidity, TransactionSource};
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::{
+	traits::Block as BlockT,
+	transaction_validity::{TransactionSource, TransactionValidity},
+};
 
 sp_api::decl_runtime_apis! {
 	/// The `TaggedTransactionQueue` api trait for interfering with the transaction queue.

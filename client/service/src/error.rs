@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2017-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2017-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -18,10 +18,10 @@
 
 //! Errors that can occur during the service operation.
 
-use sc_network;
 use sc_keystore;
-use sp_consensus;
+use sc_network;
 use sp_blockchain;
+use sp_consensus;
 
 /// Service Result typedef.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -46,6 +46,9 @@ pub enum Error {
 	#[error(transparent)]
 	Keystore(#[from] sc_keystore::Error),
 
+	#[error(transparent)]
+	Telemetry(#[from] sc_telemetry::Error),
+
 	#[error("Best chain selection strategy (SelectChain) is not provided.")]
 	SelectChainRequired,
 
@@ -68,7 +71,7 @@ impl<'a> From<&'a str> for Error {
 	}
 }
 
-impl<'a> From<String> for Error {
+impl From<String> for Error {
 	fn from(s: String) -> Self {
 		Error::Other(s)
 	}

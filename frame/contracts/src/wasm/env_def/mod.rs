@@ -1,6 +1,6 @@
 // This file is part of Substrate.
 
-// Copyright (C) 2018-2021 Parity Technologies (UK) Ltd.
+// Copyright (C) 2018-2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +19,7 @@ use super::Runtime;
 use crate::exec::Ext;
 
 use sp_sandbox::Value;
-use parity_wasm::elements::{FunctionType, ValueType};
+use wasm_instrument::parity_wasm::elements::{FunctionType, ValueType};
 
 #[macro_use]
 pub mod macros;
@@ -31,8 +31,8 @@ pub trait ConvertibleToWasm: Sized {
 	fn from_typed_value(_: Value) -> Option<Self>;
 }
 impl ConvertibleToWasm for i32 {
-	type NativeType = i32;
 	const VALUE_TYPE: ValueType = ValueType::I32;
+	type NativeType = i32;
 	fn to_typed_value(self) -> Value {
 		Value::I32(self)
 	}
@@ -41,8 +41,8 @@ impl ConvertibleToWasm for i32 {
 	}
 }
 impl ConvertibleToWasm for u32 {
-	type NativeType = u32;
 	const VALUE_TYPE: ValueType = ValueType::I32;
+	type NativeType = u32;
 	fn to_typed_value(self) -> Value {
 		Value::I32(self as i32)
 	}
@@ -54,8 +54,8 @@ impl ConvertibleToWasm for u32 {
 	}
 }
 impl ConvertibleToWasm for u64 {
-	type NativeType = u64;
 	const VALUE_TYPE: ValueType = ValueType::I64;
+	type NativeType = u64;
 	fn to_typed_value(self) -> Value {
 		Value::I64(self as i64)
 	}
@@ -67,14 +67,13 @@ impl ConvertibleToWasm for u64 {
 	}
 }
 
-pub type HostFunc<E> =
-	fn(
-		&mut Runtime<E>,
-		&[sp_sandbox::Value]
-	) -> Result<sp_sandbox::ReturnValue, sp_sandbox::HostError>;
+pub type HostFunc<E> = fn(
+	&mut Runtime<E>,
+	&[sp_sandbox::Value],
+) -> Result<sp_sandbox::ReturnValue, sp_sandbox::HostError>;
 
 pub trait FunctionImplProvider<E: Ext> {
-	fn impls<F: FnMut(&[u8], HostFunc<E>)>(f: &mut F);
+	fn impls<F: FnMut(&[u8], &[u8], HostFunc<E>)>(f: &mut F);
 }
 
 /// This trait can be used to check whether the host environment can satisfy
@@ -83,5 +82,5 @@ pub trait ImportSatisfyCheck {
 	/// Returns `true` if the host environment contains a function with
 	/// the specified name and its type matches to the given type, or `false`
 	/// otherwise.
-	fn can_satisfy(name: &[u8], func_type: &FunctionType) -> bool;
+	fn can_satisfy(module: &[u8], name: &[u8], func_type: &FunctionType) -> bool;
 }

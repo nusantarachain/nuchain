@@ -35,7 +35,7 @@ mod benchmarking;
 pub mod weights;
 pub use weights::WeightInfo;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 
 type ProofId = u64;
 type BalanceOf<T> =
@@ -46,6 +46,27 @@ pub type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
 pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
+
+#[derive(Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen)]
+pub struct ProofTx<BlockNumber, Balance, AccountId> {
+    /// ID of proof
+    pub id: ProofId,
+
+    /// Block number where this proof is stored
+    pub block: BlockNumber,
+
+    /// Network source/destination ID
+    pub network: u32,
+
+    /// Transfered amount
+    pub amount: Balance,
+
+    /// Owner of the token
+    pub owner: AccountId,
+}
+
+type ProofTxT<T> = ProofTx<<T as frame_system::Config>::BlockNumber, BalanceOf<T>, <T as frame_system::Config>::AccountId>;
+
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -74,24 +95,6 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
     }
 
-    #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
-    pub struct ProofTx<T: Config> {
-        /// ID of proof
-        pub id: ProofId,
-
-        /// Block number where this proof is stored
-        pub block: T::BlockNumber,
-
-        /// Network source/destination ID
-        pub network: u32,
-
-        /// Transfered amount
-        pub amount: BalanceOf<T>,
-
-        /// Owner of the token
-        pub owner: T::AccountId,
-    }
-
     #[pallet::error]
     pub enum Error<T> {
         /// The Proof already exsits
@@ -115,7 +118,6 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance", ProofId = "ProofId")]
     pub enum Event<T: Config> {
         /// New transfer in \[id, amount, owner, network id\]
         TransferIn(ProofId, BalanceOf<T>, T::AccountId, u32),
@@ -135,11 +137,11 @@ pub mod pallet {
 
     /// Index of id -> data
     #[pallet::storage]
-    pub type ProofTxIns<T: Config> = StorageMap<_, Blake2_128Concat, ProofId, ProofTx<T>>;
+    pub type ProofTxIns<T: Config> = StorageMap<_, Blake2_128Concat, ProofId, ProofTxT<T>>;
 
     /// Index of id -> data
     #[pallet::storage]
-    pub type ProofTxOuts<T: Config> = StorageMap<_, Blake2_128Concat, ProofId, ProofTx<T>>;
+    pub type ProofTxOuts<T: Config> = StorageMap<_, Blake2_128Concat, ProofId, ProofTxT<T>>;
 
     /// Map index to ProofId
     #[pallet::storage]
@@ -172,7 +174,7 @@ pub mod pallet {
         /// The dispatch origin for this call must be _Operator_.
         ///
         #[pallet::weight(T::WeightInfo::transfer_in())]
-        pub(crate) fn transfer_in(
+        pub fn transfer_in(
             origin: OriginFor<T>,
             id: ProofId,
             amount: BalanceOf<T>,
@@ -195,7 +197,7 @@ pub mod pallet {
                 id as ProofId,
                 ProofTx {
                     id,
-                    block: <frame_system::Module<T>>::block_number(),
+                    block: <frame_system::Pallet<T>>::block_number(),
                     network,
                     amount,
                     owner: owner.clone(),
@@ -218,7 +220,7 @@ pub mod pallet {
         /// The dispatch origin for this call must be _Signed_.
         ///
         #[pallet::weight(T::WeightInfo::transfer_out())]
-        pub(crate) fn transfer_out(
+        pub fn transfer_out(
             origin: OriginFor<T>,
             id: ProofId,
             amount: BalanceOf<T>,
@@ -239,7 +241,7 @@ pub mod pallet {
                 id as ProofId,
                 ProofTx {
                     id,
-                    block: <frame_system::Module<T>>::block_number(),
+                    block: <frame_system::Pallet<T>>::block_number(),
                     network,
                     amount,
                     owner: who.clone(),
@@ -267,7 +269,7 @@ pub mod pallet {
         /// The dispatch origin for this call must be _Root_.
         ///
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-        pub(crate) fn set_operator(
+        pub fn set_operator(
             origin: OriginFor<T>,
             key: T::AccountId,
         ) -> DispatchResultWithPostInfo {
@@ -285,7 +287,7 @@ pub mod pallet {
         /// The dispatch origin for this call must be _Root_.
         ///
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-        pub(crate) fn lock(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn lock(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             Locked::<T>::put(true);
@@ -300,7 +302,7 @@ pub mod pallet {
         /// The dispatch origin for this call must be _Root_.
         ///
         #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
-        pub(crate) fn unlock(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn unlock(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin.clone())?;
 
             Locked::<T>::put(false);
@@ -370,13 +372,14 @@ impl<T: Config> EnsureOrigin<T::Origin> for EnsureOperator<T> {
 
 /// The main implementation of this Liquidity pallet.
 impl<T: Config> Pallet<T> {
+
     /// Get the tx in proof by proof id
-    pub fn proof_tx_ins(id: ProofId) -> Option<ProofTx<T>> {
+    pub fn proof_tx_ins(id: ProofId) -> Option<ProofTxT<T>> {
         ProofTxIns::<T>::get(id)
     }
 
     /// Get the tx out proof by proof id
-    pub fn proof_tx_out(id: ProofId) -> Option<ProofTx<T>> {
+    pub fn proof_tx_out(id: ProofId) -> Option<ProofTxT<T>> {
         ProofTxOuts::<T>::get(id)
     }
 
