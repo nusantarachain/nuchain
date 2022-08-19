@@ -47,7 +47,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-    AccountId: Codec + Send + Sync,
+    AccountId: Codec + Send + Sync + Clone,
     Client::Api: pallet_did_runtime_api::DidApi<Block, AccountId>,
 {
 	fn get_owner(&self, id: AccountId) -> RpcResult<Option<AccountId>> {
@@ -55,8 +55,9 @@ where
 		let api = self.client.runtime_api();
 		let block_id = BlockId::hash(self.client.info().best_hash);
 
-		match api.get_owner(&block_id, id){
+		match api.get_owner(&block_id, id.clone()){
             Err(e) => Err(JsonRpseeError::to_call_error(e)),
+            Ok(None) => Ok(Some(id)), // just return the entered AccountId if no owner is found
             Ok(r) => Ok(r),
         }
 	}
