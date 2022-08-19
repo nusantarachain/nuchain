@@ -1,6 +1,6 @@
-// This file is part of Substrate.
+// This file is part of nuchain.
 
-// Copyright (C) 2019-2022 Parity Technologies (UK) Ltd.
+// Copyright (C) 2020-2022 Rantai Nusantara Foundation.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -113,6 +113,7 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
+    C::Api: pallet_did_rpc::DidRuntimeApi<Block, AccountId>,
 	P: TransactionPool + 'static,
 	SC: SelectChain<Block> + 'static,
 	B: sc_client_api::Backend<Block> + Send + Sync + 'static,
@@ -127,6 +128,8 @@ where
 	use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 	use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer};
+    // use pallet_did_rpc::Did;
+    use pallet_did_rpc::{Did, DidApiServer};
 
 	let mut io = RpcModule::new(());
 	let FullDeps { client, pool, select_chain, chain_spec, deny_unsafe, babe, grandpa } = deps;
@@ -175,7 +178,8 @@ where
 	)?;
 
 	io.merge(StateMigration::new(client.clone(), backend, deny_unsafe).into_rpc())?;
-	io.merge(Dev::new(client, deny_unsafe).into_rpc())?;
+	io.merge(Dev::new(client.clone(), deny_unsafe).into_rpc())?;
+    io.merge(Did::new(client, deny_unsafe).into_rpc())?;
 
 	Ok(io)
 }

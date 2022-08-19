@@ -299,10 +299,10 @@ impl RuntimeVersion {
 		has_api_with(&self.apis, id, predicate)
 	}
 
-	/// Returns the api version found for api with `id`.
-	pub fn api_version(&self, id: &ApiId) -> Option<u32> {
-		self.apis.iter().find_map(|a| (a.0 == *id).then(|| a.1))
-	}
+	// /// Returns the api version found for api with `id`.
+	// pub fn api_version(&self, id: &ApiId) -> Option<u32> {
+	// 	self.apis.iter().find_map(|a| (a.0 == *id).then(|| a.1))
+	// }
 
 	/// Returns the api version found for api with `id`.
 	pub fn api_version(&self, id: &ApiId) -> Option<u32> {

@@ -21,5 +21,5 @@
 #![warn(missing_docs)]
 
 fn main() -> sc_cli::Result<()> {
-	nuchain_node::run()
+	node_cli::run()
 }

@@ -52,7 +52,7 @@ fn validate_delegated_claim() {
         System::set_block_number(1);
 
         // Predefined delegate type: "Sr25519VerificationKey2018"
-        let delegate_type = b"x25519VerificationKey2018".to_vec();
+        let delegate_type = b"Sr25519VerificationKey2018".to_vec();
         let data = b"I am Satoshi Nakamoto".to_vec();
 
         let satoshi_public = account_key("Satoshi"); // Get Satoshi's public key.
@@ -226,7 +226,7 @@ fn revoke_delegate_works() {
         System::set_block_number(1);
 
         // Predefined delegate type: "Sr25519VerificationKey2018"
-        let delegate_type = b"x25519VerificationKey2018".to_vec();
+        let delegate_type = b"Sr25519VerificationKey2018".to_vec();
 
         let satoshi_public = account_key("Satoshi"); // Get Satoshi's public key.
         let nakamoto_pair = account_pair("Nakamoto"); // Create a new delegate account pair.
@@ -275,7 +275,7 @@ fn non_owner_cannot_revoke_delegate() {
         System::set_block_number(1);
 
         // Predefined delegate type: "Sr25519VerificationKey2018"
-        let delegate_type = b"x25519VerificationKey2018".to_vec();
+        let delegate_type = b"Sr25519VerificationKey2018".to_vec();
 
         let satoshi_public = account_key("Satoshi"); // Get Satoshi's public key.
         let nakamoto_pair = account_pair("Nakamoto"); // Create a new delegate account pair.

@@ -184,12 +184,12 @@ where
 		ex.using_encoded(|x| (<traits::HashFor<Block> as traits::Hash>::hash(x), x.len()))
 	}
 
-	fn block_header(
-		&self,
-		at: &BlockId<Self::Block>,
-	) -> Result<Option<<Self::Block as BlockT>::Header>, Self::Error> {
-		self.client.header(*at).map_err(Into::into)
-	}
+	// fn block_header(
+	// 	&self,
+	// 	at: &BlockId<Self::Block>,
+	// ) -> Result<Option<<Self::Block as BlockT>::Header>, Self::Error> {
+	// 	self.client.header(*at).map_err(Into::into)
+	// }
 
 	fn block_header(
 		&self,

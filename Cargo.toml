@@ -103,6 +103,8 @@ members = [
 	# "frame/lottery",
 	"frame/liquidity",
 	"frame/did",
+	"frame/did/rpc",
+	"frame/did/rpc/runtime-api",
 	"frame/organization",
 	"frame/certificate",
 	"frame/membership",

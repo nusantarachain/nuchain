@@ -1,0 +1,32 @@
+[package]
+name = "pallet-did-rpc"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.1" }
+jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+
+# pallet-did = { path = "../" }
+pallet-did-runtime-api = { path = "./runtime-api" }
+
+sp-api = { version = "4.0.0-dev", path = "../../../primitives/api" }
+sp-blockchain = { version = "4.0.0-dev", path = "../../../primitives/blockchain" }
+sp-core = { version = "6.0.0", path = "../../../primitives/core" }
+sp-runtime = { version = "6.0.0", path = "../../../primitives/runtime" }
+
+sc-rpc = { version = "4.0.0-dev", path = "../../../client/rpc" }
+sc-rpc-api = { version = "0.10.0-dev", path = "../../../client/rpc-api" }
+sc-client-api = { version = "4.0.0-dev", path = "../../../client/api" }
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "sp-api/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    # "pallet-did/std"
+]

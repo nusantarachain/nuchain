@@ -180,11 +180,6 @@ where
 
 		// An `ExpIncInterval` is overkill here because the interval is constant, but consistency
 		// is more simple.
-		let publish_if_changed_interval =
-			ExpIncInterval::new(config.keystore_refresh_interval, config.keystore_refresh_interval);
-
-		// An `ExpIncInterval` is overkill here because the interval is constant, but consistency
-		// is more simple.
 		let publish_if_changed_interval = ExpIncInterval::new(
 			config.keystore_refresh_interval,
 			config.keystore_refresh_interval

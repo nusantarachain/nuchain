@@ -448,9 +448,9 @@ where
 			.collect()
 	}
 
-	fn code_substitutes(&self) -> std::collections::HashMap<String, Vec<u8>> {
-		self.client_spec.code_substitutes.iter().map(|(h, c)| (h.clone(), c.0.clone())).collect()
-	}
+	// fn code_substitutes(&self) -> std::collections::HashMap<String, Vec<u8>> {
+	// 	self.client_spec.code_substitutes.iter().map(|(h, c)| (h.clone(), c.0.clone())).collect()
+	// }
 }
 
 #[cfg(test)]

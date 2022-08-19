@@ -4787,6 +4787,7 @@ dependencies = [
  "jsonrpsee",
  "node-primitives",
  "pallet-contracts-rpc",
+ "pallet-did-rpc",
  "pallet-mmr-rpc",
  "pallet-transaction-payment-rpc",
  "sc-chain-spec",
@@ -4909,6 +4910,7 @@ dependencies = [
  "pallet-conviction-voting",
  "pallet-democracy",
  "pallet-did",
+ "pallet-did-runtime-api",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
@@ -5643,6 +5645,33 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-did-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-did-runtime-api",
+ "parity-scale-codec",
+ "sc-client-api",
+ "sc-rpc",
+ "sc-rpc-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-did-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
  "sp-runtime",
  "sp-std",
 ]

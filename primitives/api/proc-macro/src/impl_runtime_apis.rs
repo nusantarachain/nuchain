@@ -261,13 +261,13 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					.map(|v| #crate_::RuntimeVersion::has_api_with(&v, &A::ID, pred))
 			}
 
-			fn api_version<A: #crate_::RuntimeApiInfo + ?Sized>(
-				&self,
-				at: &#crate_::BlockId<Block>,
-			) -> std::result::Result<Option<u32>, #crate_::ApiError> where Self: Sized {
-				#crate_::CallApiAt::<Block>::runtime_version_at(self.call, at)
-					.map(|v| #crate_::RuntimeVersion::api_version(&v, &A::ID))
-			}
+			// fn api_version<A: #crate_::RuntimeApiInfo + ?Sized>(
+			// 	&self,
+			// 	at: &#crate_::BlockId<Block>,
+			// ) -> std::result::Result<Option<u32>, #crate_::ApiError> where Self: Sized {
+			// 	#crate_::CallApiAt::<Block>::runtime_version_at(self.call, at)
+			// 		.map(|v| #crate_::RuntimeVersion::api_version(&v, &A::ID))
+			// }
 
 			fn api_version<A: #crate_::RuntimeApiInfo + ?Sized>(
 				&self,

@@ -110,6 +110,7 @@ pallet-uniques = { version = "4.0.0-dev", default-features = false, path = "../.
 pallet-vesting = { version = "4.0.0-dev", default-features = false, path = "../../../frame/vesting" }
 pallet-whitelist = { version = "4.0.0-dev", default-features = false, path = "../../../frame/whitelist" }
 pallet-did = { version = "1.0.3", default-features = false, path = "../../../frame/did" }
+pallet-did-runtime-api = { version = "0.1.0", default-features = false, path = "../../../frame/did/rpc/runtime-api" }
 pallet-organization = { version = "1.0.3", default-features = false, path = "../../../frame/organization" }
 pallet-certificate = { version = "1.0.3", default-features = false, path = "../../../frame/certificate" }
 pallet-migration = { version = "0.1.0", default-features = false, path = "../../../frame/migration" }
@@ -148,6 +149,7 @@ std = [
 	"sp-inherents/std",
 	# "pallet-lottery/std",
   	"pallet-did/std",
+    "pallet-did-runtime-api/std",
   	"pallet-organization/std",
 	"pallet-certificate/std",
 	"pallet-liquidity/std",

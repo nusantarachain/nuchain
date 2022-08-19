@@ -393,6 +393,7 @@ pub fn build_genesis(
 	}
 }
 
+/// Genesis configuration for testnet
 pub fn testnet_genesis(	initial_authorities: Vec<(
     AccountId,
     AccountId,
@@ -459,11 +460,6 @@ pub fn local_testnet_config() -> ChainSpec {
 		None,
 		Default::default(),
 	)
-}
-
-/// Load main config
-pub fn main_config() -> Result<ChainSpec, String> {
-	ChainSpec::from_json_bytes(&include_bytes!("../res/nuchain.json")[..])
 }
 
 /// Load gama network config

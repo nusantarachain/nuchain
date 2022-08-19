@@ -551,13 +551,13 @@ pub trait ApiExt<Block: BlockT> {
 	where
 		Self: Sized;
 
-	/// Returns the version of the given api.
-	fn api_version<A: RuntimeApiInfo + ?Sized>(
-		&self,
-		at: &BlockId<Block>,
-	) -> Result<Option<u32>, ApiError>
-	where
-		Self: Sized;
+	// /// Returns the version of the given api.
+	// fn api_version<A: RuntimeApiInfo + ?Sized>(
+	// 	&self,
+	// 	at: &BlockId<Block>,
+	// ) -> Result<Option<u32>, ApiError>
+	// where
+	// 	Self: Sized;
 
 	/// Returns the version of the given api.
 	fn api_version<A: RuntimeApiInfo + ?Sized>(

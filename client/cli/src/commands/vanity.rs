@@ -46,10 +46,6 @@ pub struct VanityCmd {
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	crypto_scheme: CryptoSchemeFlag,
-
-	/// Treat pattern as Regex.
-	#[structopt(long)]
-	as_regex: bool,
 }
 
 impl VanityCmd {
@@ -80,7 +76,6 @@ impl VanityCmd {
 fn generate_key<Pair>(
 	desired: &str,
 	network_override: Ss58AddressFormat,
-	as_regex: bool
 ) -> Result<String, &'static str>
 where
 	Pair: sp_core::Pair,
@@ -93,12 +88,6 @@ where
 	let mut best = 0;
 	let mut seed = Pair::Seed::default();
 	let mut done = 0;
-
-	let re = if as_regex {
-		Regex::new(&desired).ok()
-	}else{
-		None
-	};
 
 	loop {
 		if done % 100000 == 0 {
@@ -115,11 +104,6 @@ where
 			if best >= top {
 				println!("best: {} == top: {}", best, top);
 				return Ok(utils::format_seed::<Pair>(seed.clone()))
-			}
-		}
-		if let Some(ref re) = re {
-			if re.is_match(&ss58) {
-				return Ok(utils::format_seed::<Pair>(seed.clone()));
 			}
 		}
 		done += 1;
@@ -152,8 +136,6 @@ fn next_seed(seed: &mut [u8]) {
 		}
 	}
 }
-
-use regex::Regex;
 
 /// Calculate the score of a key based on the desired
 /// input.
