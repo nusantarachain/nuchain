@@ -41,7 +41,7 @@ use frame_support::{
 	ensure,
 	traits::{
 		Currency, EnsureOrigin,
-		ExistenceRequirement::{AllowDeath, KeepAlive},
+		ExistenceRequirement::KeepAlive,
 		Get, OnUnbalanced, ReservableCurrency, UnixTime, WithdrawReasons,
 	},
 	types::{Property, Text},

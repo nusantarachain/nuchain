@@ -1,6 +1,6 @@
 // This file is part of nuchain.
 
-// Copyright (C) 2019-2022 Nusantara Chain Foundation.
+// Copyright (C) 2020-2022 Nusantara Chain Foundation.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Substrate chain configurations.
+//! nuchain chain configurations.
 
 use grandpa_primitives::AuthorityId as GrandpaId;
 use hex_literal::hex;
@@ -49,7 +49,7 @@ const STAGING_TELEMETRY_URL: &str = "wss://telemetry.nuchain.network/submit";
 
 /// Node `ChainSpec` extensions.
 ///
-/// Additional parameters for some Substrate core modules,
+/// Additional parameters for some nuchain core modules,
 /// customizable from the chain spec.
 #[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
 #[serde(rename_all = "camelCase")]
