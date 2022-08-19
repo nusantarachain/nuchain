@@ -26,7 +26,7 @@ frame_support::traits::EnsureOrigin;
 
 ### Pallets
 
-* Pallet timestamp ([pallet-timestamp](../pallet-timestamp))
+* Pallet timestamp ([pallet-timestamp](../timestamp))
 
 ## Testing
 
