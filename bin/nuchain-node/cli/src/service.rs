@@ -597,8 +597,8 @@ mod tests {
 	type AccountPublic = <Signature as Verify>::Signer;
 
 	#[test]
-	// It is "ignored", but the node-cli ignored tests are running on the CI.
-	// This can be run locally with `cargo test --release -p node-cli test_sync -- --ignored`.
+	// It is "ignored", but the nuchain-node ignored tests are running on the CI.
+	// This can be run locally with `cargo test --release -p nuchain-node test_sync -- --ignored`.
 	#[ignore]
 	fn test_sync() {
 		sp_tracing::try_init_simple();

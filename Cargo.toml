@@ -2,13 +2,13 @@
 resolver = "2"
 
 members = [
-	"bin/node/bench",
-	"bin/node/cli",
-	"bin/node/executor",
-	"bin/node/primitives",
-	"bin/node/rpc",
-	"bin/node/runtime",
-	"bin/node/testing",
+	"bin/nuchain-node/bench",
+	"bin/nuchain-node/cli",
+	"bin/nuchain-node/executor",
+	"bin/nuchain-node/primitives",
+	"bin/nuchain-node/rpc",
+	"bin/nuchain-node/runtime",
+	"bin/nuchain-node/testing",
 	"bin/utils/chain-spec-builder",
 	"bin/utils/subkey",
 	"client/api",

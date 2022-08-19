@@ -123,7 +123,7 @@ cargo test -p pallet-balances --features runtime-benchmarks
 > ```
 > error: --features is not allowed in the root of a virtual workspace`
 > ```
-> To solve this, navigate to the folder of the node (`cd bin/node/cli`) or pallet (`cd frame/pallet`) and run the command there.
+> To solve this, navigate to the folder of the node (`cd bin/nuchain-node/cli`) or pallet (`cd frame/pallet`) and run the command there.
 
 ## Adding Benchmarks
 
@@ -149,7 +149,7 @@ Once you have done this, you will need to compile your node binary with the `run
 feature flag:
 
 ```bash
-cd bin/node/cli
+cd bin/nuchain-node/cli
 cargo build --profile=production --features runtime-benchmarks
 ```
 

@@ -1,6 +1,6 @@
 
 CURDIR=$(shell pwd)
-NODE_VERSION=$(shell grep 'version = ' bin/node/cli/Cargo.toml | head -1 | cut -d '"' -f2)
+NODE_VERSION=$(shell grep 'version = ' bin/nuchain-node/cli/Cargo.toml | head -1 | cut -d '"' -f2)
 GIT_REV=$(shell git rev-parse --short HEAD)
 OS:=$(shell uname | sed -e 's/\(.*\)/\L\1/')
 BIN_NAME=nuchain-$(NODE_VERSION)-$(GIT_REV)-$(OS)
@@ -16,11 +16,11 @@ test:
 
 build:
 	@@echo Building...
-	@@cargo build --release -p node-cli
+	@@cargo build --release -p nuchain-node
 
 build-debug:
 	@@echo "Building (debug mode)..."
-	@@cargo build -p node-cli
+	@@cargo build -p nuchain-node
 
 build-wasm-runtime:
 	@@echo Building WASM runtime...
@@ -31,11 +31,11 @@ build-wasm-runtime:
 
 build-benchmark:
 	@@echo Building binary for benchmark...
-	cargo build -p node-cli --release --features="runtime-benchmarks"
+	cargo build -p nuchain-node --release --features="runtime-benchmarks"
 
 deb:
 	@@echo Packaging for $(DISTRO)
-	@@cargo deb -p node-cli
+	@@cargo deb -p nuchain-node
 	cp target/debian/nuchain_$(NODE_VERSION)_amd64.deb bin_archives/nuchain-$(NODE_VERSION)-$(GIT_REV)-$(DISTRO)_amd64.deb
 
 package:

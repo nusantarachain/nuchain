@@ -1,5 +1,5 @@
 [package]
-name = "node-runtime-generate-bags"
+name = "nuchain-runtime-generate-bags"
 version = "3.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
@@ -10,7 +10,7 @@ description = "Bag threshold generation script for pallet-bag-list and nuchain-r
 readme = "README.md"
 
 [dependencies]
-nuchain-runtime = { version = "3.0.0-dev", path = "../../../../bin/node/runtime" }
+nuchain-runtime = { version = "3.0.0-dev", path = "../../../../bin/nuchain-node/runtime" }
 generate-bags = { version = "4.0.0-dev", path = "../" }
 
 # third-party

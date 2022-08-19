@@ -8,7 +8,7 @@ PROJECT_ROOT=`git rev-parse --show-toplevel`
 cd $PROJECT_ROOT
 
 # Find the current version from Cargo.toml
-VERSION=`grep "^version" ./bin/node/cli/Cargo.toml | egrep -o "([0-9\.]+)"`
+VERSION=`grep "^version" ./bin/nuchain-node/cli/Cargo.toml | egrep -o "([0-9\.]+)"`
 GITUSER=parity
 GITREPO=substrate
 

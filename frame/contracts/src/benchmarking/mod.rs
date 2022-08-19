@@ -2837,7 +2837,7 @@ benchmarks! {
 	// This is no benchmark. It merely exist to have an easy way to pretty print the curently
 	// configured `Schedule` during benchmark development.
 	// It can be outputed using the following command:
-	// cargo run --manifest-path=bin/node/cli/Cargo.toml --release \
+	// cargo run --manifest-path=bin/nuchain-node/cli/Cargo.toml --release \
 	//     --features runtime-benchmarks -- benchmark --extra --dev --execution=native \
 	//     -p pallet_contracts -e print_schedule --no-median-slopes --no-min-squares
 	#[extra]

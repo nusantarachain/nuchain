@@ -43,7 +43,7 @@
 //! 3. Run that program:
 //!
 //!    ```sh,notrust
-//!    $ cargo run -p node-runtime-generate-bags -- --total-issuance 1234 --minimum-balance 1
+//!    $ cargo run -p nuchain-runtime-generate-bags -- --total-issuance 1234 --minimum-balance 1
 //! output.rs    ```
 //!
 //! 4. Update the runtime definition.

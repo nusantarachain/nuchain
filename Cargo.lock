@@ -894,7 +894,7 @@ version = "2.0.0"
 dependencies = [
  "ansi_term",
  "clap 3.2.17",
- "node-cli",
+ "nuchain-node",
  "rand 0.8.5",
  "sc-chain-spec",
  "sc-keystore",
@@ -4633,91 +4633,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "node-cli"
-version = "2.0.2"
-dependencies = [
- "assert_cmd",
- "async-std",
- "clap 3.2.17",
- "clap_complete",
- "criterion",
- "frame-benchmarking-cli",
- "frame-system",
- "frame-system-rpc-runtime-api",
- "futures",
- "hex-literal",
- "jsonrpsee",
- "log",
- "nix 0.23.1",
- "node-executor",
- "node-inspect",
- "node-primitives",
- "node-rpc",
- "nuchain-runtime",
- "pallet-asset-tx-payment",
- "pallet-balances",
- "pallet-im-online",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "parity-scale-codec",
- "platforms",
- "rand 0.8.5",
- "regex",
- "remote-externalities",
- "sc-authority-discovery",
- "sc-basic-authorship",
- "sc-block-builder",
- "sc-chain-spec",
- "sc-cli",
- "sc-client-api",
- "sc-client-db",
- "sc-consensus",
- "sc-consensus-babe",
- "sc-consensus-epochs",
- "sc-consensus-slots",
- "sc-consensus-uncles",
- "sc-executor",
- "sc-finality-grandpa",
- "sc-keystore",
- "sc-network",
- "sc-network-common",
- "sc-rpc",
- "sc-service",
- "sc-service-test",
- "sc-sync-state-rpc",
- "sc-sysinfo",
- "sc-telemetry",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
- "serde",
- "serde_json",
- "soketto",
- "sp-api",
- "sp-authority-discovery",
- "sp-authorship",
- "sp-blockchain",
- "sp-consensus",
- "sp-consensus-babe",
- "sp-core",
- "sp-finality-grandpa",
- "sp-inherents",
- "sp-keyring",
- "sp-keystore",
- "sp-runtime",
- "sp-timestamp",
- "sp-tracing",
- "sp-transaction-pool",
- "sp-transaction-storage-proof",
- "sp-trie",
- "substrate-build-script-utils",
- "substrate-frame-cli",
- "tempfile",
- "tokio",
- "try-runtime-cli",
- "wait-timeout",
-]
-
-[[package]]
 name = "node-executor"
 version = "3.0.0-dev"
 dependencies = [
@@ -4813,15 +4728,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "node-runtime-generate-bags"
-version = "3.0.0"
-dependencies = [
- "clap 3.2.17",
- "generate-bags",
- "nuchain-runtime",
-]
-
-[[package]]
 name = "node-testing"
 version = "3.0.0-dev"
 dependencies = [
@@ -4875,6 +4781,91 @@ checksum = "a8903e5a29a317527874d0402f867152a3d21c908bb0b933e416c65e301d4c36"
 dependencies = [
  "memchr",
  "minimal-lexical",
+]
+
+[[package]]
+name = "nuchain-node"
+version = "2.0.2"
+dependencies = [
+ "assert_cmd",
+ "async-std",
+ "clap 3.2.17",
+ "clap_complete",
+ "criterion",
+ "frame-benchmarking-cli",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "futures",
+ "hex-literal",
+ "jsonrpsee",
+ "log",
+ "nix 0.23.1",
+ "node-executor",
+ "node-inspect",
+ "node-primitives",
+ "node-rpc",
+ "nuchain-runtime",
+ "pallet-asset-tx-payment",
+ "pallet-balances",
+ "pallet-im-online",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "platforms",
+ "rand 0.8.5",
+ "regex",
+ "remote-externalities",
+ "sc-authority-discovery",
+ "sc-basic-authorship",
+ "sc-block-builder",
+ "sc-chain-spec",
+ "sc-cli",
+ "sc-client-api",
+ "sc-client-db",
+ "sc-consensus",
+ "sc-consensus-babe",
+ "sc-consensus-epochs",
+ "sc-consensus-slots",
+ "sc-consensus-uncles",
+ "sc-executor",
+ "sc-finality-grandpa",
+ "sc-keystore",
+ "sc-network",
+ "sc-network-common",
+ "sc-rpc",
+ "sc-service",
+ "sc-service-test",
+ "sc-sync-state-rpc",
+ "sc-sysinfo",
+ "sc-telemetry",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
+ "serde",
+ "serde_json",
+ "soketto",
+ "sp-api",
+ "sp-authority-discovery",
+ "sp-authorship",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-finality-grandpa",
+ "sp-inherents",
+ "sp-keyring",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-timestamp",
+ "sp-tracing",
+ "sp-transaction-pool",
+ "sp-transaction-storage-proof",
+ "sp-trie",
+ "substrate-build-script-utils",
+ "substrate-frame-cli",
+ "tempfile",
+ "tokio",
+ "try-runtime-cli",
+ "wait-timeout",
 ]
 
 [[package]]
@@ -4973,6 +4964,15 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "nuchain-runtime-generate-bags"
+version = "3.0.0"
+dependencies = [
+ "clap 3.2.17",
+ "generate-bags",
+ "nuchain-runtime",
 ]
 
 [[package]]
