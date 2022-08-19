@@ -6,7 +6,7 @@
 		"displayName": "The name of the network that will use this prefix, in a format friendly for display.",
 		"symbols": "Array of symbols of any tokens the chain uses, usually 2-5 characters. Most chains will only have one. Chains that have multiple instances of the Balances pallet should order the array by instance.",
 		"decimals": "Array of integers representing the number of decimals that represent a single unit to the end user. Must be same length as `symbols` to represent each token's denomination.",
-		"standardAccount": "Signing curve for standard account. Substrate supports ed25519, sr25519, and secp256k1.",
+		"standardAccount": "Signing curve for standard account. nuchain supports ed25519, sr25519, and secp256k1.",
 		"website": "A website or Github repo associated with the network."
 	},
 	"registry": [
@@ -391,7 +391,7 @@
 		{
 			"prefix": 42,
 			"network": "substrate",
-			"displayName": "Substrate",
+			"displayName": "nuchain",
 			"symbols": null,
 			"decimals": null,
 			"standardAccount": "*25519",
