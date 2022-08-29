@@ -1,6 +1,6 @@
 [package]
 name = "nuchain-node"
-version = "2.0.2"
+version = "2.0.3"
 authors = ["Nusantara Chain <nusantarachain@gmail.com>"]
 description = "Blockchain for Indonesia Society 5.0"
 build = "build.rs"
