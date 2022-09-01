@@ -2,7 +2,7 @@
 CURDIR=$(shell pwd)
 NODE_VERSION=$(shell grep 'version = ' bin/nuchain-node/cli/Cargo.toml | head -1 | cut -d '"' -f2)
 GIT_REV=$(shell git rev-parse --short HEAD)
-OS:=$(shell uname | sed -e 's/\(.*\)/\L\1/')
+OS:=$(shell uname | sed -e 's/\(.*\)/\1/')
 BIN_NAME=nuchain-$(NODE_VERSION)-$(GIT_REV)-$(OS)
 WASM_RUNTIME_OUT=nuchain-runtime-$(GIT_REV).compact.wasm
 DISTRO=$(cat /etc/os-release | grep '^VERSION_ID=' | cut -d '"' -f 2)

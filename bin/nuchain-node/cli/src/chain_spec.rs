@@ -64,10 +64,6 @@ pub struct Extensions {
 
 /// Specialized `ChainSpec`.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
-/// Flaming Fir testnet generator
-pub fn flaming_fir_config() -> Result<ChainSpec, String> {
-    ChainSpec::from_json_bytes(&include_bytes!("../res/flaming-fir.json")[..])
-}
 
 /// Main config
 pub fn main_config() -> Result<ChainSpec, String> {
@@ -546,14 +542,7 @@ use sc_chain_spec::Properties;
 /// Production configuration
 pub fn prod_config() -> ChainSpec {
     let boot_nodes = vec![];
-    // let properties = serde_json::from_str(
-    //     r#"{
-    //         "ss58Format": 99,
-    //         "tokenDecimals": 10,
-    //         "tokenSymbol": "ARA"
-    //     }"#,
-    // )
-    // .unwrap();
+
 	let mut properties = Properties::new();
 	properties.insert("ss58Format".into(), 99.into());
 	properties.insert("tokenDecimals".into(), 10.into());
