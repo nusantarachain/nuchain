@@ -11,7 +11,6 @@ import json
 url = os.environ.get("NUCHAIN_RPC", "http://localhost:9933")
 headers = {'Content-Type': "application/json"}
 
-
 def payload(method, *params):
     rv = {
         "id": 1,
@@ -34,7 +33,7 @@ def insert_key(ktype, secseed, pubkey):
 
 if __name__ == "__main__":
     print("Nuchain Node Key inserter")
-    print("rpc:", url)
+    print("NUCHAIN_RPC:", url)
     print("Input key type `gran`:")
     secseed = input("secseed: ").strip()
     pubkey = input("pubkey: ").strip()
