@@ -125,7 +125,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 269,
+	spec_version: 270,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -1381,34 +1381,6 @@ impl pallet_vesting::Config for Runtime {
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 
-impl pallet_mmr::Config for Runtime {
-	const INDEXING_PREFIX: &'static [u8] = b"mmr";
-	type Hashing = <Runtime as frame_system::Config>::Hashing;
-	type Hash = <Runtime as frame_system::Config>::Hash;
-	type LeafData = pallet_mmr::ParentNumberAndHash<Self>;
-	type OnNewRoot = ();
-	type WeightInfo = ();
-}
-
-// parameter_types! {
-// 	pub const LotteryPalletId: PalletId = PalletId(*b"py/lotto");
-// 	pub const MaxCalls: u32 = 10;
-// 	pub const MaxGenerateRandom: u32 = 10;
-// }
-
-// impl pallet_lottery::Config for Runtime {
-// 	type PalletId = LotteryPalletId;
-// 	type Call = Call;
-// 	type Currency = Balances;
-// 	type Randomness = RandomnessCollectiveFlip;
-// 	type Event = Event;
-// 	type ManagerOrigin = EnsureRoot<AccountId>;
-// 	type MaxCalls = MaxCalls;
-// 	type ValidateCall = Lottery;
-// 	type MaxGenerateRandom = MaxGenerateRandom;
-// 	type WeightInfo = pallet_lottery::weights::SubstrateWeight<Runtime>;
-// }
-
 impl pallet_liquidity::Config for Runtime {
   type Event = Event;
   type Currency = Balances;
@@ -1630,12 +1602,10 @@ construct_runtime!(
 		Bounties: pallet_bounties,
 		Tips: pallet_tips,
 		Assets: pallet_assets,
-		Mmr: pallet_mmr,
 		Did: pallet_did,
         Organization: pallet_organization,
 		Certificate: pallet_certificate,
         Liquidity: pallet_liquidity,
-		// Gilt: pallet_gilt,
 		Uniques: pallet_uniques,
 		TransactionStorage: pallet_transaction_storage,
 		BagsList: pallet_bags_list,
@@ -1692,15 +1662,15 @@ pub type Executive = frame_executive::Executive<
 	pallet_nomination_pools::migration::v2::MigrateToV2<Runtime>,
 >;
 
-/// MMR helper types.
-mod mmr {
-	use super::Runtime;
-	pub use pallet_mmr::primitives::*;
+// /// MMR helper types.
+// mod mmr {
+// 	use super::Runtime;
+// 	pub use pallet_mmr::primitives::*;
 
-	pub type Leaf = <<Runtime as pallet_mmr::Config>::LeafData as LeafDataProvider>::LeafData;
-	pub type Hash = <Runtime as pallet_mmr::Config>::Hash;
-	pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
-}
+// 	pub type Leaf = <<Runtime as pallet_mmr::Config>::LeafData as LeafDataProvider>::LeafData;
+// 	pub type Hash = <Runtime as pallet_mmr::Config>::Hash;
+// 	pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
+// }
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
@@ -1723,18 +1693,15 @@ mod benches {
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_elections_phragmen, Elections]
-		// [pallet_gilt, Gilt]
 		[pallet_grandpa, Grandpa]
 		[pallet_identity, Identity]
 		[pallet_im_online, ImOnline]
 		[pallet_indices, Indices]
-		// [pallet_lottery, Lottery]
 		[pallet_did, Did]
         [pallet_organization, Organization]
 		[pallet_certificate, Certificate]
 		[pallet_liquidity, Liquidity]
 		[pallet_membership, TechnicalMembership]
-		[pallet_mmr, Mmr]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]
@@ -1853,7 +1820,7 @@ impl_runtime_apis! {
 
 	impl pallet_nomination_pools_runtime_api::NominationPoolsApi<Block, AccountId, Balance> for Runtime {
 		fn pending_rewards(member_account: AccountId) -> Balance {
-			NominationPools::pending_rewards(member_account)
+			NominationPools::pending_rewards(member_account).unwrap_or_default()
 		}
 	}
 
@@ -1994,71 +1961,6 @@ impl_runtime_apis! {
 		}
 		fn query_call_fee_details(call: Call, len: u32) -> FeeDetails<Balance> {
 			TransactionPayment::query_call_fee_details(call, len)
-		}
-	}
-
-	impl pallet_mmr::primitives::MmrApi<
-		Block,
-		mmr::Hash,
-	> for Runtime {
-		fn generate_proof(leaf_index: pallet_mmr::primitives::LeafIndex)
-			-> Result<(mmr::EncodableOpaqueLeaf, mmr::Proof<mmr::Hash>), mmr::Error>
-		{
-			Mmr::generate_batch_proof(vec![leaf_index]).and_then(|(leaves, proof)|
-				Ok((
-					mmr::EncodableOpaqueLeaf::from_leaf(&leaves[0]),
-					mmr::BatchProof::into_single_leaf_proof(proof)?
-				))
-			)
-		}
-
-		fn verify_proof(leaf: mmr::EncodableOpaqueLeaf, proof: mmr::Proof<mmr::Hash>)
-			-> Result<(), mmr::Error>
-		{
-			let leaf: mmr::Leaf = leaf
-				.into_opaque_leaf()
-				.try_decode()
-				.ok_or(mmr::Error::Verify)?;
-			Mmr::verify_leaves(vec![leaf], mmr::Proof::into_batch_proof(proof))
-		}
-
-		fn verify_proof_stateless(
-			root: mmr::Hash,
-			leaf: mmr::EncodableOpaqueLeaf,
-			proof: mmr::Proof<mmr::Hash>
-		) -> Result<(), mmr::Error> {
-			let node = mmr::DataOrHash::Data(leaf.into_opaque_leaf());
-			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, vec![node], mmr::Proof::into_batch_proof(proof))
-		}
-
-		fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
-			Ok(Mmr::mmr_root())
-		}
-
-		fn generate_batch_proof(leaf_indices: Vec<pallet_mmr::primitives::LeafIndex>)
-			-> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::BatchProof<mmr::Hash>), mmr::Error>
-		{
-			Mmr::generate_batch_proof(leaf_indices)
-				.map(|(leaves, proof)| (leaves.into_iter().map(|leaf| mmr::EncodableOpaqueLeaf::from_leaf(&leaf)).collect(), proof))
-		}
-
-		fn verify_batch_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::BatchProof<mmr::Hash>)
-			-> Result<(), mmr::Error>
-		{
-			let leaves = leaves.into_iter().map(|leaf|
-				leaf.into_opaque_leaf()
-				.try_decode()
-				.ok_or(mmr::Error::Verify)).collect::<Result<Vec<mmr::Leaf>, mmr::Error>>()?;
-			Mmr::verify_leaves(leaves, proof)
-		}
-
-		fn verify_batch_proof_stateless(
-			root: mmr::Hash,
-			leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			proof: mmr::BatchProof<mmr::Hash>
-		) -> Result<(), mmr::Error> {
-			let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
-			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
 		}
 	}
 
