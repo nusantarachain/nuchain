@@ -24,8 +24,10 @@ frame-system = {version = "4.0.0-dev", default-features = false, path = "../syst
 pallet-timestamp = {version = "4.0.0-dev", default-features = false, path = "../../frame/timestamp"}
 scale-info = {version = "2.0.1", default-features = false, features = ["derive"]}
 sp-io = {version = "6.0.0", default-features = false, path = "../../primitives/io"}
+sp-core = {version = "6.0.0", default-features = false, path = "../../primitives/core"}
 sp-runtime = {version = "6.0.0", default-features = false, path = "../../primitives/runtime"}
 sp-std = {version = "4.0.0", default-features = false, path = "../../primitives/std"}
+serde = {version = "1.0.136", optional = true, features = ["derive"]}
 
 [dev-dependencies]
 pallet-balances = {version = "4.0.0-dev", default-features = false, path = "../balances"}
@@ -39,10 +41,11 @@ std = [
   "sp-std/std",
   "sp-io/std",
   "sp-runtime/std",
-#   "sp-core/std",
+  "sp-core/std",
   "frame-benchmarking/std",
   "frame-support/std",
   "frame-system/std",
   "pallet-timestamp/std",
+  "serde"
 ]
 try-runtime = ["frame-support/try-runtime"]

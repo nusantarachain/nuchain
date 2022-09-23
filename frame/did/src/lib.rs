@@ -27,12 +27,13 @@ use sp_std::prelude::*;
 mod benchmarking;
 
 // use crate::did::Did;
-use crate::types::{Attribute, AttributeTransaction, AttributedId};
+use crate::types::{Attribute, AttributeTransaction, AttributedId, DidVerifiableIdentifier};
 use codec::{Decode, Encode};
 pub use did::Did;
 pub use weights::WeightInfo;
 
 mod did;
+mod errors;
 mod types;
 pub mod weights;
 
@@ -58,14 +59,24 @@ pub mod pallet {
 	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+
+	/// Reference to a payload of data of variable size.
+	pub type Payload = [u8];
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+		/// Type for a DID subject identifier.
+		type DidIdentifier: Parameter + DidVerifiableIdentifier + MaxEncodedLen;
 
 		// /// The origin which may forcibly set or remove a name. Root can always do this.
 		// type ForceOrigin: EnsureOrigin<Self::Origin>;
@@ -80,7 +91,26 @@ pub mod pallet {
 		/// The maximum length a name may be.
 		#[pallet::constant]
 		type MaxLength: Get<u32>;
+
+        /// The maximum length of a service ID.
+        #[pallet::constant]
+        type MaxServiceIdLength: Get<u32>;
+
+        /// The maximum length of a service type.
+        #[pallet::constant]
+        type MaxServiceTypeLength: Get<u32>;
+
+        /// The maximum length of a service endpoint.
+        #[pallet::constant]
+        type MaxServiceEndpointLength: Get<u32>;
+
+        /// The maximum services per DID.
+        #[pallet::constant]
+        type MaxServicePerDid: Get<u32>;
 	}
+
+    /// Type for a DID subject identifier.
+	pub type DidIdentifierOf<T> = <T as Config>::DidIdentifier;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -248,7 +278,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(name.len() <= 64, Error::<T>::AttributeRemovalFailed);
 
-            to_bounded!(name, Error::<T>::AttributeNameTooLong);
+			to_bounded!(name, Error::<T>::AttributeNameTooLong);
 
 			Self::reset_attribute(who, &identity, &name)?;
 			Self::deposit_event(Event::AttributeRevoked(
@@ -270,7 +300,7 @@ pub mod pallet {
 			Self::is_owner(&identity, &who)?;
 			ensure!(name.len() <= 64, Error::<T>::AttributeRemovalFailed);
 
-            to_bounded!(name, Error::<T>::AttributeNameTooLong);
+			to_bounded!(name, Error::<T>::AttributeNameTooLong);
 
 			let now_block_number = <frame_system::Pallet<T>>::block_number();
 			let result = Self::attribute_and_id(&identity, &name);
@@ -529,7 +559,6 @@ impl<T: Config>
 		Ok(())
 	}
 
-
 	/// Checks if a signature is valid. Used to validate off-chain transactions.
 	fn check_signature(
 		signature: &T::Signature,
@@ -607,7 +636,7 @@ impl<T: Config>
 	fn reset_attribute(
 		who: T::AccountId,
 		identity: &T::AccountId,
-		name: &BoundedVec<u8, T::MaxLength>
+		name: &BoundedVec<u8, T::MaxLength>,
 	) -> DispatchResult {
 		Self::is_owner(&identity, &who)?;
 		// If the attribute contains_key, the latest valid block is set to the current block.
@@ -634,7 +663,11 @@ impl<T: Config>
 	}
 
 	/// Validates if an attribute belongs to an identity and it has not expired.
-	fn valid_attribute(identity: &T::AccountId, name: &BoundedVec<u8, T::MaxLength>, value: &BoundedVec<u8, T::MaxLength>) -> DispatchResult {
+	fn valid_attribute(
+		identity: &T::AccountId,
+		name: &BoundedVec<u8, T::MaxLength>,
+		value: &BoundedVec<u8, T::MaxLength>,
+	) -> DispatchResult {
 		ensure!(name.len() <= 64, Error::<T>::InvalidAttribute);
 		let result = Self::attribute_and_id(identity, name);
 
