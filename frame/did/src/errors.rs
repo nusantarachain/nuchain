@@ -1,6 +1,4 @@
-
 pub use scale_info::TypeInfo;
-
 
 /// Error generated when validating a DID operation.
 #[derive(Debug, Eq, PartialEq, TypeInfo)]
@@ -15,5 +13,3 @@ pub enum SignatureError {
 	/// The provided operation block number is not valid.
 	TransactionExpired,
 }
-
-

@@ -4,50 +4,58 @@ use frame_support::dispatch::DispatchResult;
 use scale_info::prelude::vec::Vec;
 
 pub trait Did<AccountId, BlockNumber, Moment, Signature, BoundedString> {
-    fn is_owner(identity: &AccountId, actual_owner: &AccountId) -> DispatchResult;
-    fn set_owner(who: &AccountId, identity: &AccountId, new_owner: &AccountId);
-    fn identity_owner(identity: &AccountId) -> AccountId;
-    fn valid_delegate(
-        identity: &AccountId,
-        delegate_type: &Vec<u8>,
-        delegate: &AccountId,
-    ) -> DispatchResult;
-    fn valid_listed_delegate(
-        identity: &AccountId,
-        delegate_type: &Vec<u8>,
-        delegate: &AccountId,
-    ) -> DispatchResult;
-    fn create_delegate(
-        who: &AccountId,
-        identity: &AccountId,
-        delegate: &AccountId,
-        delegate_type: &Vec<u8>,
-        valid_for: Option<BlockNumber>,
-    ) -> DispatchResult;
-    fn revoke_delegate_nocheck(
+	fn is_owner(identity: &AccountId, actual_owner: &AccountId) -> DispatchResult;
+	fn set_owner(who: &AccountId, identity: &AccountId, new_owner: &AccountId);
+	fn identity_owner(identity: &AccountId) -> AccountId;
+	fn valid_delegate(
+		identity: &AccountId,
+		delegate_type: &Vec<u8>,
+		delegate: &AccountId,
+	) -> DispatchResult;
+	fn valid_listed_delegate(
+		identity: &AccountId,
+		delegate_type: &Vec<u8>,
+		delegate: &AccountId,
+	) -> DispatchResult;
+	fn create_delegate(
+		who: &AccountId,
+		identity: &AccountId,
+		delegate: &AccountId,
+		delegate_type: &Vec<u8>,
+		valid_for: Option<BlockNumber>,
+	) -> DispatchResult;
+	fn revoke_delegate_nocheck(
 		who: &AccountId,
 		identity: &AccountId,
 		delegate_type: &Vec<u8>,
 		delegate: &AccountId,
 	) -> DispatchResult;
-    fn check_signature(signature: &Signature, msg: &Vec<u8>, signer: &AccountId) -> DispatchResult;
-    fn valid_signer(
-        identity: &AccountId,
-        signature: &Signature,
-        msg: &Vec<u8>,
-        signer: &AccountId,
-    ) -> DispatchResult;
-    fn create_attribute(
-        who: &AccountId,
-        identity: &AccountId,
-        name: &Vec<u8>,
-        value: &Vec<u8>,
-        valid_for: Option<BlockNumber>,
-    ) -> DispatchResult;
-    fn reset_attribute(who: AccountId, identity: &AccountId, name: &BoundedString) -> DispatchResult;
-    fn valid_attribute(identity: &AccountId, name: &BoundedString, value: &BoundedString) -> DispatchResult;
-    fn attribute_and_id(
-        identity: &AccountId,
-        name: &BoundedString,
-    ) -> Option<AttributedId<BlockNumber, BoundedString>>;
+	fn check_signature(signature: &Signature, msg: &Vec<u8>, signer: &AccountId) -> DispatchResult;
+	fn valid_signer(
+		identity: &AccountId,
+		signature: &Signature,
+		msg: &Vec<u8>,
+		signer: &AccountId,
+	) -> DispatchResult;
+	fn create_attribute(
+		who: &AccountId,
+		identity: &AccountId,
+		name: &Vec<u8>,
+		value: &Vec<u8>,
+		valid_for: Option<BlockNumber>,
+	) -> DispatchResult;
+	fn reset_attribute(
+		who: AccountId,
+		identity: &AccountId,
+		name: &BoundedString,
+	) -> DispatchResult;
+	fn valid_attribute(
+		identity: &AccountId,
+		name: &BoundedString,
+		value: &BoundedString,
+	) -> DispatchResult;
+	fn attribute_and_id(
+		identity: &AccountId,
+		name: &BoundedString,
+	) -> Option<AttributedId<BlockNumber, BoundedString>>;
 }

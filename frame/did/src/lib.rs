@@ -92,24 +92,24 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxLength: Get<u32>;
 
-        /// The maximum length of a service ID.
-        #[pallet::constant]
-        type MaxServiceIdLength: Get<u32>;
+		/// The maximum length of a service ID.
+		#[pallet::constant]
+		type MaxServiceIdLength: Get<u32>;
 
-        /// The maximum length of a service type.
-        #[pallet::constant]
-        type MaxServiceTypeLength: Get<u32>;
+		/// The maximum length of a service type.
+		#[pallet::constant]
+		type MaxServiceTypeLength: Get<u32>;
 
-        /// The maximum length of a service endpoint.
-        #[pallet::constant]
-        type MaxServiceEndpointLength: Get<u32>;
+		/// The maximum length of a service endpoint.
+		#[pallet::constant]
+		type MaxServiceEndpointLength: Get<u32>;
 
-        /// The maximum services per DID.
-        #[pallet::constant]
-        type MaxServicePerDid: Get<u32>;
+		/// The maximum services per DID.
+		#[pallet::constant]
+		type MaxServicePerDid: Get<u32>;
 	}
 
-    /// Type for a DID subject identifier.
+	/// Type for a DID subject identifier.
 	pub type DidIdentifierOf<T> = <T as Config>::DidIdentifier;
 
 	#[pallet::error]

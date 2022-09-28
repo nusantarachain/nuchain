@@ -3,7 +3,7 @@ use frame_support::{ensure, pallet_prelude::*};
 use sp_core::{ecdsa, ed25519, sr25519};
 use sp_runtime::{traits::Verify, MultiSignature, RuntimeDebug};
 
-use crate::{errors::SignatureError, Payload, Config, DidIdentifierOf};
+use crate::{errors::SignatureError, Config, DidIdentifierOf, Payload};
 
 /// Attributes or properties that make an identity.
 #[derive(
@@ -274,9 +274,9 @@ type ServiceEndpoint<T> = BoundedVec<u8, <T as Config>::MaxServiceEndpointLength
 #[scale_info(skip_type_params(T))]
 #[codec(mel_bound())]
 pub struct DidService<T: Config> {
-    id: ServiceId<T>,
-    service_type: ServiceType<T>,
-    service_endpoint: ServiceEndpoint<T>,
+	id: ServiceId<T>,
+	service_type: ServiceType<T>,
+	service_endpoint: ServiceEndpoint<T>,
 }
 
 type DidServices<T> = BoundedVec<DidService<T>, <T as Config>::MaxServicePerDid>;
@@ -285,7 +285,7 @@ type DidServices<T> = BoundedVec<DidService<T>, <T as Config>::MaxServicePerDid>
 #[scale_info(skip_type_params(T))]
 #[codec(mel_bound())]
 pub struct DidDocument<T: Config> {
-    pub id: DidIdentifierOf<T>,
-    pub authentication: DidVerificationKey,
-    pub service: DidServices<T>,
+	pub id: DidIdentifierOf<T>,
+	pub authentication: DidVerificationKey,
+	pub service: DidServices<T>,
 }

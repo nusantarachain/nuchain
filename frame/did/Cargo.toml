@@ -46,6 +46,7 @@ std = [
   "frame-support/std",
   "frame-system/std",
   "pallet-timestamp/std",
+  "pallet-balances/std",
   "serde"
 ]
 try-runtime = ["frame-support/try-runtime"]

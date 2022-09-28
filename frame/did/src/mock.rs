@@ -1,7 +1,7 @@
 use crate::{self as pallet_did, Config, Module};
 use frame_support::{
 	parameter_types,
-	traits::{ConstU64, ConstU32, Everything},
+	traits::{ConstU32, ConstU64, Everything},
 	weights::Weight,
 };
 use frame_system as system;
@@ -9,12 +9,16 @@ use pallet_timestamp as timestamp;
 use sp_core::{sr25519, Pair, H256};
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	Perbill,
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	MultiSignature, Perbill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+
+pub(crate) type Signature = MultiSignature;
+pub(crate) type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+pub(crate) type DidIdentifier = AccountId;
 
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -62,8 +66,8 @@ impl frame_system::Config for Test {
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = ConstU32<16>;
+	type OnSetCode = ();
+	type MaxConsumers = ConstU32<16>;
 }
 
 impl timestamp::Config for Test {
@@ -85,13 +89,25 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const MaxServiceIdLength: u32 = 64;
+	pub const MaxServiceTypeLength: u32 = 50;
+	pub const MaxServiceEndpointLength: u32 = 256;
+	pub const MaxServicePerDid: u32 = 5;
+}
+
 impl Config for Test {
 	type Event = Event;
 	type Public = sr25519::Public;
 	type Signature = sr25519::Signature;
 	type Time = Timestamp;
 	type WeightInfo = pallet_did::weights::SubstrateWeight<Self>;
-    type MaxLength = ConstU32<64>;
+	type MaxLength = ConstU32<64>;
+	type DidIdentifier = DidIdentifier;
+	type MaxServiceIdLength = MaxServiceIdLength;
+	type MaxServiceTypeLength = MaxServiceTypeLength;
+	type MaxServiceEndpointLength = MaxServiceEndpointLength;
+	type MaxServicePerDid = MaxServicePerDid;
 }
 
 pub type DID = Module<Test>;
